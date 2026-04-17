@@ -1,0 +1,24 @@
+services:
+  db:
+    image: mysql:8.0
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    restart: always
+    environment:
+      MYSQL_DATABASE: 'product_db'
+      MYSQL_ROOT_PASSWORD: 'password'
+    ports:
+      - '3306:3306'
+    volumes:
+      - ./Cloud_Server/database/mysql_data:/var/lib/mysql
+
+  cloud-server:
+    build:
+      context: ./Cloud_Server/cloud
+    env_file:
+      - ./Cloud_Server/cloud/.env
+    ports:
+      - '8000:8000'
+    environment:
+      - DATABASE_URL=mysql+pymysql://root:password@db:3306/product_db?charset=utf8mb4
+    depends_on:
+      - db

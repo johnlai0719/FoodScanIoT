@@ -1,0 +1,5 @@
+{
+  "native": true,
+  "expandProps": "end",
+  "svgo": true
+}

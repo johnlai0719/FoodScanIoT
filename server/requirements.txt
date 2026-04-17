@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+mysql-connector-python
+requests
+google-generativeai
+sqlalchemy
+pymysql
+Pillow
+python-dotenv

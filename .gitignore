@@ -1,0 +1,74 @@
+# 敏感資訊與環境變數
+.env
+*/.env
+*.pem
+*.key
+secrets.json
+
+# 資料庫實體檔案與大型備份
+Cloud_Server/database/mysql_data/
+mysql_data/
+mysql_data_old/
+*.tar.gz
+*.zip
+*.7z
+*.db
+*.sqlite
+*.ibd
+*.dblwr
+binlog.*
+
+# 資料與 CSV (通常太大且不適合進 Git)
+mysql_csv/
+*.csv
+*.json
+!package.json
+!app.json
+!tsconfig.json
+!metadata.json
+!additives_manifest.json
+!additives_manifest_pretty.json
+!new_risks_data.json
+
+# 程式依賴套件
+node_modules/
+__pycache__/
+.expo/
+dist/
+build/
+.next/
+.venv/
+env/
+venv/
+
+# 專案文件、日誌與個人檔案 (不推送到 GitHub)
+*.log
+*.pdf
+*.jpg
+*.png
+*.jpeg
+*.Identifier
+docs/
+.gemini/
+.learnings/
+RoadMap/
+*.docx
+*.html
+*.md
+!README.md
+!cloud/requirements.txt
+!fog/requirements.txt
+tests/
+test_img
+*.bak
+convert_to_pdf.py
+update_main.py
+
+# 系統檔案
+.DS_Store
+Thumbs.db
+fog_cache.db
+quarto-*.deb
+start_app_only.sh
+start_backend.sh
+資料抓取/

@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "FoodAware-Pro-Mobile",
+    "slug": "foodaware-pro-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.foodaware.pro.mobile"
+    },
+    "android": {
+      "package": "com.foodaware.pro.mobile"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "允許 FoodAware 使用相機來掃描食品條碼。",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      "expo-secure-store",
+      "expo-sqlite"
+    ],
+    "experiments": {
+      "reactCompiler": true
+    }
+  }
+}
