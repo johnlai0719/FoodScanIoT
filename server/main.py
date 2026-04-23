@@ -1,7 +1,10 @@
 from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 import os
-import json
+from dotenv import load_dotenv
+load_dotenv() # 加載 .env 環境變數
+
+import json as _json
 import mysql.connector
 from datetime import datetime, timedelta
 import re
@@ -14,25 +17,38 @@ from PIL import Image
 
 # 匯入食安監控模組
 from safety_monitor import update_producer_safety_events
+from admin_api import router as admin_router
 
 # 配置 AI
 API_KEY = os.getenv("GEMINI_API_KEY")
 if API_KEY:
-    genai.configure(api_key=API_KEY)
-else:
-    print("⚠️ 警告: 未偵測到 GEMINI_API_KEY 環境變數")
-model = genai.GenerativeModel('gemini-3-flash-preview')
+    if API_KEY:
+        genai.configure(api_key=API_KEY)
+    else:
+        print("[WARNING] GEMINI_API_KEY environment variable not detected")
+    model = genai.GenerativeModel('gemini-3-flash-preview')
 
-from fastapi.staticfiles import StaticFiles
-import os
+    from fastapi.staticfiles import StaticFiles
+    import os
 
-app = FastAPI(title="FoodAware Cloud Core - Smart Guide Mode")
+    app = FastAPI(title="FoodAware Cloud Core - Smart Guide Mode")
 
-# 🛠️ 新增：掛載靜態資源目錄 (指向標章圖片)
-# 建立路徑對應
-MARKS_DIR = "/home/johnlai/projects/FoodScanIoT/Reference/app/Resource/食品標章"
-if os.path.exists(MARKS_DIR):
-    app.mount("/marks", StaticFiles(directory=MARKS_DIR), name="marks")
+    # [MOUNT] Static resource directories for product marks and temporary uploads
+    # Establish path mappings
+    MARKS_DIR = "/home/johnlai/projects/FoodScanIoT/Clients/Mobile_App/Resource/食品標章"
+    if os.path.exists(MARKS_DIR):
+        app.mount("/marks", StaticFiles(directory=MARKS_DIR), name="marks")
+
+    UPLOADS_DIR = "/home/johnlai/projects/FoodScanIoT/Servers/Cloud/uploads"
+    if not os.path.exists(UPLOADS_DIR):
+        os.makedirs(UPLOADS_DIR)
+    app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
+
+# 掛載管理介面靜態路徑
+ADMIN_UI_DIR = os.path.join(os.path.dirname(__file__), "admin_ui")
+if not os.path.exists(ADMIN_UI_DIR):
+    os.makedirs(ADMIN_UI_DIR)
+app.mount("/admin", StaticFiles(directory=ADMIN_UI_DIR), name="admin")
 
 app.add_middleware(
     CORSMiddleware,
@@ -56,10 +72,12 @@ async def root():
     }
 
 DB_CONFIG = {
-    "host": os.getenv("DB_HOST", "db"),
+    "host": os.getenv("DB_HOST", "localhost"),
     "user": os.getenv("DB_USER", "root"),
     "password": os.getenv("DB_PASSWORD", "password"),
-    "database": os.getenv("DB_NAME", "product_db")
+    "database": os.getenv("DB_NAME", "product_db"),
+    "charset": "utf8mb4",
+    "use_unicode": True
 }
 
 def get_db_conn():
@@ -81,13 +99,21 @@ def normalize_manufacturer_name(name: str) -> str:
     name = re.sub(r'\s+', '', name) # 移除多餘空格
     return name
 
-async def analyze_image_with_gemini(base64_images: list):
+async def analyze_image_with_gemini(base64_images: list, barcode: str = "Unknown"):
     try:
         images_to_process = []
-        for b64 in base64_images:
+        for i, b64 in enumerate(base64_images):
             if "base64," in b64:
                 b64 = b64.split("base64,")[1]
             img_data = base64.b64decode(b64)
+            
+            # --- 🛠️ 儲存圖片至實體路徑 ---
+            img_filename = f"scan_{int(time.time())}_{barcode}_{i}.jpg"
+            img_path = os.path.join(UPLOADS_DIR, img_filename)
+            with open(img_path, "wb") as f:
+                f.write(img_data)
+            print(f"[INFO] [Storage] Image saved to: /uploads/{img_filename}")
+            
             img = Image.open(io.BytesIO(img_data))
             images_to_process.append(img)
             
@@ -119,7 +145,7 @@ async def analyze_image_with_gemini(base64_images: list):
 
         match = re.search(r'(\{.*\})', response.text, re.DOTALL)
         if match:
-            return json.loads(match.group(1))
+            return _json.loads(match.group(1))
         return None
     except Exception as e: 
         print(f"[ERROR] Gemini Vision Error: {e}")
@@ -129,66 +155,88 @@ async def analyze_image_with_gemini(base64_images: list):
 async def analyze(request: Request, background_tasks: BackgroundTasks):
     try:
         data = await request.json()
+        print(f"[DEBUG] [Request] Keys: {list(data.keys())}, Has Images: {bool(data.get('label_images'))}")
         barcode = data.get("barcode")
         label_images = data.get("label_images")
         user_conditions = data.get("user_conditions", {"group": "adult", "allergens": []})
-        
-        db = get_db_conn()
-        cursor = db.cursor(dictionary=True)
         
         product = None
         # 1. 如果有圖片，不論是否有條碼，直接啟動視覺同步
         if label_images and len(label_images) > 0:
             print(f"[INFO] [Analyze] Starting AI vision analysis for barcode: {barcode or 'NEW'}...")
-            vision_data = await analyze_image_with_gemini(label_images)
+            vision_data = await analyze_image_with_gemini(label_images, barcode or "NEW")
+            
+            # --- 核心連線邏輯：在分析完畢後才建立連線，防止超時 ---
+            db = get_db_conn()
+            cursor = db.cursor(dictionary=True)
+            
             if vision_data is not None:
-                # 即使 vision_data 是空字典 {}，也要繼續處理
-                target_barcode = barcode or f"IMG_{int(time.time())}"
-                
-                # 智能名稱處理：若 AI 沒給名字，試著從品牌或預設值補完
-                v_name = vision_data.get('name') or vision_data.get('brand') or '待確認產品'
-                v_brand = vision_data.get('brand') or '未知品牌'
-                
-                raw_mfg_name = vision_data.get('manufacturer', '未知製造商')
-                mfg_name = normalize_manufacturer_name(raw_mfg_name)
-                
-                # --- 核心邏輯：廠商匹配與關聯 ---
-                cursor.execute("SELECT id FROM producers WHERE name = %s", (mfg_name,))
-                prod_row = cursor.fetchone()
-                if not prod_row:
-                    cursor.execute("INSERT INTO producers (name, risk_level) VALUES (%s, %s)", (mfg_name, "Low"))
-                    db.commit()
-                    prod_id = cursor.lastrowid
+                try:
+                    # 即使 vision_data 是空字典 {}，也要繼續處理
+                    target_barcode = barcode or f"IMG_{int(time.time())}"
                     
-                    # [TASK] 觸發背景非同步食安紀錄抓取 (新廠商)
-                    background_tasks.add_task(update_producer_safety_events, prod_id, mfg_name)
-                else:
-                    prod_id = prod_row['id']
+                    # 偵錯：印出 AI 回傳的欄位
+                    print(f"[DEBUG] [Vision] Fields received: {list(vision_data.keys())}")
+                    
+                    # 智能名稱處理：若 AI 沒給名字，試著從品牌或預設值補完
+                    v_name = vision_data.get('name') or vision_data.get('brand') or '待確認產品'
+                    v_brand = vision_data.get('brand') or '未知品牌'
+                    
+                    raw_mfg_name = vision_data.get('manufacturer', '未知製造商') or '未知製造商'
+                    mfg_name = normalize_manufacturer_name(raw_mfg_name)
+                    
+                    # --- 核心邏輯：廠商匹配與關聯 (加入防呆) ---
+                    try:
+                        cursor.execute("SELECT id FROM producers WHERE name = %s", (mfg_name,))
+                        prod_row = cursor.fetchone()
+                        if not prod_row:
+                            cursor.execute("INSERT INTO producers (name, risk_level) VALUES (%s, %s)", (mfg_name, "Low"))
+                            db.commit()
+                            prod_id = cursor.lastrowid
+                        else:
+                            prod_id = prod_row['id']
+                    except Exception as mfg_e:
+                        print(f"[WARN] [DB] Producer lookup failed: {mfg_e}. Using default ID 1.")
+                        prod_id = 1 # 降級使用手動建立的備胎廠商
 
-                ing_json = json.dumps(vision_data.get('ingredients_list', []), ensure_ascii=False)
-                cert_json = json.dumps(vision_data.get('certification_marks', []), ensure_ascii=False)
-                n = vision_data.get('nutrition', {})
-                # 🛠️ 關鍵修復：確保 allergens 也是標準 JSON 字串 (MySQL JSON 欄位必須)
-                allergy_text = json.dumps(vision_data.get('allergy_warning', ''), ensure_ascii=False)
-                
-                # 執行持久化儲存
-                cursor.execute("""
-                    INSERT INTO products (
-                        barcode, name, brand, producer_id, manufacturer, 
-                        ingredients_list, certifications, calories, protein, fat, sugar, sodium, allergens
-                    )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    ON DUPLICATE KEY UPDATE 
-                    name=VALUES(name), brand=VALUES(brand), producer_id=VALUES(producer_id),
-                    manufacturer=VALUES(manufacturer), ingredients_list=VALUES(ingredients_list), 
-                    certifications=VALUES(certifications),
-                    calories=VALUES(calories), protein=VALUES(protein), fat=VALUES(fat), 
-                    sugar=VALUES(sugar), sodium=VALUES(sodium), allergens=VALUES(allergens)
-                """, (target_barcode, v_name, v_brand, 
-                      prod_id, mfg_name, ing_json, cert_json,
-                      n.get('calories', 0), n.get('protein', 0), n.get('fat', 0), 
-                      n.get('sugar', 0), n.get('sodium', 0), allergy_text))
-                db.commit()
+                    ing_json = _json.dumps(vision_data.get('ingredients_list', []), ensure_ascii=False)
+                    cert_json = _json.dumps(vision_data.get('certification_marks', []), ensure_ascii=False)
+                    n = vision_data.get('nutrition', {})
+                    # 🛠️ 關鍵修復：確保 allergens 也是標準 JSON 字串 (MySQL JSON 欄位必須)
+                    allergy_text = _json.dumps(vision_data.get('allergy_warning', ''), ensure_ascii=False)
+                    
+                    # 執行持久化儲存
+                    try:
+                        sql = """
+                            INSERT INTO products (
+                                barcode, name, brand, producer_id, manufacturer, 
+                                ingredients_list, certifications, calories, protein, fat, sugar, sodium, allergens
+                            )
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            ON DUPLICATE KEY UPDATE 
+                            name=VALUES(name), brand=VALUES(brand), producer_id=VALUES(producer_id),
+                            manufacturer=VALUES(manufacturer), ingredients_list=VALUES(ingredients_list), 
+                            certifications=VALUES(certifications),
+                            calories=VALUES(calories), protein=VALUES(protein), fat=VALUES(fat), 
+                            sugar=VALUES(sugar), sodium=VALUES(sodium), allergens=VALUES(allergens)
+                        """
+                        params = (target_barcode, v_name, v_brand, 
+                              prod_id, mfg_name, ing_json, cert_json,
+                              n.get('calories', 0), n.get('protein', 0), n.get('fat', 0), 
+                              n.get('sugar', 0), n.get('sodium', 0), allergy_text)
+                        
+                        cursor.execute(sql, params)
+                        db.commit()
+                        print(f"✅ [SUCCESS] [DB] Saved to MySQL: {v_name} ({target_barcode})")
+                    except Exception as db_e:
+                        import traceback
+                        error_msg = traceback.format_exc()
+                        print(f"❌ [CRITICAL ERROR] [DB] FAILED TO SAVE PRODUCT: {db_e}\n{error_msg}")
+                        db.rollback()
+                except Exception as logic_e:
+                    import traceback
+                    print(f"[CRITICAL ERROR] [Logic] Processing failed: {logic_e}")
+                    traceback.print_exc()
                 
                 # 重新抓取完整資料
                 cursor.execute("SELECT * FROM products WHERE barcode = %s", (target_barcode,))
@@ -223,6 +271,10 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
             if barcode == "TEST":
                  return {"status": "error", "message": "測試模式分析失敗：AI 視覺辨識無回傳結果。請確保拍攝清晰且包含產品名稱、成分與營養標示。"}
             
+            # --- 🛠️ 重要修復：確保在純條碼查詢模式下也能建立資料庫連線 ---
+            db = get_db_conn()
+            cursor = db.cursor(dictionary=True)
+            
             cursor.execute("SELECT * FROM products WHERE barcode = %s", (barcode,))
             product = cursor.fetchone()
 
@@ -242,7 +294,7 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
 
         # --- 5. 正常分析流程 (添加物比對) ---
         ing_list = product.get('ingredients_list', '[]')
-        if isinstance(ing_list, str): ing_list = json.loads(ing_list)
+        if isinstance(ing_list, str): ing_list = _json.loads(ing_list)
         
         # 獲取 AI 產出的臨時描述 (用於資料庫缺失時)
         ai_ing_descs = vision_data.get('ingredient_descriptions', {}) if 'vision_data' in locals() else {}
@@ -301,8 +353,7 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
                 display_name = ing
                 if match and match.get('aliases'):
                     try:
-                        import json, re
-                        aliases_list = json.loads(match['aliases'])
+                        aliases_list = _json.loads(match['aliases'])
                         en_name = next((a for a in aliases_list if re.match(r'^[A-Za-z0-9\s\-\(\)\.\,\']+$', a)), None)
                         if en_name:
                             display_name = f"{en_name.strip()} ({ing})"
@@ -366,16 +417,16 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
         
         【產品資訊】
         產品: {product['name']} | 品牌: {product['brand']} | 廠商: {product['manufacturer']}
-        營養成分: {json.dumps(nutrition, ensure_ascii=False)}
+        營養成分: {_json.dumps(nutrition, ensure_ascii=False)}
         
         【廠商食安歷史 (Module C)】
-        {json.dumps(safety_alerts, ensure_ascii=False)}
+        {_json.dumps(safety_alerts, ensure_ascii=False)}
         
         【權威資料庫已提供資訊 (Module B)】
-        {json.dumps(chemical, ensure_ascii=False)}
+        {_json.dumps(chemical, ensure_ascii=False)}
         
         【使用者健康背景】
-        {json.dumps(user_conditions, ensure_ascii=False)}
+        {_json.dumps(user_conditions, ensure_ascii=False)}
         
         【任務】
         1. 評定總分 (0-100) 與 等級 (A-E)。
@@ -388,7 +439,7 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
         
         try:
             ai_resp = model.generate_content(composite_prompt)
-            ai_data = json.loads(re.search(r'(\{.*\})', ai_resp.text, re.DOTALL).group(1))
+            ai_data = _json.loads(re.search(r'(\{.*\})', ai_resp.text, re.DOTALL).group(1))
             
             # --- 6. 套用增強型外文翻譯 ---
             translations = ai_data.get("translated_chemicals", {})
@@ -407,28 +458,46 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
         # 獲取標章資訊 (從資料庫)
         raw_certs = product.get('certifications', '[]')
         if not raw_certs: raw_certs = '[]'
-        if isinstance(raw_certs, str): cert_marks = json.loads(raw_certs)
+        if isinstance(raw_certs, str): cert_marks = _json.loads(raw_certs)
         else: cert_marks = raw_certs
+
+        # --- 6. 依照 Fog 端標準化格式建構回傳 ---
+        # 處理原始成分字串 (用於 Fog 端檢索)
+        raw_ingredients = ", ".join(ing_list) if isinstance(ing_list, list) else str(ing_list)
+        
+        # 處理過敏原文字 (從 JSON 轉回純文字)
+        raw_allergens = product.get('allergens', "")
+        try:
+            parsed_allergens = _json.loads(raw_allergens)
+            if isinstance(parsed_allergens, list):
+                raw_allergens = ", ".join(parsed_allergens)
+            else:
+                raw_allergens = str(parsed_allergens)
+        except:
+            pass
 
         return {
             "status": "success",
-            "product_info": {
-                "barcode": product['barcode'],
-                "name": f"[CLOUD-SYNC] {product['name']}" if product['name'] else "AI 解析產品", 
-                "brand": product['brand'] or "AI 解析品牌", 
-                "manufacturer": product['manufacturer'],
-                "processingLevel": "Ultra-Processed" if chemical else "Processed"
-            },
-            "ingredients_detail": chemical,
-            "nutrition_facts": nutrition,
-            "manufacturer_alerts": safety_alerts,
-            "certification_marks": cert_marks,
-            "final_health_diagnosis": {
-                "grade": ai_data.get("grade", "C"),
-                "score": ai_data.get("score", 60),
-                "summary": ai_data.get("summary", ""),
-                "warnings": ai_data.get("warnings", []),
-                "transparencyScore": 85 if safety_alerts else 70
+            "barcode": product['barcode'],
+            "data": {
+                "product_info": {
+                    "name": product['name'] or "AI 解析產品", 
+                    "brand": product['brand'] or "AI 解析品牌", 
+                    "ingredients": raw_ingredients,
+                    "allergens": raw_allergens or "無特定紀錄",
+                    "ai_summary": product.get('ai_summary', "無特定產品解說。")
+                },
+                "ingredients_detail": chemical, # 已包含 name, groupRisks, caution
+                "nutrition_facts": nutrition,   # 已包含純數字之 calories, sugar, sodium, protein, fat
+                "certification_marks": cert_marks,
+                "manufacturer_alerts": safety_alerts,
+                "final_health_diagnosis": {
+                    "grade": ai_data.get("grade", "C"),
+                    "score": ai_data.get("score", 60),
+                    "summary": ai_data.get("summary", ""),
+                    "warnings": ai_data.get("warnings", []),
+                    "transparencyScore": 85 if safety_alerts else 70
+                }
             }
         }
     except Exception as e:

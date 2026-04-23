@@ -5,7 +5,7 @@ import numpy as np
 
 def run_import():
     db_config = {"host": "localhost", "user": "root", "password": "password", "database": "product_db", "port": 3306}
-    df = pd.read_csv("/home/johnlai/projects/FoodScanIoT/Cloud_Server/database/MySQL_data/additives.csv")
+    df = pd.read_csv("/home/johnlai/projects/FoodScanIoT/Database/MySQL_data/additives.csv")
     df = df.replace({np.nan: None})
     
     conn = mysql.connector.connect(**db_config)

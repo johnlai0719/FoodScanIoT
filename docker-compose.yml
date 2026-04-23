@@ -9,13 +9,13 @@ services:
     ports:
       - '3306:3306'
     volumes:
-      - ./Cloud_Server/database/mysql_data:/var/lib/mysql
+      - ./server/mysql_data:/var/lib/mysql
 
   cloud-server:
     build:
-      context: ./Cloud_Server/cloud
+      context: ./server
     env_file:
-      - ./Cloud_Server/cloud/.env
+      - ./server/.env
     ports:
       - '8000:8000'
     environment:
