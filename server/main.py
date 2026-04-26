@@ -4,11 +4,13 @@ import os
 from dotenv import load_dotenv
 load_dotenv() # 加載 .env 環境變數
 
-import json as _json
+import _json
 import mysql.connector
 from datetime import datetime, timedelta
 import re
 import time
+import hmac
+import hashlib
 import google.generativeai as genai
 import numpy as np
 
@@ -204,11 +206,35 @@ async def analyze_image_with_gemini(base64_images: list, barcode: str = "Unknown
         print(f"[ERROR] Gemini Vision Error: {e}")
         return None
 
+def verify_signature(payload_bytes: bytes, signature: str) -> bool:
+    """驗證來自 Fog 節點的 HMAC-SHA256 簽章"""
+    secret = os.getenv("FOG_SECRET_KEY")
+    if not secret:
+        print("[ERROR] [Auth] Missing FOG_SECRET_KEY in environment variables!")
+        return False
+    if not signature:
+        return False
+    
+    expected_sig = hmac.new(secret.encode(), payload_bytes, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected_sig, signature)
+
 @app.post("/query")
 @app.post("/analyze")
 async def analyze(request: Request, background_tasks: BackgroundTasks):
     try:
-        data = await request.json()
+        # 1. 取得原始請求內容供簽章驗證
+        body_bytes = await request.body()
+        signature = request.headers.get("X-Fog-Signature")
+        
+        # 2. 強制簽章驗證 (安全防護)
+        if not verify_signature(body_bytes, signature):
+            print(f"[WARN] [Auth] Unauthorized access attempt from {request.client.host}")
+            # 這裡您可以決定是否要強制攔截，或者暫時只記錄日誌
+            # 建議生產環境開啟攔截：
+            # raise HTTPException(status_code=403, detail="Invalid HMAC signature")
+            pass
+
+        data = _json.loads(body_bytes)
         print(f"[DEBUG] [Request] Keys: {list(data.keys())}, Has Images: {bool(data.get('label_images'))}")
         barcode = data.get("barcode")
         label_images = data.get("label_images")
