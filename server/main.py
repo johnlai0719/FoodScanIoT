@@ -204,6 +204,7 @@ async def analyze_image_with_gemini(base64_images: list, barcode: str = "Unknown
         print(f"[ERROR] Gemini Vision Error: {e}")
         return None
 
+@app.post("/query")
 @app.post("/analyze")
 async def analyze(request: Request, background_tasks: BackgroundTasks):
     try:
@@ -212,6 +213,13 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
         barcode = data.get("barcode")
         label_images = data.get("label_images")
         user_conditions = data.get("user_conditions", {"group": "adult", "allergens": []})
+        
+        # --- 🚀 支持 Fog Node 快取重算邏輯 ---
+        cached_result = data.get("cached_result")
+        if cached_result and not label_images:
+            print(f"[INFO] [Query] Re-calculating personalization for cached barcode: {barcode}")
+            # 如果有快取且無圖片，我們可以直接從快取中提取基礎資料，進行個人化診斷
+            # 這裡暫時維持原流程以確保資料一致性
         
         product = None
         # 1. 如果有圖片，不論是否有條碼，直接啟動視覺同步
@@ -529,46 +537,55 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
         if isinstance(raw_certs, str): cert_marks = _json.loads(raw_certs)
         else: cert_marks = raw_certs
 
-        # --- 6. 依照 Fog 端標準化格式建構回傳 ---
-        # 處理原始成分字串 (用於 Fog 端檢索)
-        raw_ingredients = ", ".join(ing_list) if isinstance(ing_list, list) else str(ing_list)
-        
-        # 處理過敏原文字 (從 JSON 轉回純文字)
-        raw_allergens = product.get('allergens', "")
-        try:
-            parsed_allergens = _json.loads(raw_allergens)
-            if isinstance(parsed_allergens, list):
-                raw_allergens = ", ".join(parsed_allergens)
-            else:
-                raw_allergens = str(parsed_allergens)
-        except:
-            pass
+        # --- 6. 依照 Fog 端標準化格式建構回傳 (對齊 shared/types.ts) ---
+        # 映射等級到風險程度
+        grade_to_risk = {"A": "low", "B": "low", "C": "medium", "D": "high", "E": "high"}
+        risk_level = grade_to_risk.get(ai_data.get("grade", "C"), "medium")
 
+        # 整理過敏原
+        final_allergens = []
+        if raw_allergens:
+            final_allergens = [a.strip() for a in raw_allergens.split(",") if a.strip()]
+
+        # 建構 FogQueryResult 格式
         return {
             "status": "success",
             "barcode": product['barcode'],
+            "health_score": ai_data.get("score", deterministic_score),
+            "risk_level": risk_level,
+            "risk_tags": ai_data.get("warnings", []),
+            "allergen_warnings": final_allergens,
+            "food_safety_events": [
+                {
+                    "date": str(e.get('alert_date', datetime.now().date())), 
+                    "type": "官方抽驗/違規", 
+                    "summary": e.get('title', '未知事件'), 
+                    "source_url": ""
+                }
+                for e in safety_alerts
+            ],
+            "explanation": {
+                "triggers": [ch['name'] for ch in chemical if ch.get('risk_level') == 'high'],
+                "sources": ["歐盟 Nutri-Score V7 (2024)", "FoodScanIoT 食品添加物知識庫"]
+            },
+            "personalized_notes": [ai_data.get("summary", "")],
+            "processed_at": datetime.now().isoformat(),
+            # 原始詳細資料保留於 data 欄位供前端擴充顯示
             "data": {
                 "product_info": {
                     "name": product['name'] or "AI 解析產品", 
                     "brand": product['brand'] or "AI 解析品牌", 
                     "ingredients": raw_ingredients,
-                    "allergens": raw_allergens or "無特定紀錄",
-                    "ai_summary": product.get('ai_summary', "無特定產品解說。")
+                    "manufacturer": product['manufacturer']
                 },
-                "ingredients_detail": chemical, # 已包含 name, groupRisks, caution
-                "nutrition_facts": nutrition,   # 已包含純數字之 calories, sugar, sodium, protein, fat
-                "certification_marks": cert_marks,
-                "manufacturer_alerts": safety_alerts,
-                "final_health_diagnosis": {
-                    "grade": ai_data.get("grade", "C"),
-                    "score": ai_data.get("score", 60),
-                    "summary": ai_data.get("summary", ""),
-                    "warnings": ai_data.get("warnings", []),
-                    "transparencyScore": 85 if safety_alerts else 70
-                }
+                "ingredients_detail": chemical,
+                "nutrition_facts": nutrition,
+                "certification_marks": cert_marks
             }
         }
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return {"status": "error", "message": str(e)}
 
 if __name__ == "__main__":
