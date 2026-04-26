@@ -10,67 +10,14 @@ from datetime import datetime, timedelta
 import re
 import time
 import google.generativeai as genai
-import numpy as np
-
-class VectorRAG:
-    def __init__(self, model_name='models/text-embedding-004'):
-        self.model_name = model_name
-        self.knowledge_vectors = []
-        self.knowledge_data = []
-        self.is_initialized = False
-
-    def update_knowledge_base(self, knowledge_list):
-        """將資料庫中的添加物資料轉為向量"""
-        if not knowledge_list: return
-        print("[INFO] [RAG] 更新向量知識庫中...")
-        texts = []
-        for k in knowledge_list:
-            name = k.get('name') or ""
-            aliases = k.get('aliases') or ""
-            texts.append(f"{name} {aliases}".strip())
-            
-        try:
-            result = genai.embed_content(model=self.model_name, content=texts, task_type="retrieval_document")
-            self.knowledge_vectors = np.array(result['embedding'])
-            self.knowledge_data = knowledge_list
-            self.is_initialized = True
-            print(f"✅ [SUCCESS] [RAG] 已成功索引 {len(texts)} 筆添加物向量。")
-        except Exception as e:
-            print(f"❌ [ERROR] [RAG] 向量轉換失敗: {e}")
-
-    def find_nearest(self, query_text, threshold=0.65):
-        """尋找語義最相似的成分"""
-        if not self.is_initialized or len(self.knowledge_vectors) == 0: return None
-        if not query_text or len(query_text.strip()) < 2: return None
-        
-        try:
-            res = genai.embed_content(model=self.model_name, content=query_text, task_type="retrieval_query")
-            query_vec = np.array(res['embedding'])
-            
-            dot_product = np.dot(self.knowledge_vectors, query_vec)
-            norms = np.linalg.norm(self.knowledge_vectors, axis=1) * np.linalg.norm(query_vec)
-            similarities = dot_product / (norms + 1e-8)
-            
-            best_idx = np.argmax(similarities)
-            if similarities[best_idx] >= threshold:
-                print(f"🎯 [RAG] 語義匹配成功: '{query_text}' -> '{self.knowledge_data[best_idx]['name']}' (相似度: {similarities[best_idx]:.2f})")
-                return self.knowledge_data[best_idx]
-        except Exception as e:
-            print(f"[WARN] [RAG] 搜尋失敗: {e}")
-        return None
-
-# 初始化全域向量 RAG 實例
-vector_rag = VectorRAG()
-
 from typing import List, Dict, Any
 import base64
 import io
 from PIL import Image
 
-# 匯入食安監控模組與 Nutri-Score V7 計算機
+# 匯入食安監控模組
 from safety_monitor import update_producer_safety_events
 from admin_api import router as admin_router
-from nutriscore_v7 import calculator as ns_calculator
 
 # 配置 AI
 API_KEY = os.getenv("GEMINI_API_KEY")
@@ -356,10 +303,6 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
         cursor.execute("SELECT id, name, aliases, food_tech_purpose, adi, medical_caution, iarc_class, description, risks FROM additives")
         knowledge = cursor.fetchall()
         
-        # --- 🚀 初始化向量 RAG 知識庫 (僅在需要時) ---
-        if not vector_rag.is_initialized and knowledge:
-            vector_rag.update_knowledge_base(knowledge)
-
         basic, chemical = [], []
         CHEM_CHARS = ["酯", "鈉", "鉀", "酸", "磷", "聚", "精", "醇", "膠", "素"]
         
@@ -374,10 +317,6 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
                         (a['name'] and a['name'] in norm) or 
                         (a['aliases'] and norm and norm in (a['aliases'] or '[]'))
                         ), None)
-            
-            # --- 🚀 向量 RAG 補償邏輯：若 SQL 找不到，嘗試語義匹配 ---
-            if not match:
-                match = vector_rag.find_nearest(norm)
             
             # 獲取 AI 產出的專業描述 (從 vision_data 或 ingredient_details 獲取)
             ai_info = {}
@@ -463,26 +402,14 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
         #             print(f"[WARN] 智能補齊添加物失敗: {up['name']}, Error: {e}")
         #             db.rollback()
 
-        # --- 🚀 核心：Nutri-Score V7 硬代碼精準計分 (對照 PDF V7 標準) ---
-        # 準備計算所需數值，確保類型為 float
-        ns_data = {
-            "energy": float(product['calories']) * 4.184, # kcal 轉 kJ
-            "sugars": float(product['sugar']),
-            "sfa": float(product['fat']) * 0.35, # 假設飽和脂肪佔總脂肪 35% (若資料庫無此欄位)
-            "salt": float(product['sodium']) / 1000 * 2.5, # mg 鈉 轉 g 鹽
-            "proteins": float(product['protein']),
-            "fibres": 2.0, # 預設纖維
-            "fruit_veg_pct": 10.0 # 預設蔬果比
+        nutrition = {
+            "calories": product['calories'], 
+            "protein": product['protein'], 
+            "fat": product['fat'], 
+            "sugar": product['sugar'], 
+            "sodium": product['sodium'],
+            "carbohydrates": product.get('carbohydrates', 0)
         }
-        
-        # 判定是否為特定類別 (後續可優化為從資料庫讀取)
-        is_beverage = any(kw in product['name'] for kw in ["飲", "水", "汁", "奶", "啡", "茶"])
-        is_cheese = any(kw in product['name'] for kw in ["乳酪", "起司", "Cheese"])
-        
-        # 執行 100% 準確的 V7 演算法
-        calc_result = ns_calculator.calculate(ns_data, is_beverage=is_beverage, is_cheese=is_cheese)
-        deterministic_score = calc_result['score']
-        deterministic_grade = calc_result['grade']
 
         # 強化後的複合式 Prompt
         composite_prompt = f"""
@@ -491,10 +418,6 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
         【產品資訊】
         產品: {product['name']} | 品牌: {product['brand']} | 廠商: {product['manufacturer']}
         營養成分: {_json.dumps(nutrition, ensure_ascii=False)}
-        
-        【權威計分依據 (Nutri-Score V7 2024 最新版)】
-        依據歐盟 2024 演算法算出的確切總分: {deterministic_score}
-        確定之健康分級: {deterministic_grade} 級 (A為最優，E為最差)
         
         【廠商食安歷史 (Module C)】
         {_json.dumps(safety_alerts, ensure_ascii=False)}
@@ -506,19 +429,28 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
         {_json.dumps(user_conditions, ensure_ascii=False)}
         
         【任務】
-        1. 參考「確切總分」與「健康分級」，產出 100 字內之「核心診斷總結與預估風險」。
-        2. 請以極度嚴謹的毒理學觀點撰寫，必須明確指出長期過量攝取可能累積的慢性健康風險。
+        1. 評定總分 (0-100) 與 等級 (A-E)。
+        2. 產出 100 字內之「核心診斷總結與預估風險」: 請以極度嚴謹的毒理學觀點撰寫商品總介。必須明確指出短期食用無明顯危害，但長期過量攝取可能累積的慢性健康風險（即「吃了沒事，但吃久了會有事」的潛在後果）。嚴禁單純回覆「可正常食用」或淡化風險。
         3. 產出具體「個人化警示」清單。
+        4. 針對「權威資料庫已提供資訊」中的每個成分名稱(name)，產出對應的英文翻譯。
         
-        以純 JSON 格式回傳：{{"score": {deterministic_score}, "grade": "{deterministic_grade}", "summary": "字串", "warnings": ["警告1", "警告2"]}}
+        以純 JSON 格式回傳：{{"score": 數字, "grade": "A-E", "summary": "字串", "warnings": ["警告1", "警告2"], "translated_chemicals": {{"中文名1": "英文名1 (中文名1)", "中文名2": "英文名2 (中文名2)"}}}}
         """
         
         try:
             ai_resp = model.generate_content(composite_prompt)
             ai_data = _json.loads(re.search(r'(\{.*\})', ai_resp.text, re.DOTALL).group(1))
+            
+            # --- 6. 套用增強型外文翻譯 ---
+            translations = ai_data.get("translated_chemicals", {})
+            for ch in chemical:
+                original_name = ch["name"]
+                if original_name in translations:
+                    ch["name"] = translations[original_name]
+                    
         except Exception as ai_e:
             print(f"[WARN] [Analyze] LLM 診斷失敗: {ai_e}")
-            ai_data = {"score": deterministic_score, "grade": deterministic_grade, "summary": "診斷引擎暫時降級運作。", "warnings": []}
+            ai_data = {"score": 60, "grade": "C", "summary": "診斷引擎暫時降級運作。", "warnings": []}
         
         cursor.close()
         db.close()
