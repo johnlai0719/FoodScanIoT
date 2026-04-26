@@ -22,7 +22,51 @@ export function initDB() {
       ttl INTEGER NOT NULL
     )
   `);
-  console.log('📦 SQLite Cache Database Initialized.');
+  
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS feedback (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      barcode TEXT,
+      original_result TEXT,
+      user_correction TEXT,
+      synced INTEGER DEFAULT 0,
+      created_at TEXT
+    )
+  `);
+  console.log('📦 SQLite Cache Database Initialized (including feedback table).');
+}
+
+/**
+ * 儲存使用者反饋 (Task B)
+ */
+export function saveFeedback(barcode: string, originalResult: any, userCorrection: any) {
+  const statement = db.prepare(`
+    INSERT INTO feedback (barcode, original_result, user_correction, created_at)
+    VALUES (?, ?, ?, ?)
+  `);
+  
+  statement.run(
+    barcode,
+    JSON.stringify(originalResult),
+    JSON.stringify(userCorrection),
+    new Date().toISOString()
+  );
+  console.log(`[Feedback] Saved for barcode: ${barcode}`);
+}
+
+/**
+ * 取得尚未同步的反饋 (Task B)
+ */
+export function getPendingFeedback(): any[] {
+  return db.prepare('SELECT * FROM feedback WHERE synced = 0').all();
+}
+
+/**
+ * 標記反饋為已同步 (Task B)
+ */
+export function markFeedbackSynced(id: number) {
+  db.prepare('UPDATE feedback SET synced = 1 WHERE id = ?').run(id);
+  console.log(`[Feedback] Marked as synced: ID ${id}`);
 }
 
 /**

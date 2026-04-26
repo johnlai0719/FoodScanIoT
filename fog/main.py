@@ -4,12 +4,55 @@ import sqlite3
 import json
 import time
 import requests
+import hmac
+import hashlib
+import copy
 from contextlib import asynccontextmanager
 import os
 from dotenv import load_dotenv
 
 # 加載環境變數
 load_dotenv()
+
+def mask_sensitive_data(payload: dict) -> dict:
+    """
+    執行數據脫敏處理 (Task A)
+    移除：device_id, uuid, location
+    模糊化：timestamp 截斷至小時精度
+    """
+    clean_payload = copy.deepcopy(payload)
+    
+    # 1. 刪除敏感欄位
+    clean_payload.pop("device_id", None)
+    clean_payload.pop("uuid", None)
+    
+    # 2. 刪除地理位置資訊
+    clean_payload.pop("location", None)
+    
+    # 3. 時間戳記截斷至小時精度 (格式假設: 2024-01-15T14:25:30 -> 2024-01-15T14:00:00)
+    if "timestamp" in clean_payload:
+        ts = clean_payload["timestamp"]
+        if isinstance(ts, str) and len(ts) >= 13:
+            clean_payload["timestamp"] = ts[:13] + ":00:00"
+            
+    return clean_payload
+
+def sign_request(payload_bytes: bytes) -> str:
+    """
+    使用 HMAC-SHA256 計算請求簽章 (Task C)
+    
+    Cloud 端驗證邏輯範例 (Python):
+    ---------------------------------------------------------
+    # expected_sig = hmac.new(SECRET_KEY, request_body_bytes, hashlib.sha256).hexdigest()
+    # if hmac.compare_digest(expected_sig, request.headers.get("X-Fog-Signature")):
+    #     print("驗證成功")
+    ---------------------------------------------------------
+    """
+    secret = os.getenv("FOG_SECRET_KEY")
+    if not secret:
+        raise ValueError("缺少環境變數 FOG_SECRET_KEY，無法進行請求簽章。請確保 .env 中已設定該變數。")
+    
+    return hmac.new(secret.encode(), payload_bytes, hashlib.sha256).hexdigest()
 
 DB_PATH = "fog_cache.db"
 CLOUD_URL = os.getenv("CLOUD_API_URL")
@@ -365,7 +408,17 @@ async def query(request: Request, response: Response):
             action = "Image detected" if has_images else "First TEST probe"
             print(f"[CLOUD] {barcode} -> {action}, Forwarding...")
             try:
-                cloud_resp = requests.post(CLOUD_URL, json=data, timeout=90.0)
+                # 執行脫敏與簽章 (Task A & C)
+                masked_data = mask_sensitive_data(data)
+                masked_data_bytes = json.dumps(masked_data).encode()
+                signature = sign_request(masked_data_bytes)
+                
+                cloud_resp = requests.post(
+                    CLOUD_URL, 
+                    data=masked_data_bytes, 
+                    headers={"Content-Type": "application/json", "X-Fog-Signature": signature},
+                    timeout=90.0
+                )
                 result = cloud_resp.json()
                 
                 # 修復：存入正確的 barcode，而不是固定為 "TEST"
@@ -383,8 +436,8 @@ async def query(request: Request, response: Response):
                 return calculate_personalized_score(result, user_conditions)
             except Exception as e:
                 conn.close()
-                print(f"[ERROR] Cloud Timeout: {barcode}")
-                raise HTTPException(status_code=504, detail=f"Cloud Vision Timeout: {str(e)}")
+                print(f"[ERROR] Cloud Forwarding Error: {barcode} -> {str(e)}")
+                raise HTTPException(status_code=504, detail=f"Cloud Forwarding Error: {str(e)}")
 
         # 🛠️ 如果是測試模式且沒照片，直接從快取回傳上次的成功結果 (取代 Cloud 查詢)
         if is_test and test_cache_row:
@@ -411,29 +464,44 @@ async def query(request: Request, response: Response):
 
         # 3. 快取未命中 (或是快取中是 not_found)
         print(f"[MISS] {barcode} -> Forwarding to Cloud")
-        cloud_resp = requests.post(CLOUD_URL, json=data, timeout=50.0)
-        if cloud_resp.status_code == 200:
-            result = cloud_resp.json()
-            # 🛠️ 修正：只有當 Cloud 回傳 status 為 success 時才寫入快取
-            if result.get("status") == "success":
-                cursor.execute("INSERT OR REPLACE INTO cache (barcode, result_json, last_updated, ttl) VALUES (?, ?, ?, ?)",
-                               (barcode, json.dumps(result), now, 3600))
-                conn.commit()
-                print(f"[SUCCESS] {barcode} cached")
+        try:
+            # 執行脫敏與簽章 (Task A & C)
+            masked_data = mask_sensitive_data(data)
+            masked_data_bytes = json.dumps(masked_data).encode()
+            signature = sign_request(masked_data_bytes)
+            
+            cloud_resp = requests.post(
+                CLOUD_URL, 
+                data=masked_data_bytes, 
+                headers={"Content-Type": "application/json", "X-Fog-Signature": signature},
+                timeout=50.0
+            )
+            if cloud_resp.status_code == 200:
+                result = cloud_resp.json()
+                # 🛠️ 修正：只有當 Cloud 回傳 status 為 success 時才寫入快取
+                if result.get("status") == "success":
+                    cursor.execute("INSERT OR REPLACE INTO cache (barcode, result_json, last_updated, ttl) VALUES (?, ?, ?, ?)",
+                                   (barcode, json.dumps(result), now, 3600))
+                    conn.commit()
+                    print(f"[SUCCESS] {barcode} cached")
+                else:
+                    # 如果是 error 或 not_found，我們「不存入長期快取」，讓下次測試能再次嘗試
+                    print(f"[INFO] Cloud: {barcode} -> {result.get('status')}")
+                    
+                response.headers["X-Cache"] = "MISS"
+                conn.close()
+                return calculate_personalized_score(result, user_conditions)
             else:
-                # 如果是 error 或 not_found，我們「不存入長期快取」，讓下次測試能再次嘗試
-                print(f"[INFO] Cloud: {barcode} -> {result.get('status')}")
-                
-            response.headers["X-Cache"] = "MISS"
-            conn.close()
-            return calculate_personalized_score(result, user_conditions)
-        else:
-            conn.close()
-            return {
-                "status": "error", 
-                "message": f"Cloud Server Error (Status: {cloud_resp.status_code})",
-                "detail": "Cloud server received the request but returned an error. Check Cloud logs."
-            }
+                conn.close()
+                return {
+                    "status": "error", 
+                    "message": f"Cloud Server Error (Status: {cloud_resp.status_code})",
+                    "detail": "Cloud server received the request but returned an error. Check Cloud logs."
+                }
+        except Exception as e:
+            if 'conn' in locals(): conn.close()
+            print(f"[ERROR] Cloud Forwarding Error: {barcode} -> {str(e)}")
+            return {"status": "error", "message": f"Cloud Forwarding Error: {str(e)}"}
 
     except Exception as e:
         print(f"[ERROR] Fog Error: {e}")
