@@ -2,13 +2,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
 
 :root {
-  --bg-main: #0f172a;
-  --bg-card: rgba(30, 41, 59, 0.65);
-  --border-color: rgba(255, 255, 255, 0.08);
-  --border-glow: rgba(59, 130, 246, 0.2);
+  --bg-main: #0b0f19;
+  --bg-card: rgba(17, 24, 39, 0.7);
+  --border-color: rgba(255, 255, 255, 0.06);
+  --border-glow: rgba(255, 135, 20, 0.2);
   
-  --primary-gradient: linear-gradient(135deg, #10b981 0%, #3b82f6 100%);
-  --hover-gradient: linear-gradient(135deg, #059669 0%, #2563eb 100%);
+  --primary-gradient: linear-gradient(135deg, #ff8714 0%, #e66a00 100%);
+  --hover-gradient: linear-gradient(135deg, #e66a00 0%, #c25200 100%);
   --danger-gradient: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
   --success-gradient: linear-gradient(135deg, #10b981 0%, #047857 100%);
   
@@ -18,7 +18,7 @@
   
   --font-family: 'Outfit', system-ui, -apple-system, sans-serif;
   --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
 }
 
 * {
@@ -34,8 +34,8 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   background-image: 
-    radial-gradient(circle at 10% 20%, rgba(16, 185, 129, 0.05) 0%, transparent 40%),
-    radial-gradient(circle at 90% 80%, rgba(59, 130, 246, 0.06) 0%, transparent 50%);
+    radial-gradient(circle at 10% 20%, rgba(255, 135, 20, 0.05) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(59, 130, 246, 0.05) 0%, transparent 50%);
   background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
 }
