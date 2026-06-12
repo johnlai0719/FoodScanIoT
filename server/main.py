@@ -351,6 +351,101 @@ def submit_comment(record_id: str, req: CommentRequest):
     finally:
         conn.close()
 
+@app.get("/api/additives/{record_id}")
+def get_additive(record_id: str):
+    conn = get_db_conn()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM additives WHERE record_id = %s", (record_id,))
+    row = cur.fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="Additive not found")
+    return row
+
+@app.get("/api/admin/suggestions")
+def list_suggestions(status: str = None, current_user = Depends(get_current_user)):
+    conn = get_db_conn()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    if status:
+        cur.execute("SELECT * FROM additive_suggestions WHERE status = %s ORDER BY id DESC", (status,))
+    else:
+        cur.execute("SELECT * FROM additive_suggestions ORDER BY id DESC")
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+@app.put("/api/admin/suggestions/{suggestion_id}/approve")
+def approve_suggestion(suggestion_id: int, current_user = Depends(get_current_user)):
+    conn = get_db_conn()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cur.execute("SELECT * FROM additive_suggestions WHERE id = %s", (suggestion_id,))
+        sug = cur.fetchone()
+        if not sug:
+            raise HTTPException(status_code=404, detail="Suggestion not found")
+        if sug["status"] != "pending":
+            raise HTTPException(status_code=400, detail="Suggestion is already processed")
+        
+        field_name = sug["field_name"]
+        allowed_fields = {"description", "name_zh", "name_en", "ins_or_e_number", "adi"}
+        if field_name not in allowed_fields:
+            raise HTTPException(status_code=400, detail="Field update not allowed for security reasons")
+        
+        cur.execute(
+            """
+            UPDATE additive_suggestions
+            SET status = 'approved', reviewed_by = %s, reviewed_at = %s
+            WHERE id = %s
+            """,
+            (current_user.get("user_id"), datetime.now(), suggestion_id)
+        )
+        
+        query = f"UPDATE additives SET {field_name} = %s WHERE record_id = %s"
+        cur.execute(query, (sug["new_value"], sug["record_id"]))
+        
+        conn.commit()
+        return {"status": "success", "message": "Suggestion approved and database updated"}
+    except HTTPException:
+        conn.rollback()
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.put("/api/admin/suggestions/{suggestion_id}/reject")
+def reject_suggestion(suggestion_id: int, current_user = Depends(get_current_user)):
+    conn = get_db_conn()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cur.execute("SELECT * FROM additive_suggestions WHERE id = %s", (suggestion_id,))
+        sug = cur.fetchone()
+        if not sug:
+            raise HTTPException(status_code=404, detail="Suggestion not found")
+        if sug["status"] != "pending":
+            raise HTTPException(status_code=400, detail="Suggestion is already processed")
+        
+        cur.execute(
+            """
+            UPDATE additive_suggestions
+            SET status = 'rejected', reviewed_by = %s, reviewed_at = %s
+            WHERE id = %s
+            """,
+            (current_user.get("user_id"), datetime.now(), suggestion_id)
+        )
+        
+        conn.commit()
+        return {"status": "success", "message": "Suggestion rejected"}
+    except HTTPException:
+        conn.rollback()
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
 
 # [MOUNT] Static resource directories for product marks and temporary uploads
 # Establish path mappings
