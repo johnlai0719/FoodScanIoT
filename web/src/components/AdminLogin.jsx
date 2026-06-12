@@ -44,11 +44,11 @@ export default function AdminLogin() {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      minHeight: '80vh',
-      padding: '20px',
+      minHeight: 'calc(100vh - 200px)',
+      padding: '40px 20px',
       width: '100%'
     }}>
-      <div className="glass-card" style={{
+      <div className="card" style={{
         width: '100%',
         maxWidth: '420px',
         padding: '40px 30px',
@@ -69,9 +69,10 @@ export default function AdminLogin() {
             alignItems: 'center',
             gap: '4px',
             fontSize: '0.9rem',
+            fontFamily: 'var(--font-family)',
             transition: 'var(--transition-smooth)'
           }}
-          onMouseEnter={(e) => e.target.style.color = '#fff'}
+          onMouseEnter={(e) => e.target.style.color = 'var(--off-orange-dark)'}
           onMouseLeave={(e) => e.target.style.color = 'var(--text-secondary)'}
         >
           <ArrowLeft size={16} />
@@ -86,9 +87,9 @@ export default function AdminLogin() {
             width: '60px',
             height: '60px',
             borderRadius: '50%',
-            background: 'rgba(59, 130, 246, 0.1)',
-            border: '1px solid rgba(59, 130, 246, 0.3)',
-            color: '#3b82f6',
+            background: 'var(--off-orange-soft)',
+            border: '1px solid rgba(255, 135, 20, 0.35)',
+            color: 'var(--off-orange)',
             marginBottom: '16px'
           }}>
             <Lock size={28} />
@@ -98,19 +99,7 @@ export default function AdminLogin() {
         </div>
 
         {error && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            background: 'rgba(239, 68, 68, 0.1)',
-            border: '1px solid rgba(239, 68, 68, 0.25)',
-            borderRadius: '10px',
-            padding: '12px 16px',
-            color: '#f87171',
-            fontSize: '0.9rem',
-            marginBottom: '24px',
-            textAlign: 'left'
-          }}>
+          <div className="alert-error" style={{ marginBottom: '24px' }}>
             <AlertCircle size={18} style={{ flexShrink: 0 }} />
             <span>{error}</span>
           </div>

@@ -122,26 +122,22 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div style={{ padding: '40px 20px', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
+    <div className="container section">
       {/* Dashboard Header */}
-      <div style={{
+      <div className="card" style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: '40px',
-        background: 'rgba(30, 41, 59, 0.4)',
+        marginBottom: '32px',
         padding: '20px 30px',
-        borderRadius: '16px',
-        border: '1px solid rgba(255, 255, 255, 0.05)',
-        backdropFilter: 'blur(8px)',
         flexWrap: 'wrap',
         gap: '20px'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', textAlign: 'left' }}>
           <div style={{
-            background: 'rgba(16, 185, 129, 0.1)',
-            border: '1px solid rgba(16, 185, 129, 0.3)',
-            color: '#10b981',
+            background: 'var(--off-orange-soft)',
+            border: '1px solid rgba(255, 135, 20, 0.35)',
+            color: 'var(--off-orange)',
             padding: '12px',
             borderRadius: '12px'
           }}>
@@ -150,7 +146,7 @@ export default function AdminDashboard() {
           <div>
             <h1 style={{ margin: 0, fontSize: '1.8rem' }}>審核控制面板</h1>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px' }}>
-              當前登入：<strong style={{ color: '#10b981' }}>{adminUser}</strong>
+              當前登入：<strong style={{ color: 'var(--off-orange-dark)' }}>{adminUser}</strong>
             </p>
           </div>
         </div>
@@ -168,18 +164,7 @@ export default function AdminDashboard() {
       </div>
 
       {error && (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          background: 'rgba(239, 68, 68, 0.1)',
-          border: '1px solid rgba(239, 68, 68, 0.25)',
-          borderRadius: '12px',
-          padding: '16px 24px',
-          color: '#f87171',
-          marginBottom: '30px',
-          textAlign: 'left'
-        }}>
+        <div className="alert-error" style={{ padding: '16px 24px', marginBottom: '30px' }}>
           <AlertCircle size={20} />
           <span>{error}</span>
         </div>
@@ -191,7 +176,7 @@ export default function AdminDashboard() {
         </div>
       ) : (
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <div className="section-heading">
             <h2 style={{ fontSize: '1.3rem', margin: 0 }}>
               待處理的修改建議 ({suggestions.length})
             </h2>
@@ -199,53 +184,33 @@ export default function AdminDashboard() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             {suggestions.map((sug) => (
-              <div 
-                key={sug.id} 
-                className="glass-card" 
-                style={{ 
-                  textAlign: 'left',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  padding: '24px'
-                }}
+              <div
+                key={sug.id}
+                className="card"
+                style={{ textAlign: 'left', padding: '24px' }}
               >
                 {/* Meta details */}
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
                   alignItems: 'flex-start',
                   flexWrap: 'wrap',
                   gap: '12px',
-                  borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                  borderBottom: '1px solid var(--border-color)',
                   paddingBottom: '14px',
                   marginBottom: '20px'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                    <span style={{
-                      background: 'rgba(59, 130, 246, 0.15)',
-                      color: '#3b82f6',
-                      border: '1px solid rgba(59, 130, 246, 0.3)',
-                      fontSize: '0.8rem',
-                      padding: '4px 10px',
-                      borderRadius: '6px',
-                      fontWeight: 'bold'
-                    }}>
+                    <span className="tag tag-orange" style={{ fontSize: '0.8rem' }}>
                       添加物 ID: {sug.record_id}
                     </span>
-                    
-                    <span style={{
-                      background: 'rgba(16, 185, 129, 0.15)',
-                      color: '#10b981',
-                      border: '1px solid rgba(16, 185, 129, 0.3)',
-                      fontSize: '0.8rem',
-                      padding: '4px 10px',
-                      borderRadius: '6px',
-                      fontWeight: 'bold'
-                    }}>
+
+                    <span className="tag tag-green" style={{ fontSize: '0.8rem' }}>
                       修改欄位: {formatFieldName(sug.field_name)}
                     </span>
                   </div>
 
-                  <div style={{ display: 'flex', gap: '16px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                  <div style={{ display: 'flex', gap: '16px', color: 'var(--text-muted)', fontSize: '0.85rem', flexWrap: 'wrap' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <User size={14} />
                       提案者: {sug.suggested_by || '匿名'}
@@ -258,70 +223,44 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Left/Right Diff Side-by-side View */}
-                <div style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
                   gap: '20px',
                   marginBottom: '20px'
                 }}>
                   {/* Left Side: Old Value */}
-                  <div style={{
-                    background: 'rgba(239, 68, 68, 0.08)',
-                    border: '1px solid rgba(239, 68, 68, 0.2)',
-                    borderRadius: '12px',
-                    padding: '16px'
-                  }}>
-                    <span style={{
-                      display: 'inline-block',
-                      fontSize: '0.75rem',
-                      fontWeight: 'bold',
-                      color: '#ef4444',
-                      background: 'rgba(239, 68, 68, 0.15)',
-                      padding: '2px 8px',
-                      borderRadius: '4px',
-                      marginBottom: '10px'
-                    }}>
+                  <div className="panel panel-danger">
+                    <span className="tag tag-red" style={{ marginBottom: '10px' }}>
                       歷史舊值 (Old Value)
                     </span>
-                    <div style={{ 
-                      fontSize: '0.95rem', 
+                    <div style={{
+                      fontSize: '0.95rem',
                       color: 'var(--text-secondary)',
                       whiteSpace: 'pre-wrap',
                       maxHeight: '200px',
                       overflowY: 'auto',
-                      lineHeight: '1.6'
+                      lineHeight: '1.6',
+                      marginTop: '10px'
                     }}>
                       {sug.old_value !== null ? sug.old_value : <em style={{ color: 'var(--text-muted)' }}>無舊資料</em>}
                     </div>
                   </div>
 
                   {/* Right Side: New Value */}
-                  <div style={{
-                    background: 'rgba(16, 185, 129, 0.08)',
-                    border: '1px solid rgba(16, 185, 129, 0.2)',
-                    borderRadius: '12px',
-                    padding: '16px'
-                  }}>
-                    <span style={{
-                      display: 'inline-block',
-                      fontSize: '0.75rem',
-                      fontWeight: 'bold',
-                      color: '#10b981',
-                      background: 'rgba(16, 185, 129, 0.15)',
-                      padding: '2px 8px',
-                      borderRadius: '4px',
-                      marginBottom: '10px'
-                    }}>
+                  <div className="panel panel-success">
+                    <span className="tag tag-green" style={{ marginBottom: '10px' }}>
                       建議新值 (New Value)
                     </span>
-                    <div style={{ 
-                      fontSize: '0.95rem', 
+                    <div style={{
+                      fontSize: '0.95rem',
                       color: 'var(--text-primary)',
                       whiteSpace: 'pre-wrap',
                       maxHeight: '200px',
                       overflowY: 'auto',
                       lineHeight: '1.6',
-                      fontWeight: '550'
+                      fontWeight: '550',
+                      marginTop: '10px'
                     }}>
                       {sug.new_value}
                     </div>
@@ -329,23 +268,19 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Reason & Action Buttons */}
-                <div style={{
+                <div className="panel" style={{
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'flex-end',
                   flexWrap: 'wrap',
-                  gap: '20px',
-                  background: 'rgba(15, 23, 42, 0.3)',
-                  padding: '16px',
-                  borderRadius: '10px',
-                  border: '1px solid rgba(255, 255, 255, 0.04)'
+                  gap: '20px'
                 }}>
                   <div style={{ flex: '1', minWidth: '250px' }}>
-                    <span style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '6px', 
-                      fontSize: '0.85rem', 
+                    <span style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontSize: '0.85rem',
                       color: 'var(--text-muted)',
                       marginBottom: '6px'
                     }}>
@@ -358,24 +293,16 @@ export default function AdminDashboard() {
                   </div>
 
                   <div style={{ display: 'flex', gap: '12px' }}>
-                    <button 
-                      className="btn btn-secondary" 
+                    <button
+                      className="btn btn-danger-outline"
                       onClick={() => handleAction(sug.id, 'reject')}
-                      style={{ 
-                        borderColor: 'rgba(239, 68, 68, 0.4)',
-                        color: '#f87171',
-                        background: 'rgba(239, 68, 68, 0.05)'
-                      }}
                     >
                       <X size={16} />
                       拒絕建議
                     </button>
-                    <button 
-                      className="btn btn-primary" 
+                    <button
+                      className="btn btn-success"
                       onClick={() => handleAction(sug.id, 'approve')}
-                      style={{
-                        background: 'var(--success-gradient)'
-                      }}
                     >
                       <Check size={16} />
                       核准並更新
@@ -386,14 +313,7 @@ export default function AdminDashboard() {
             ))}
 
             {suggestions.length === 0 && (
-              <div style={{
-                textAlign: 'center',
-                padding: '80px 20px',
-                color: 'var(--text-secondary)',
-                background: 'var(--bg-card)',
-                border: '1px dashed rgba(255, 255, 255, 0.1)',
-                borderRadius: '16px'
-              }}>
+              <div className="empty-state" style={{ padding: '80px 20px' }}>
                 目前沒有待處理的審閱建議。
               </div>
             )}

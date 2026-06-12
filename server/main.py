@@ -357,15 +357,16 @@ def list_or_search_additives(q: str = None):
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     if q:
         query = """
-            SELECT * FROM additives 
-            WHERE name_zh ILIKE %s 
-               OR name_en ILIKE %s 
+            SELECT * FROM additives
+            WHERE name_zh ILIKE %s
+               OR name_en ILIKE %s
                OR ins_or_e_number ILIKE %s
-               OR aliases::text ILIKE %s
+               OR aliases::jsonb::text ILIKE %s
+               OR category::jsonb::text ILIKE %s
             ORDER BY id ASC
         """
         like_pattern = f"%{q}%"
-        cur.execute(query, (like_pattern, like_pattern, like_pattern, like_pattern))
+        cur.execute(query, (like_pattern, like_pattern, like_pattern, like_pattern, like_pattern))
     else:
         cur.execute("SELECT * FROM additives ORDER BY id ASC")
     rows = cur.fetchall()
