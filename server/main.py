@@ -257,6 +257,16 @@ class LoginRequest(BaseModel):
     username: str
     password: str
 
+class SuggestionRequest(BaseModel):
+    field_name: str
+    new_value: str
+    suggested_by: str
+    reason: str
+
+class CommentRequest(BaseModel):
+    author: str
+    content: str
+
 JWT_SECRET = os.getenv("JWT_SECRET", "super_secret_key_change_me")
 JWT_ALGORITHM = "HS256"
 security = HTTPBearer()
@@ -282,6 +292,65 @@ def admin_login(req: LoginRequest):
         
     token = jwt.encode({"user_id": user['id'], "username": user['username']}, JWT_SECRET, algorithm=JWT_ALGORITHM)
     return {"access_token": token, "token_type": "bearer"}
+
+@app.post("/api/additives/{record_id}/suggest")
+def submit_suggestion(record_id: str, req: SuggestionRequest):
+    allowed_fields = {"description", "name_zh", "name_en", "ins_or_e_number", "adi"}
+    if req.field_name not in allowed_fields:
+        raise HTTPException(status_code=400, detail="Invalid field name")
+        
+    conn = get_db_conn()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cur.execute("SELECT * FROM additives WHERE record_id = %s", (record_id,))
+        additive = cur.fetchone()
+        if not additive:
+            raise HTTPException(status_code=404, detail="Additive not found")
+            
+        old_val = additive.get(req.field_name)
+        old_value = str(old_val) if old_val is not None else None
+        
+        cur.execute(
+            """
+            INSERT INTO additive_suggestions (record_id, field_name, old_value, new_value, suggested_by, reason, status)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING id, record_id, field_name, old_value, new_value, suggested_by, reason, status, created_at
+            """,
+            (record_id, req.field_name, old_value, req.new_value, req.suggested_by, req.reason, "pending")
+        )
+        suggestion = cur.fetchone()
+        conn.commit()
+        return suggestion
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.post("/api/additives/{record_id}/comment")
+def submit_comment(record_id: str, req: CommentRequest):
+    conn = get_db_conn()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cur.execute(
+            """
+            INSERT INTO additive_comments (record_id, author, content, status)
+            VALUES (%s, %s, %s, %s)
+            RETURNING id, record_id, author, content, status, created_at
+            """,
+            (record_id, req.author, req.content, "approved")
+        )
+        comment = cur.fetchone()
+        conn.commit()
+        return comment
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
 
 # [MOUNT] Static resource directories for product marks and temporary uploads
 # Establish path mappings
