@@ -1,0 +1,77 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e7]:
+        - link "World Health Organization" [ref=e9] [cursor=pointer]:
+          - /url: /food-additives-contaminants-jecfa-database/
+          - img "World Health Organization" [ref=e10]
+        - button [ref=e45] [cursor=pointer]
+    - generic [ref=e55]:
+      - generic [ref=e59]:
+        - paragraph [ref=e60]: This searchable database contains the summaries of all the evaluations of flavours, food additives, contaminants, toxicants and veterinary drugs JECFA has performed. Each summary contains basic chemical information, ADIs/TDIs, links to the most recent reports and monographs as well as to the specification database, and a history of JECFA evaluations. The database is searchable by partial name or CAS number, by first character (letter or symbol), or by functional class.
+        - paragraph [ref=e61]: Includes all updates up to the 101st JECFA meeting (October 2025).
+      - generic [ref=e63]:
+        - generic [ref=e66]:
+          - generic:
+            - textbox "Partial name or CAS number" [ref=e70]
+            - textbox "FEMA or JECFA number" [ref=e74]:
+              - /placeholder: "FEMA or JECFA number "
+            - generic [ref=e79]:
+              - combobox "First Character" [expanded] [active] [ref=e80]
+              - text:  
+              - button "select" [ref=e81] [cursor=pointer]
+            - generic [ref=e86]:
+              - combobox "Functional Class" [ref=e87]
+              - button "select" [ref=e88] [cursor=pointer]
+        - list [ref=e92]
+    - contentinfo [ref=e93]:
+      - link "Home" [ref=e99] [cursor=pointer]:
+        - /url: /food-additives-contaminants-jecfa-database/
+        - img "Home" [ref=e100]
+      - generic [ref=e103]:
+        - link "Privacy Legal Notice" [ref=e107] [cursor=pointer]:
+          - /url: /food-additives-contaminants-jecfa-database/Home/About
+        - generic [ref=e109]:
+          - text: © 2021
+          - link "WHO" [ref=e112] [cursor=pointer]:
+            - /url: /about/policies/terms-of-use
+  - listbox [ref=e116]:
+    - option "+" [ref=e117] [cursor=pointer]
+    - option "-" [ref=e118] [cursor=pointer]
+    - option "?" [ref=e119] [cursor=pointer]
+    - option "±" [ref=e120] [cursor=pointer]
+    - option "1" [ref=e121] [cursor=pointer]
+    - option "2" [ref=e122] [cursor=pointer]
+    - option "3" [ref=e123] [cursor=pointer]
+    - option "4" [ref=e124] [cursor=pointer]
+    - option "5" [ref=e125] [cursor=pointer]
+    - option "6" [ref=e126] [cursor=pointer]
+    - option "7" [ref=e127] [cursor=pointer]
+    - option "8" [ref=e128] [cursor=pointer]
+    - option "9" [ref=e129] [cursor=pointer]
+    - option "A" [ref=e130] [cursor=pointer]
+    - option "B" [ref=e131] [cursor=pointer]
+    - option "C" [ref=e132] [cursor=pointer]
+    - option "D" [ref=e133] [cursor=pointer]
+    - option "E" [ref=e134] [cursor=pointer]
+    - option "F" [ref=e135] [cursor=pointer]
+    - option "G" [ref=e136] [cursor=pointer]
+    - option "H" [ref=e137] [cursor=pointer]
+    - option "I" [ref=e138] [cursor=pointer]
+    - option "J" [ref=e139] [cursor=pointer]
+    - option "K" [ref=e140] [cursor=pointer]
+    - option "L" [ref=e141] [cursor=pointer]
+    - option "M" [ref=e142] [cursor=pointer]
+    - option "N" [ref=e143] [cursor=pointer]
+    - option "O" [ref=e144] [cursor=pointer]
+    - option "P" [ref=e145] [cursor=pointer]
+    - option "Q" [ref=e146] [cursor=pointer]
+    - option "R" [ref=e147] [cursor=pointer]
+    - option "S" [ref=e148] [cursor=pointer]
+    - option "T" [ref=e149] [cursor=pointer]
+    - option "U" [ref=e150] [cursor=pointer]
+    - option "V" [ref=e151] [cursor=pointer]
+    - option "W" [ref=e152] [cursor=pointer]
+    - option "X" [ref=e153] [cursor=pointer]
+    - option "Y" [ref=e154] [cursor=pointer]
+    - option "Z" [ref=e155] [cursor=pointer]

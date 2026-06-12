@@ -55,13 +55,21 @@ class Product(Base):
     processing_level = Column(Integer, nullable=True)
     processing_description = Column(Text, nullable=True)
     certifications = Column(JSON, nullable=True)
+    
+    # 預存之 AI 診斷總結
+    overall_summary = Column(Text, nullable=True)
+    additives_summary = Column(Text, nullable=True)
+    safety_events_summary = Column(Text, nullable=True)
 
 class Additive(Base):
     __tablename__ = "additives"
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(255), unique=True, index=True)
+    record_id = Column(String(50), unique=True, index=True, nullable=True)
+    name_zh = Column(String(255), index=True)
+    name_en = Column(String(255), index=True, nullable=True)
     aliases = Column(JSON, nullable=True)
-    category = Column(String(100), nullable=True)
+    ins_or_e_number = Column(String(100), index=True, nullable=True)
+    category = Column(JSON, nullable=True)
     description = Column(Text, nullable=True)
     
     food_tech_purpose = Column(Text, nullable=True)
@@ -75,6 +83,9 @@ class Additive(Base):
     allergen_details = Column(JSON, nullable=True)
     
     risks = Column(JSON, nullable=True)
+    regulatory_status_tw = Column(String(255), nullable=True)
+    description_confidence = Column(String(100), nullable=True)
+    description_sources = Column(JSON, nullable=True)
 
 class SafetyAlert(Base):
     __tablename__ = "safety_alerts"
@@ -84,4 +95,6 @@ class SafetyAlert(Base):
     alert_date = Column(String(50))
     keyword_used = Column(String(50))
     source_url = Column(String(500), nullable=True)
+    source_type = Column(String(20), nullable=True) # official / news / social
+    severity = Column(Integer, nullable=True) # 1 / 2 / 3
     producer_id = Column(Integer, ForeignKey("producers.id"), nullable=True) # 關聯特定廠商

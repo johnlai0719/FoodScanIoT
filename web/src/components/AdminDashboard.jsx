@@ -75,7 +75,9 @@ export default function AdminDashboard() {
       return;
     }
 
-    fetchSuggestions();
+    Promise.resolve().then(() => {
+      fetchSuggestions();
+    });
   }, [fetchSuggestions, navigate]);
 
   const handleAction = async (id, action) => {

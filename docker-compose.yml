@@ -1,15 +1,15 @@
 services:
   db:
-    image: mysql:8.0
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    image: postgres:16
     restart: always
     environment:
-      MYSQL_DATABASE: 'product_db'
-      MYSQL_ROOT_PASSWORD: 'password'
+      POSTGRES_DB: 'product_db'
+      POSTGRES_USER: 'postgres'
+      POSTGRES_PASSWORD: 'password'
     ports:
-      - '3306:3306'
+      - '5432:5432'
     volumes:
-      - ./server/mysql_data:/var/lib/mysql
+      - ./postgres_data:/var/lib/postgresql/data
 
   cloud-server:
     build:
@@ -19,6 +19,6 @@ services:
     ports:
       - '8000:8000'
     environment:
-      - DATABASE_URL=mysql+pymysql://root:password@db:3306/product_db?charset=utf8mb4
+      - DATABASE_URL=postgresql+psycopg2://postgres:password@db:5432/product_db
     depends_on:
       - db

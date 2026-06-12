@@ -1,9 +1,10 @@
-import google.generativeai as genai
+from google import genai
 import os
 from dotenv import load_dotenv
 from database import SessionLocal
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 import models
 import json
 from sqlalchemy import or_
@@ -22,16 +23,17 @@ class FoodAnalyzer:
         
         api_key = os.getenv("GEMINI_API_KEY")
         if api_key:
-            genai.configure(api_key=api_key)
-            self.model = genai.GenerativeModel('gemini-3-flash-preview')
+            self._client = genai.Client(api_key=api_key)
+            self._model_name = 'gemma-4-31b-it'
         else:
-            self.model = None
+            self._client = None
+            self._model_name = 'gemma-4-31b-it'
 
     def find_best_match(self, item_name):
         if any(base in item_name for base in self.base_ingredients):
             return None
         search_name = self.name_map.get(item_name, item_name)
-        exact = self.db.query(models.Additive).filter(models.Additive.name == search_name).first()
+        exact = self.db.query(models.Additive).filter(models.Additive.name_zh == search_name).first()
         if exact: return exact
         alias_match = self.db.query(models.Additive).filter(models.Additive.aliases.contains(item_name)).first()
         if alias_match: return alias_match
@@ -50,7 +52,7 @@ class FoodAnalyzer:
         return score
 
     def get_ai_diagnosis(self, product_fact, user_context, ingredients_data, safety_alerts):
-        if not self.model: return {"grade": "N/A", "summary": "AI 模組未啟動"}
+        if not self._client: return {"grade": "N/A", "summary": "AI 模組未啟動"}
         
         # 核心優化：明確區分「資料庫已知資訊」與「AI 分析任務」
         prompt = f"""
@@ -77,7 +79,7 @@ class FoodAnalyzer:
         請以繁體中文回答。回傳格式必須為純 JSON。
         """
         try:
-            response = self.model.generate_content(prompt)
+            response = self._client.models.generate_content(model=self._model_name, contents=prompt)
             text = response.text
             json_match = re.search(r'(\{.*\})', text, re.DOTALL)
             if json_match:
@@ -115,12 +117,12 @@ class FoodAnalyzer:
             return True
         except Exception as e:
             self.db.rollback()
-            print(f"❌ 資料庫儲存失敗: {e}")
+            print(f"[ERROR] 資料庫儲存失敗: {e}")
             return False
 
     def smart_additive_expansion(self, ingredients_list):
         """[Smart Feature] 偵測並自動擴充未知添加物到知識庫"""
-        if not self.model or not ingredients_list: return
+        if not self._client or not ingredients_list: return
         
         unknown_items = []
         for item in ingredients_list:
@@ -150,15 +152,15 @@ class FoodAnalyzer:
         """
         
         try:
-            response = self.model.generate_content(prompt)
+            response = self._client.models.generate_content(model=self._model_name, contents=prompt)
             data = json.loads(re.search(r'(\[.*\])', response.text, re.DOTALL).group(1))
             
             for entry in data:
                 # 再次確認是否已存在（避免併發衝突）
-                existing = self.db.query(models.Additive).filter(models.Additive.name == entry['name']).first()
+                existing = self.db.query(models.Additive).filter(models.Additive.name_zh == entry['name']).first()
                 if not existing:
                     new_ad = models.Additive(
-                        name=entry['name'],
+                        name_zh=entry['name'],
                         aliases=entry.get('aliases', []),
                         category=entry.get('category'),
                         description=entry.get('description'),
@@ -169,9 +171,9 @@ class FoodAnalyzer:
                     )
                     self.db.add(new_ad)
             self.db.commit()
-            print(f"✅ 成功自動擴充 {len(data)} 筆添加物知識。")
+            print(f"[INFO] 成功自動擴充 {len(data)} 筆添加物知識。")
         except Exception as e:
-            print(f"⚠️ 智能擴充失敗: {e}")
+            print(f"[WARN] 智能擴充失敗: {e}")
             self.db.rollback()
 
     def generate_full_report(self, barcode, user_context=None):
@@ -194,13 +196,14 @@ class FoodAnalyzer:
                 ingredients_detail.append({
                     "name": item, 
                     "isAdditive": True, 
-                    "officialName": ad.name,
+                    "officialName": ad.name_zh,
                     "purpose": ad.food_tech_purpose,
                     "iarcRating": ad.iarc_class, 
                     "adiValue": ad.adi, 
                     "caution": ad.medical_caution,
                     "description": ad.description,
-                    "risks": ad.risks
+                    "risks": ad.risks,
+                    "description_sources": ad.description_sources or []
                 })
             else:
                 ingredients_detail.append({"name": item, "isAdditive": False})

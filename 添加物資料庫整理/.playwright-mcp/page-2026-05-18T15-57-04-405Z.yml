@@ -1,0 +1,76 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e7]:
+      - link "World Health Organization" [ref=e9] [cursor=pointer]:
+        - /url: /food-additives-contaminants-jecfa-database/
+        - img "World Health Organization" [ref=e10]
+      - button [ref=e45] [cursor=pointer]
+  - generic [ref=e55]:
+    - generic [ref=e59]:
+      - paragraph [ref=e60]: This searchable database contains the summaries of all the evaluations of flavours, food additives, contaminants, toxicants and veterinary drugs JECFA has performed. Each summary contains basic chemical information, ADIs/TDIs, links to the most recent reports and monographs as well as to the specification database, and a history of JECFA evaluations. The database is searchable by partial name or CAS number, by first character (letter or symbol), or by functional class.
+      - paragraph [ref=e61]: Includes all updates up to the 101st JECFA meeting (October 2025).
+    - generic [ref=e63]:
+      - generic [ref=e66]:
+        - generic:
+          - generic [ref=e69]:
+            - textbox "Partial name or CAS number" [active] [ref=e70]: sorbic
+            - button "clear" [ref=e195] [cursor=pointer]: 
+          - textbox "FEMA or JECFA number" [ref=e74]:
+            - /placeholder: "FEMA or JECFA number "
+          - generic [ref=e79]:
+            - combobox "First Character" [ref=e80]
+            - text:  
+            - button "select" [ref=e81] [cursor=pointer]
+          - generic [ref=e86]:
+            - combobox "Functional Class" [ref=e87]
+            - button "select" [ref=e88] [cursor=pointer]
+      - generic [ref=e196]:
+        - text: List of chemicals
+        - generic [ref=e197]: with partial name or CAS# sorbic (11 results)
+        - text: ":"
+      - list [ref=e92]:
+        - generic [ref=e198]:
+          - listitem [ref=e199]:
+            - link "HYDROSORBIC ACID, ETHYL ESTER" [ref=e200] [cursor=pointer]:
+              - /url: Home/Chemical/1061
+          - listitem [ref=e201]:
+            - link "(E,E)-2,4-HEXADIENOIC ACID" [ref=e202] [cursor=pointer]:
+              - /url: Home/Chemical/1973
+          - listitem [ref=e203]:
+            - link "SORBIC ACID" [ref=e204] [cursor=pointer]:
+              - /url: Home/Chemical/2443
+          - listitem [ref=e205]:
+            - link "SORBIC ALDEHYDE" [ref=e206] [cursor=pointer]:
+              - /url: Home/Chemical/2953
+          - listitem [ref=e207]:
+            - link "HYDROSORBIC ACID" [ref=e208] [cursor=pointer]:
+              - /url: Home/Chemical/3621
+          - listitem [ref=e209]:
+            - link "ETHYL 3-HEXENOATE" [ref=e210] [cursor=pointer]:
+              - /url: Home/Chemical/3698
+          - listitem [ref=e211]:
+            - link "(E,E)-2,4-HEXADIEN-1-OL" [ref=e212] [cursor=pointer]:
+              - /url: Home/Chemical/3800
+          - listitem [ref=e213]:
+            - link "SORBOYL PALMITATE" [ref=e214] [cursor=pointer]:
+              - /url: Home/Chemical/3857
+          - listitem [ref=e215]:
+            - link "3-HEXENOIC ACID" [ref=e216] [cursor=pointer]:
+              - /url: Home/Chemical/3963
+          - listitem [ref=e217]:
+            - link "SORBIC ALCOHOL" [ref=e218] [cursor=pointer]:
+              - /url: Home/Chemical/4586
+          - listitem [ref=e219]:
+            - link "(E,E)-2,4-HEXADIENAL" [ref=e220] [cursor=pointer]:
+              - /url: Home/Chemical/4588
+  - contentinfo [ref=e93]:
+    - link "Home" [ref=e99] [cursor=pointer]:
+      - /url: /food-additives-contaminants-jecfa-database/
+      - img "Home" [ref=e100]
+    - generic [ref=e103]:
+      - link "Privacy Legal Notice" [ref=e107] [cursor=pointer]:
+        - /url: /food-additives-contaminants-jecfa-database/Home/About
+      - generic [ref=e109]:
+        - text: © 2021
+        - link "WHO" [ref=e112] [cursor=pointer]:
+          - /url: /about/policies/terms-of-use

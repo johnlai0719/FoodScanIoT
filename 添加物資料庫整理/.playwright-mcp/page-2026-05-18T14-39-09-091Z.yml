@@ -1,0 +1,441 @@
+- generic [ref=e3]:
+  - link "跳到主要內容區塊" [ref=e4] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=e5]:
+    - generic [ref=e6]:
+      - heading "衛生福利部國民健康署" [level=1] [ref=e7]:
+        - link "衛生福利部國民健康署" [ref=e8] [cursor=pointer]:
+          - /url: /Home/Index.aspx
+          - img "衛生福利部國民健康署" [ref=e9]
+      - navigation [ref=e10]:
+        - list [ref=e11]:
+          - listitem [ref=e12]:
+            - link ":::" [ref=e13] [cursor=pointer]:
+              - /url: "#top"
+          - listitem [ref=e14]:
+            - link "網站導覽" [ref=e15] [cursor=pointer]:
+              - /url: /SiteMap/SiteMap.aspx
+            - text: /
+          - listitem [ref=e16]:
+            - link "人才招募" [ref=e17] [cursor=pointer]:
+              - /url: /Job/List.aspx?nodeid=1704&preNodeID=79
+            - text: /
+          - listitem [ref=e18]:
+            - link "寫信給署長" [ref=e19] [cursor=pointer]:
+              - /url: /Pages/List.aspx?nodeid=17
+            - text: /
+          - listitem [ref=e20]:
+            - link "站內檢索" [ref=e21] [cursor=pointer]:
+              - /url: /Search/SqlSearch.aspx
+            - text: /
+          - listitem [ref=e22]:
+            - link "English" [ref=e23] [cursor=pointer]:
+              - /url: /EngPages/Index.aspx
+            - text: /
+          - listitem [ref=e24]:
+            - link "字級圖示 字級" [ref=e25] [cursor=pointer]:
+              - /url: javascript:void(0);
+              - img "字級圖示" [ref=e26]
+              - generic [ref=e27]: 字級
+          - listitem [ref=e28]:
+            - link "色系圖示 色系" [ref=e29] [cursor=pointer]:
+              - /url: javascript:void(0);
+              - img "色系圖示" [ref=e30]
+              - generic [ref=e31]: 色系
+          - listitem [ref=e32]:
+            - link "fb粉絲團 (另開視窗)" [ref=e33] [cursor=pointer]:
+              - /url: https://www.facebook.com/hpagov
+              - img "fb粉絲團 (另開視窗)" [ref=e34]
+          - listitem [ref=e35]:
+            - link "youtube (另開視窗)" [ref=e36] [cursor=pointer]:
+              - /url: https://www.youtube.com/user/hpagov
+              - img "youtube (另開視窗)" [ref=e37]
+          - listitem [ref=e38]:
+            - link "line (另開視窗)" [ref=e39] [cursor=pointer]:
+              - /url: /Pages/Detail.aspx?nodeid=92&pid=11208
+              - img "line (另開視窗)" [ref=e40]
+    - list [ref=e41]:
+      - listitem [ref=e42]:
+        - link "關於本署" [ref=e43] [cursor=pointer]:
+          - /url: javascript:void(0);
+      - listitem [ref=e44]:
+        - link "健康主題" [ref=e45] [cursor=pointer]:
+          - /url: javascript:void(0);
+      - listitem [ref=e46]:
+        - link "健康學習資源" [ref=e47] [cursor=pointer]:
+          - /url: javascript:void(0);
+      - listitem [ref=e48]:
+        - link "健康監測" [ref=e49] [cursor=pointer]:
+          - /url: javascript:void(0);
+      - listitem [ref=e50]:
+        - link "統計專區" [ref=e51] [cursor=pointer]:
+          - /url: javascript:void(0);
+      - listitem [ref=e52]:
+        - link "服務園地" [ref=e53] [cursor=pointer]:
+          - /url: javascript:void(0);
+      - listitem [ref=e54]:
+        - link "健康促進法規" [ref=e55] [cursor=pointer]:
+          - /url: javascript:void(0);
+    - generic [ref=e57]:
+      - generic [ref=e58]:
+        - generic [ref=e59]: 全站搜尋
+        - textbox "全站搜尋" [ref=e60]:
+          - /placeholder: 請輸入關鍵字
+        - button "搜尋" [ref=e61] [cursor=pointer]
+      - generic [ref=e62]:
+        - text: 熱門：
+        - link "十大死因" [ref=e63] [cursor=pointer]:
+          - /url: /Search/GoogleSearch.aspx?queryString=%e5%8d%81%e5%a4%a7%e6%ad%bb%e5%9b%a0
+        - link "糖尿病" [ref=e64] [cursor=pointer]:
+          - /url: /Search/GoogleSearch.aspx?queryString=%e7%b3%96%e5%b0%bf%e7%97%85
+        - link "代謝症候群" [ref=e65] [cursor=pointer]:
+          - /url: /Search/GoogleSearch.aspx?queryString=%e4%bb%a3%e8%ac%9d%e7%97%87%e5%80%99%e7%be%a4
+        - link "高血壓" [ref=e66] [cursor=pointer]:
+          - /url: /Search/GoogleSearch.aspx?queryString=%e9%ab%98%e8%a1%80%e5%a3%93
+  - generic [ref=e67]:
+    - generic [ref=e68]:
+      - generic [ref=e69]:
+        - link ":::" [ref=e70] [cursor=pointer]:
+          - /url: "#contentLeft"
+        - heading "疾病防治" [level=2] [ref=e71]:
+          - link "疾病防治" [ref=e72] [cursor=pointer]:
+            - /url: /Pages/List.aspx?nodeid=30
+      - list [ref=e74]:
+        - listitem [ref=e75]:
+          - link "罕見疾病" [ref=e76] [cursor=pointer]:
+            - /url: /Pages/List.aspx?nodeid=4916
+          - link "收闔" [ref=e77] [cursor=pointer]:
+            - /url: javascript:void(0);
+            - img [ref=e78]
+            - generic: 收闔
+        - listitem [ref=e82]:
+          - link "慢性病防治" [ref=e83] [cursor=pointer]:
+            - /url: /Pages/List.aspx?nodeid=46
+          - link "收闔" [ref=e84] [cursor=pointer]:
+            - /url: javascript:void(0);
+            - img [ref=e85]
+            - generic: 收闔
+    - generic [ref=e89]:
+      - generic [ref=e90]:
+        - generic [ref=e91]:
+          - link ":::" [ref=e92] [cursor=pointer]:
+            - /url: "#c"
+          - link "首頁" [ref=e93] [cursor=pointer]:
+            - /url: /
+            - img [ref=e94]
+            - text: 首頁
+          - text: ">"
+          - link "健康主題" [ref=e98] [cursor=pointer]:
+            - /url: javascript:void(0);
+          - text: ">"
+          - link "疾病防治" [ref=e99] [cursor=pointer]:
+            - /url: /Pages/List.aspx?nodeid=30
+          - text: ">"
+          - link "慢性病防治" [ref=e100] [cursor=pointer]:
+            - /url: /Pages/List.aspx?nodeid=46
+        - generic [ref=e101]:
+          - heading "慢性病防治" [level=3] [ref=e102]
+          - list [ref=e103]:
+            - listitem [ref=e104]:
+              - link "facebook" [ref=e105] [cursor=pointer]:
+                - /url: http://www.facebook.com/sharer.php?u=https%3a%2f%2fwww.hpa.gov.tw%2f%2fPages%2fList.aspx%3fnodeid%3d46
+            - listitem [ref=e106]:
+              - link "line" [ref=e107] [cursor=pointer]:
+                - /url: https://lineit.line.me/share/ui?url=https%3a%2f%2fwww.hpa.gov.tw%2f%2fPages%2fList.aspx%3fnodeid%3d46
+            - listitem [ref=e108]:
+              - link "twitter" [ref=e109] [cursor=pointer]:
+                - /url: https://twitter.com/share?url=https%3a%2f%2fwww.hpa.gov.tw%2f%2fPages%2fList.aspx%3fnodeid%3d46
+            - listitem [ref=e110]:
+              - link "plurk" [ref=e111] [cursor=pointer]:
+                - /url: http://www.plurk.com/?qualifier=shares&status=https%3a%2f%2fwww.hpa.gov.tw%2f%2fPages%2fList.aspx%3fnodeid%3d46
+            - listitem [ref=e112]:
+              - link "轉寄" [ref=e113] [cursor=pointer]:
+                - /url: mailto:?subject=國民健康署文章分享&body=你的好朋友推薦這篇文章給你，請到此處看看 https%3a%2f%2fwww.hpa.gov.tw%2f%2fPages%2fList.aspx%3fnodeid%3d46 !!%0D%0A%0D%0A本篇文章來自國民健康署
+            - listitem [ref=e114]:
+              - link "列印" [ref=e115] [cursor=pointer]:
+                - /url: javascript:void(0);
+            - listitem [ref=e116]:
+              - link "縮短網址" [ref=e117] [cursor=pointer]:
+                - /url: javascript:GetShortUrl();
+        - generic [ref=e118]:
+          - img "慢性病防治" [ref=e120]
+          - generic [ref=e121]: 鑑於高血壓、糖尿病、高血脂、吸菸及體重過重為心臟疾病之主要危險因子，國民健康署積極呼籲民眾從小養成健康生活型態，平時注意均衡飲食、少油少鹽多纖維、戒菸、少酒、多運動，並定期接受健康檢查，以減少心臟疾病之發生。
+        - paragraph [ref=e122]:
+          - img [ref=e123]
+          - generic [ref=e142]: 發布單位：
+          - text: 發布單位：慢性疾病防治組
+        - list [ref=e143]:
+          - listitem [ref=e144]:
+            - img [ref=e145]
+            - generic [ref=e152]: 點閱次數：
+            - text: 點閱次數：428708
+          - listitem
+          - listitem
+      - generic [ref=e153]:
+        - heading "相關子主題" [level=4] [ref=e154]
+        - generic [ref=e155]:
+          - generic [ref=e156]:
+            - link "腦血管疾病" [ref=e157] [cursor=pointer]:
+              - /url: /Pages/List.aspx?nodeid=213
+            - link "展開" [ref=e159] [cursor=pointer]:
+              - /url: "javascript: void(0)"
+              - generic [ref=e160]:
+                - img [ref=e161]
+                - generic [ref=e166]: 展開
+          - link "慢性呼吸道疾病(氣喘、慢性阻塞肺疾病)" [ref=e168] [cursor=pointer]:
+            - /url: /Pages/List.aspx?nodeid=215
+          - link "骨質疏鬆" [ref=e170] [cursor=pointer]:
+            - /url: /Pages/List.aspx?nodeid=216
+          - generic [ref=e171]:
+            - link "腎臟病" [ref=e172] [cursor=pointer]:
+              - /url: /Pages/List.aspx?nodeid=217
+            - link "展開" [ref=e174] [cursor=pointer]:
+              - /url: "javascript: void(0)"
+              - generic [ref=e175]:
+                - img [ref=e176]
+                - generic [ref=e181]: 展開
+          - link "更年期保健" [ref=e183] [cursor=pointer]:
+            - /url: /Pages/List.aspx?nodeid=218
+          - link "成人預防保健社區巡迴服務" [ref=e185] [cursor=pointer]:
+            - /url: /Pages/List.aspx?nodeid=220
+          - link "代謝症候群" [ref=e187] [cursor=pointer]:
+            - /url: /Pages/List.aspx?nodeid=221
+          - generic [ref=e188]:
+            - link "寒流來襲 心血管患者及長者 加強警覺" [ref=e189] [cursor=pointer]:
+              - /url: /Pages/List.aspx?nodeid=222
+            - link "展開" [ref=e191] [cursor=pointer]:
+              - /url: "javascript: void(0)"
+              - generic [ref=e192]:
+                - img [ref=e193]
+                - generic [ref=e198]: 展開
+          - link "三高防治專區(高血壓、高血脂、糖尿病)" [ref=e200] [cursor=pointer]:
+            - /url: /Pages/List.aspx?nodeid=223
+      - list [ref=e201]:
+        - listitem [ref=e202]:
+          - link "回上頁" [ref=e203] [cursor=pointer]:
+            - /url: javascript:history.back()
+            - img [ref=e204]
+            - text: 回上頁
+        - listitem [ref=e208]:
+          - link "回首頁" [ref=e209] [cursor=pointer]:
+            - /url: ../Home/index.aspx
+            - img [ref=e210]
+            - text: 回首頁
+  - contentinfo [ref=e214]:
+    - link ":::" [ref=e215] [cursor=pointer]:
+      - /url: "#bottom"
+    - generic [ref=e217]:
+      - link "收合" [ref=e219] [cursor=pointer]:
+        - /url: "#"
+        - generic [ref=e220]:
+          - img [ref=e221]
+          - text: 收合
+      - generic [ref=e225]:
+        - generic [ref=e226]:
+          - link "關於本署" [ref=e227] [cursor=pointer]:
+            - /url: javascript:void(0);
+          - list [ref=e228]:
+            - listitem [ref=e229]:
+              - link "關於署長" [ref=e230] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=9
+            - listitem [ref=e231]:
+              - link "本署簡介" [ref=e232] [cursor=pointer]:
+                - /url: https://www.hpa.gov.tw/Pages/Detail.aspx?nodeid=10&pid=18
+            - listitem [ref=e233]:
+              - link "組織架構與業務簡介" [ref=e234] [cursor=pointer]:
+                - /url: https://www.hpa.gov.tw/Pages/Detail.aspx?nodeid=11&pid=20
+            - listitem [ref=e235]:
+              - link "大事紀要" [ref=e236] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=12
+            - listitem [ref=e237]:
+              - link "重大政策" [ref=e238] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=13
+            - listitem [ref=e239]:
+              - link "各業務服務窗口" [ref=e240] [cursor=pointer]:
+                - /url: https://www.hpa.gov.tw/Pages/Detail.aspx?nodeid=16&pid=19
+            - listitem [ref=e241]:
+              - link "寫信給署長" [ref=e242] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=17
+            - listitem [ref=e243]:
+              - link "本署位置" [ref=e244] [cursor=pointer]:
+                - /url: https://www.hpa.gov.tw/Pages/Detail.aspx?nodeid=18&pid=21
+            - listitem [ref=e245]:
+              - link "科技發展成果" [ref=e246] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=14
+            - listitem [ref=e247]:
+              - link "新政策專區" [ref=e248] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=4047
+        - generic [ref=e249]:
+          - link "健康主題" [ref=e250] [cursor=pointer]:
+            - /url: javascript:void(0);
+          - list [ref=e251]:
+            - listitem [ref=e252]:
+              - link "全人健康" [ref=e253] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=27
+            - listitem [ref=e254]:
+              - link "健康生活" [ref=e255] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=28
+            - listitem [ref=e256]:
+              - link "預防保健" [ref=e257] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=29
+            - listitem [ref=e258]:
+              - link "疾病防治" [ref=e259] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=30
+            - listitem [ref=e260]:
+              - link "國際合作" [ref=e261] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=4211
+        - generic [ref=e262]:
+          - link "健康學習資源" [ref=e263] [cursor=pointer]:
+            - /url: javascript:void(0);
+          - list [ref=e264]:
+            - listitem [ref=e265]:
+              - link "文宣手冊" [ref=e266] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=49
+            - listitem [ref=e267]:
+              - link "影音專區" [ref=e268] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=50
+            - listitem [ref=e269]:
+              - link "本署出版品" [ref=e270] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=51
+        - generic [ref=e271]:
+          - link "健康監測" [ref=e272] [cursor=pointer]:
+            - /url: javascript:void(0);
+          - list [ref=e273]:
+            - listitem [ref=e274]:
+              - link "進行中的統計調查" [ref=e275] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=63
+            - listitem [ref=e276]:
+              - link "監測調查" [ref=e277] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=64
+        - generic [ref=e278]:
+          - link "統計專區" [ref=e279] [cursor=pointer]:
+            - /url: javascript:void(0);
+          - list [ref=e280]:
+            - listitem [ref=e281]:
+              - link "簡介" [ref=e282] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=4601
+            - listitem [ref=e283]:
+              - link "性別統計" [ref=e284] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=66
+            - listitem [ref=e285]:
+              - link "調查報告" [ref=e286] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=4567
+            - listitem [ref=e287]:
+              - link "統計結果報告" [ref=e288] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=65
+            - listitem [ref=e289]:
+              - link "各類報表" [ref=e290] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=4568
+        - generic [ref=e291]:
+          - link "服務園地" [ref=e292] [cursor=pointer]:
+            - /url: javascript:void(0);
+          - list [ref=e293]:
+            - listitem [ref=e294]:
+              - link "檔案應用專區" [ref=e295] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=1382
+            - listitem [ref=e296]:
+              - link "好康報你知" [ref=e297] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=68
+            - listitem [ref=e298]:
+              - link "本署新聞" [ref=e299] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=69
+            - listitem [ref=e300]:
+              - link "真相與闢謠" [ref=e301] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=70
+            - listitem [ref=e302]:
+              - link "活動訊息" [ref=e303] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=71
+            - listitem [ref=e304]:
+              - link "公開資源" [ref=e305] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=75
+            - listitem [ref=e306]:
+              - link "政府相關資源" [ref=e307] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=76
+            - listitem [ref=e308]:
+              - link "資源下載" [ref=e309] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=77
+            - listitem [ref=e310]:
+              - link "宣傳訊息" [ref=e311] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=78
+            - listitem [ref=e312]:
+              - link "常見問答" [ref=e313] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=80
+          - list [ref=e314]:
+            - listitem [ref=e315]:
+              - link "人才招募" [ref=e316] [cursor=pointer]:
+                - /url: //www.hpa.gov.tw/Job/List.aspx?nodeid=1704&preNodeID=79
+            - listitem [ref=e317]:
+              - link "廉政園地" [ref=e318] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=81
+            - listitem [ref=e319]:
+              - link "性別平等專區" [ref=e320] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=73
+            - listitem [ref=e321]:
+              - link "衛生局服務區" [ref=e322] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=95
+            - listitem [ref=e323]:
+              - link "員工協助方案專區" [ref=e324] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=4863
+            - listitem [ref=e325]:
+              - link "退休人員服務專區" [ref=e326] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=84
+            - listitem [ref=e327]:
+              - link "知識平台" [ref=e328] [cursor=pointer]:
+                - /url: https://KM.hpa.gov.tw/Login.aspx
+            - listitem [ref=e329]:
+              - link "服務專線" [ref=e330] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=94
+        - generic [ref=e331]:
+          - link "健康促進法規" [ref=e332] [cursor=pointer]:
+            - /url: javascript:void(0);
+          - list [ref=e333]:
+            - listitem [ref=e334]:
+              - link "健康促進法規" [ref=e335] [cursor=pointer]:
+                - /url: /Pages/List.aspx?nodeid=96
+    - generic [ref=e336]:
+      - list [ref=e337]:
+        - listitem [ref=e338]:
+          - link "網站導覽" [ref=e339] [cursor=pointer]:
+            - /url: /SiteMap/SiteMap.aspx
+        - listitem [ref=e340]:
+          - link "雙語詞彙" [ref=e341] [cursor=pointer]:
+            - /url: /Pages/Bilingual.aspx?Nodeid=4411
+        - listitem [ref=e342]:
+          - link "人才招募" [ref=e343] [cursor=pointer]:
+            - /url: /Job/List.aspx?nodeid=1704&preNodeID=79
+        - listitem [ref=e344]:
+          - link "隱私權宣告" [ref=e345] [cursor=pointer]:
+            - /url: /Pages/Detail.aspx?nodeid=92&pid=5140
+        - listitem [ref=e346]:
+          - link "資訊安全政策" [ref=e347] [cursor=pointer]:
+            - /url: /Pages/Detail.aspx?nodeid=92&pid=5139
+        - listitem [ref=e348]:
+          - link "政府網站資料開放宣告" [ref=e349] [cursor=pointer]:
+            - /url: /Pages/Detail.aspx?nodeid=92&pid=5141
+      - generic [ref=e350]:
+        - link "寫信給署長" [ref=e351] [cursor=pointer]:
+          - /url: /Pages/List.aspx?nodeid=17
+        - generic [ref=e352]:
+          - generic [ref=e353]:
+            - paragraph [ref=e354]: 臺北辦公室
+            - paragraph [ref=e355]: 02-2522-0888
+            - link "(103205)臺北市大同區塔城街36號" [ref=e356] [cursor=pointer]:
+              - /url: https://goo.gl/maps/37BmGASreEL2
+          - generic [ref=e357]:
+            - paragraph [ref=e358]: 臺中辦公室
+            - paragraph [ref=e359]: 04-2217-2200
+            - link "(403305)臺中市西區民權路95號6樓" [ref=e360] [cursor=pointer]:
+              - /url: https://goo.gl/maps/xpQatcTnn6o
+        - generic [ref=e361]:
+          - link "通過AA檢測等級無障礙網頁檢測" [ref=e362] [cursor=pointer]:
+            - /url: https://accessibility.moda.gov.tw/Applications/Detail?category=20241115143227
+            - img "通過AA檢測等級無障礙網頁檢測" [ref=e363]
+          - link "我的E政府" [ref=e364] [cursor=pointer]:
+            - /url: http://www.gov.tw/
+            - img "我的E政府" [ref=e365]
+          - generic [ref=e366]:
+            - img "衛生福利部國民健康署網址QR Code" [ref=e367]
+            - text: QRcode
+    - generic [ref=e369]:
+      - paragraph [ref=e370]: 國民健康署 © 版權所有 請勿任意轉載作商業用途
+      - paragraph [ref=e371]: "更新日期 : 2026/05/18"

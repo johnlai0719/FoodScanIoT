@@ -1,9 +1,10 @@
 fastapi
 uvicorn
-mysql-connector-python
+psycopg2-binary
 requests
-google-generativeai
+google-genai
 sqlalchemy
-pymysql
 Pillow
 python-dotenv
+numpy
+tavily-python

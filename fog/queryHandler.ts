@@ -34,7 +34,10 @@ export async function handleQuery(reqData: FogQueryRequest): Promise<{ status: n
         const personalizedResult = await response.json();
         return {
           status: 200,
-          data: personalizedResult,
+          data: {
+            ...personalizedResult,
+            cached: true
+          },
           cacheHeader: 'HIT'
         };
       } else {
@@ -45,7 +48,10 @@ export async function handleQuery(reqData: FogQueryRequest): Promise<{ status: n
       console.warn(`[WARN] Python re-calc error: ${e.message}`);
       return {
         status: 200,
-        data: cachedData,
+        data: {
+          ...cachedData,
+          cached: true
+        },
         cacheHeader: 'HIT-RAW'
       };
     }
@@ -70,16 +76,20 @@ export async function handleQuery(reqData: FogQueryRequest): Promise<{ status: n
       const cloudResult = await response.json();
       
       // 🛠️ 修正：只有當結果狀態為成功時，才寫入快取
-      if (cloudResult.status === 'success') {
+      const isDegraded = cloudResult.overall_summary === '診斷引擎暫時降級運作。';
+      if (cloudResult.status === 'success' && !isDegraded) {
         console.log(`[OK] ${barcode} cached`);
         setCache(barcode, cloudResult);
       } else {
-        console.log(`[INFO] ${barcode} skipped (status: ${cloudResult.status})`);
+        console.log(`[INFO] ${barcode} skipped cache (status: ${cloudResult.status}, degraded: ${isDegraded})`);
       }
       
       return {
         status: 200,
-        data: cloudResult,
+        data: {
+          ...cloudResult,
+          cached: false
+        },
         cacheHeader: 'MISS'
       };
     } else {
@@ -99,6 +109,7 @@ export async function handleQuery(reqData: FogQueryRequest): Promise<{ status: n
         status: 200,
         data: {
           ...staleData,
+          cached: true,
           _warning: "⚠️ 目前無法取得最新資料，為您顯示舊有快取"
         },
         cacheHeader: 'DEGRADED'
@@ -111,6 +122,7 @@ export async function handleQuery(reqData: FogQueryRequest): Promise<{ status: n
       data: {
         status: "degraded",
         message: "目前無法取得最新資料且無快取，請稍後再試",
+        cached: false,
         cached_at: null
       },
       cacheHeader: 'DEGRADED'

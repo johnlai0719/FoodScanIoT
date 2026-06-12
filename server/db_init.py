@@ -6,7 +6,7 @@ from database import SessionLocal, engine
 import models
 
 def init_db():
-    # 增加重試機制，等待 MySQL 啟動
+    # 增加重試機制，等待 PostgreSQL 啟動
     max_retries = 5
     for i in range(max_retries):
         try:
@@ -41,7 +41,7 @@ def init_db():
             for item in data:
                 # 建立模型實例
                 additive = models.Additive(
-                    name=item.get("name"),
+                    name_zh=item.get("name"),
                     aliases=item.get("aliases"),
                     category=item.get("category"),
                     description=item.get("description"),

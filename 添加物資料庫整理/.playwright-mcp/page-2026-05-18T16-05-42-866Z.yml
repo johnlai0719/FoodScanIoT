@@ -1,0 +1,119 @@
+- generic [active] [ref=e1]:
+  - link "IPCS INCHEM Home" [ref=e2] [cursor=pointer]:
+    - /url: http://www.inchem.org
+    - img "IPCS INCHEM Home" [ref=e3]
+  - generic [ref=e4]:
+    - strong [ref=e5]: WHO/Food Add./24.65
+    - strong [ref=e6]: FAO Nutrition Meetings
+    - strong [ref=e7]: Report Series No. 38A
+    - text: SPECIFICATIONS FOR IDENTITY AND PURITY AND TOXICOLOGICAL EVALUATION OF SOME ANTIMICROBIALS AND ANTIOXIDANTS The content of this document is the result of the deliberations of the Joint FAO/WHO Expert Committee on Food Additives which met 8-17 December 1964
+    - superscript [ref=e8]: a
+    - superscript [ref=e9]: a
+    - text: Eighth Report of the Joint FAO/WHO Expert Committee on Food Additives, Wld Hlth Org. techn. Rep. Ser., 1965, 309; FAO Nutrition Meetings Report Series 1965, 38.
+    - text: BUTYLATED HYDROXYTOLUENE CHEMICAL NAMES 2:6-di-tert.-butyl-p-cresol; 4-methyl-2:6-ditertiary-butylphenol SYNONYM BHT EMPIRICAL FORMULA C
+    - subscript [ref=e10]: "15"
+    - text: H
+    - subscript [ref=e11]: "24"
+    - text: O STRUCTURAL FORMULA
+    - img "MOLECULAR STRUCTURE 1" [ref=e12]
+    - text: MOLECULAR WEIGHT 220.36 DEFINITION Butylated hydroxytoluene should contain not less than 99.0% of C
+    - subscript [ref=e13]: "15"
+    - text: H
+    - subscript [ref=e14]: "24"
+    - text: O. DESCRIPTION A white, crystalline, odourless solid. It is insoluble in water but soluble in fats; 1 g is soluble in 4 ml of ethanol. USE As an antioxidant for fats and oils or in packaging material for fat-containing foods. Its activity is enhanced in combination with other antioxidants and synergists.
+    - text: Biological Data
+    - text: Biochemical aspects BHT is readily absorbed. Some deposition in adipose tissue bee been described following high dosage in the rat, and this may cause increased stability of the extracted perineal fat.
+    - superscript [ref=e15]: "1"
+    - text: The metabolism of BHT is complicated by the presence of the butyl groups on each side of the hydroxyl. Preliminary modification is necessary before conjugation can occur. This takes the form of either oxidation of one of the butyl groups to a 2-hydroxy-2:2-dimethyl-2-ethyl group, or oxidation of the methyl group to a carboxy acid. The former yields glucuronide conjugates, while the latter becomes conjugated with glucuronic acid or glycine. Some of the oxidized material is also excreted unconjugated.
+    - superscript [ref=e16]: 2,3
+    - text: Rabbits were given single or repeated doses of BHT in the range 400-800 mg per kg body-weight. About 16% of the dose was excreted as ester glucuronide and 19% as ether glucuronide. Unconjugated phenol (8%), ethereal sulfate (8%) and a glycine conjugate (2%) were also excreted. Excretion of all detectable metabolites was essentially complete 3 to 4 days after administration of the compound and about 54% of the dose was accounted for as identified metabolites.
+    - superscript [ref=e17]: "4"
+    - text: Rats were given doses of 100 µg of BHT labelled with
+    - superscript [ref=e18]: "3"
+    - text: H intraperitoneally and the urinary output of radioactivity was measured for 4 consecutive days. Four days after the injection 34.5% of the injected radioactivity was recovered in urine.
+    - superscript [ref=e19]: "5"
+    - text: The same dose of BHT (100 µg) labelled with
+    - superscript [ref=e20]: "14"
+    - text: C was given to rats and 34% of the radioactivity was excreted in the urine in the first 4 days, in close agreement with the previous result using tritiated BHT.
+    - superscript [ref=e21]: "6"
+    - text: The liver and body fat of rats fed a diet containing 0.5% BHT for 35 days were analyzed. The concentration of BHT in the liver never rose above 5 ppm in males or 1.5 ppm in females. In the body fat the level fluctuated round 30 ppm in males and 45 ppm in females. Fat from rats returned to normal diet showed a progressive fall in the concentration of BHT, the half-life being about 7 to 10 days. The daily excretion of radioactivity in urine and faeces was studied in rats given an oral done of
+    - superscript [ref=e22]: "14"
+    - text: C-labelled BHT (12 mg/kg body-weight). Excretion became negligible by the sixth day after administration when about 70% of the injected dose had been recovered. Less than 1% was excreted as carbon dioxide in the expired air. About 50% of the radioactivity was excreted in the bile during the 24-hour period following the oral dose.
+    - superscript [ref=e23]: "7"
+    - text: Acute toxicity Animal Route LD
+    - subscript [ref=e24]: "50"
+    - text: Approximate lethal dose Reference (mg/kg (mg/kg body-weight) body-weight) Rat oral 1700-1970 - 8 Cat oral - 940-2100 8 Rabbit oral - 2100-3200 8 Guinea-pig oral - 10 700 8
+    - text: Short-term studies Mouse. BHT was given to pregnant mice in daily doses of 750 mg per kg body-weight for 18 days. Another group received the same dose for a total of 50 to 64 days including 18 days of pregnancy. No foetal abnormalities were observed.
+    - superscript [ref=e25]: "9"
+    - text: In a statistically planned experiment using 144 female mice no blindness was observed in any of the 1162 litters representing 7765 babies born throughout the reproductive life span of the mothers.
+    - superscript [ref=e26]: "10"
+    - text: Rat. Feeding experiments were carried out on 45 pairs of weanling male rats for 5 to 8 weeks with diets containing 0, 10 and 20% lard supplements to which 0.001%, 0.1% or 0.5% BHT had been added. 0.001% caused no changes in any of the serum constituents studied. 0.5% produced increase in the serum cholesterol level within 5 weeks. Female rate fed for 8 months on a diet containing a 10% lard supplement with 0.1% BHT showed increased serum cholesterol levels, but no other significant changes. 0.5% BHT in 10% and 20% lard supplements fed to female rats for the same period increased serum cholesterol, phospholipid and mucoprotein levels.
+    - superscript [ref=e27]: "11"
+    - text: 0.3% BHT in the diet of pregnant rats that had been kept for 5 weeks on a diet deficient in vitamin E produced no toxic symptoms. 1.55% caused drastic loss of weight and foetal death.
+    - superscript [ref=e28]: "12"
+    - text: BHT fed to rats in groups of 12 for a period of 7 weeks at a dietary level of 0.1% in conjunction with a 20% lard supplement significantly reduced the initial growth rate and mature weight of male rats. No effect was noted in female or male rats with a 10% lard supplement. A paired feeding experiment showed that this inhibition of growth was a direct toxic effect of BHT and could not be explained by a reduction in the palatability of the diet. At this level BHT produced a significant increase in the weight of the liver, both absolute and relative to body-weight. Rats under increased stress showed significant loss of hair from the top of the head. The toxic effect of BHT was greater if the fat load in the diet was increased. Anophthalmia occurred in 10% of the litter's.
+    - superscript [ref=e29]: "13"
+    - text: Groups of 6 weanling rats (3 male and 3 female) were fed BHT at dietary levels of 0%, 0.1%. 0.2%, 0.3%, 0.4% and 0.5% in conjunction with a 20% lard supplement for 6 weeks. BHT reduced the growth rate, especially in the males, the effect appearing to become significant at the 0.3% level. It also increased the absolute liver weight and the ratio of liver weight to body-weight in both sexes, the latter effect appearing to become significant at the 0.2% level. BHT increased the ratio of left adrenal weight to body-weight in male rats but had no consistent effect in females. There were no histological changes attributable to the treatment in the adrenal. All dietary levels of BHT increased the serum cholesterol and the concentration of the cholesterol was directly proportional to the BHT level. There was also a significant increase in the concentration of adrenal cholesterol. BHT produced no significant changes in the concentration of total or per cent. esterified liver cholesterol, total liver lipid or concentration of total polyunsaturated fatty acids in the liver.
+    - superscript [ref=e30]: "14"
+    - text: BHT administered to rats at 250 mg per kg body-weight for 68 to 82 days caused reduction in rate of increase in weight and fatty infiltration of the liver.
+    - superscript [ref=e31]: "15"
+    - text: Feeding experiments conducted for 20 and 90 days respectively indicated that rats do not find food containing 0.5% or 1% BHT palatable. However, the animals ingest foods so treated more readily if these concentrations are attained gradually. Paired feeding experiments with groups of 5 or 10 rats for 25 days demonstrated that diets containing 0.8% and 1% BHT will reduce the daily intake of food below control values. A level of 1% in the diet retarded weight gain.
+    - superscript [ref=e32]: "8"
+    - text: (Work in progress) Rats were given single doses of 100 mg BHT per kg body-weight daily for 7 weeks before mating and then throughout pregnancy or were autopsied on the 20th day of pregnancy. No evidence of foetal abnormality were found in any of these animals but abnormalities did occur in the progeny of positive control groups treated with vitamin A.
+    - superscript [ref=e33]: "9"
+    - text: (Work in progress) A three-generation reproduction study was started by another group in May 1964. They also fed groups of 16 male and 16 female rats on levels of 0.03%, 0.1% and 0.3% BHT in a diet containing 20% fat for 10 weeks. There were two control groups each containing 16 male and 16 female animals. No definite effect on body-weight was observed at any level in the females and there was only a slight depression in the males at the 0.3% level. There was no significant effect on blood cholesterol level in either sex after feeding BHT at any of the levels for 10 weeks. Four of the males at the 0.3% and two at the 0.1% level died during the experiment. Two deaths occurred among the females at O.3%. Only one male rat died in both control groups.
+    - superscript [ref=e34]: "16"
+    - text: (Work In progress) Groups of 20 male and 20 female rats fed 1% BHT in the diet for 10 weeks showed recovery both in liver to body-weight ratios and in morphological appearance of the liver cells within a few weeks after restoring the animals to a normal diet.
+    - superscript [ref=e35]: "17"
+    - text: Rabbit. Acute effects on electrolyte excretion similar to those described for large doses of BHA were also obtained following administration of doses of BHT of 500-700 mg/kg body-weight (about 2% in the diet). No such effects were observed at lower dosage levels.
+    - superscript [ref=e36]: "18"
+    - text: Dog. A mild to moderately severe degree of diarrhoea was induced in a group of 4 dogs fed doses of 1.4-4.7 g/kg body-weight every 2-4 days over a period of 4 weeks. Post-mortem examination revealed no significant gross pathological changes. No signs of intoxication and no gross or histopathological changes were observed in dogs fed doses of 0.17-0.94 g/kg body-weight 5 days a week for a period of 12 months.
+    - superscript [ref=e37]: "8"
+    - text: Fowl. When BHT was fed at a level of 0.125% for 34 weeks to a group of 10 pullets, no differences in fertility, hatchability of eggs or health of chicks in comparison with a similar control group were found. The eggs of the antioxidant-treated birds contained more carotenoids and vitamin A than those of the controls.
+    - superscript [ref=e38]: "19"
+    - text: Long-term studies Rat. Groups of 15 male and 15 female rats given diets containing 1% lard and 0.2%, 0.5% or 0.8% BHT for 24 months showed no specific signs of intoxication, and micropathological studies were negative. For one group given a diet containing .5% BHT, the BHT was dissolved in lard and then heated for 30 minutes at 150°C before incorporation in the diet. There were no effects on weight gain or blood constituents and micropathological studies of the main organs were negative. The feeding of 1% BHT was followed in both male and female rats by a sub-normal weight gain and by an increase in the weight of the brain and liver and some other organs in relation to body-weight. Micropathological studies were negative in this group also. BHT in these concentrations had no specific effect on the number of erythrocytes and leucocytes, or on the concentration of haemoglobin in the peripheral blood. A number of rats of both sexes died during this experiment, but as the fatalities were in no relation to the concentration of BHT fed, it was believed that the cause of death was unrelated to the feeding of this substance. Micropathological studies support this observation.
+    - superscript [ref=e39]: "8"
+    - text: When fed at the 0.5% level in the diet, BHT had no effect in rats on the reproductive cycle, the histology of the spleen, kidney, liver and skin, or on the weight of the heart, spleen or kidney. There was no significant increase in mortality of rats fed on a diet containing 0.1% BHT and 10% hydrogenated coconut oil for a period of 2 years. The effects on weight gain have already been described.
+    - superscript [ref=e40]: "13"
+    - text: Comment on experimental studies reported Experimental studies have been carried out in several species. There were, however, some important discrepancies between the results obtained by earlier and by some more recent observers. Short-term and long-term studies in rats and metabolic studies will be discussed under evaluation.
+    - text: Evaluation
+    - text: Level causing no significant toxicological effect in the rat One extensive series of studies
+    - superscript [ref=e41]: "8"
+    - text: indicates that the level of BHT that would cause no significant deleterious effect in the rat would be 0.8% in a diet containing 1% lard. However, in two short-term studies
+    - superscript [ref=e42]: 11,13
+    - text: it has been reported that 0.1% BHT in a 20% lard diet resulted in increase of various lipid components of the blood and a significant reduction in weight gain. More recently a similar trend of results was obtained but the effects only became definite at the 0.3% level.
+    - superscript [ref=e43]: "14"
+    - text: In another study 0.1% BHT in a 20% fat diet was found to have no effect on the growth rate of weanling rats of either sex and there was no effect on the blood cholesterol concentration at the 0.1% or the 0.3% levels.
+    - superscript [ref=e44]: "16"
+    - text: In long-term studies with rats receiving 0.5% BHT in a diet containing 10% lard no significant difference from the controls was observed.
+    - superscript [ref=e45]: "13"
+    - text: The addition of 10% or 20% of lard to the diet was found to enhance the deleterious action of BHT in some studies. With a 20% lard supplement, fat provides about 33% of the calorie intake and human diets frequently contain this level of fat. The effect of such levels of dietary fat on BHT toxicity is therefore relevant to its use as a food additive. Several investigators have shown that BHT will cause an increase in liver weight relative to body-weight. However, even in rats fed at 1% BHT in the diet for 10 weeks, there was recovery in the liver to body-weight ratio and morphological appearance of the liver cells within a few weeks of restoration of the animals to a normal diet.
+    - superscript [ref=e46]: "17"
+    - text: The chemical structure of BHT suggests the possibility of some delay in metabolism. The results of studies on the excretion of labelled BHT
+    - superscript [ref=e47]: 5,6,7
+    - text: are difficult to compare because of the different dose levels and routes of administration used and therefore the importance of possible delayed metabolism is difficult to assess. A possible teratogenic action of BHT was suggested by the occurrence of anophthalmia in some litters of mothers fed the compound.
+    - superscript [ref=e48]: "13"
+    - text: Extensive reproduction studies now completed or in progress make this unlikely.
+    - superscript [ref=e49]: 9,10,16
+    - text: For the 0.1% level to be accepted as that causing no significant toxicological effect in the rat it would be necessary to disregard both the effect on weight gain and also the effect on blood lipids reported by some investigators. It would be inadvisable to dismiss these observations pending the evaluation of results of work now in progress. The next lower dose studied was 0.01% (= 100 ppm) in the diet in a group of 26 rats, which is equivalent to 5 mg/kg body-weight per day.
+    - text: Estimate of acceptable daily intake for man mg/kg body-weight Conditional acceptance 0-0.5
+    - text: Further Work Considered Desirable 1. Further long-term studies, with particular reference to the effect of BHT on lipid metabolism and the relationship between the dietary fat load and toxicity. 2. Metabolic studies in human subjects.
+    - text: References 1. Johnson, A. R., O'Halloran, M. W. & Hewgill, F. R. (1956) J. Amer. Oil Chem. Soc., 35, 496 2. Dacre, J. C., Denz, F. A. & Kennedy. T. H. (1956) Biochem. J., 64, 777 3. Dacre, J. C. (1960) J. N.Z. Inst. Chem. , 24, 161 4. Dacre, J. C. (1961) Biochem. J., 78, 758 5. Golder, W. S., Ryan, A. J. & Wright, S. E. (1962) J. Pharm. Pharmacol., 14, 268 6. Ladomery. L. F., Ryan, A. J. & Wright, S. E. (1963) J. Pharm. Pharmacol., 15, 771 7. Gage. J. C. (1964) Unpublished report, Imperial Chemical Industries Limited 8. Deichmann, W. B., Clemmer, J. J., Rakoczy, R. & Bianchine, J. (1955) A.M.A. Arch. industr. Hlth, 11, 93 9. British Industrial Biological Research Association (Unpublished report submitted to WHO in 1964) 10. Johnson, A. R. (Unpublished report submitted to WHO in 1964) 11. Day, A. J., Johnson, A. R., O'Halloran, M. W. & Schwartz, C. J. (1959) Aust. J. exp. Biol. med. Sci., 37, 295 12. Ames, S.R., Ludwig, H. I., Swanson, W. J. & Harris, P. L. (1956) Proc. Soc. exp. Biol. (N.Y.), 93, 39 13. Brown, W. D., Johnson, A. R. & O'Halloran, M. W. (1959) Aust. J. exp. Biol. med. Sci., 37, 533 14. Johnson, A. R. & Hewgill, F. R. (1961) Aust. J. exp. Biol. med. Sci., 39, 353 15. Karpliuk, I. A. (1959) Vop. Pitan., 18, 24 16. Industrial Bio-Test Laboratories (1964) Progress report to Hercules Powder Company 17. Imperial Chemical Industries Limited (1964) Unpublished report No. IHR/158 18. Denz, F. A. & Llaurado, J. G. (1957) Brit. J. exp. Path., 38, 515 19. Shellenberger. T. E., Parrish, D. B. & Sanford, P. E. (1957) Poultry Sci., 36, 1313
+  - generic [ref=e50]:
+    - text: "See Also:"
+    - link "Toxicological Abbreviations" [ref=e51] [cursor=pointer]:
+      - /url: ../../eintro/eintro/abreviat.htm
+    - link "Butylated hydroxytoluene (ICSC)" [ref=e52] [cursor=pointer]:
+      - /url: ../../icsc/icsc/eics0841.htm
+    - link "Butylated hydroxytoluene (FAO Nutrition Meetings Report Series 40abc)" [ref=e53] [cursor=pointer]:
+      - /url: ../../jecfa/jecmono/40abcj07.htm
+    - link "Butylated hydroxytoluene (WHO Food Additives Series 5)" [ref=e54] [cursor=pointer]:
+      - /url: ../../jecfa/jecmono/v05je23.htm
+    - link "Butylated hydroxytoluene (WHO Food Additives Series 10)" [ref=e55] [cursor=pointer]:
+      - /url: ../../jecfa/jecmono/v10je03.htm
+    - link "Butylated hydroxytoluene (WHO Food Additives Series 21)" [ref=e56] [cursor=pointer]:
+      - /url: ../../jecfa/jecmono/v21je03.htm
+    - link "Butylated hydroxytoluene (WHO Food Additives Series 35)" [ref=e57] [cursor=pointer]:
+      - /url: ../../jecfa/jecmono/v35je02.htm
+    - link "BUTYLATED HYDROXYTOLUENE (JECFA Evaluation)" [ref=e58] [cursor=pointer]:
+      - /url: ../../jecfa/jeceval/jec_259.htm

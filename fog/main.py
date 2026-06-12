@@ -4,8 +4,6 @@ import sqlite3
 import json
 import time
 import requests
-import hmac
-import hashlib
 import copy
 from contextlib import asynccontextmanager
 import os
@@ -37,22 +35,7 @@ def mask_sensitive_data(payload: dict) -> dict:
             
     return clean_payload
 
-def sign_request(payload_bytes: bytes) -> str:
-    """
-    使用 HMAC-SHA256 計算請求簽章 (Task C)
-    
-    Cloud 端驗證邏輯範例 (Python):
-    ---------------------------------------------------------
-    # expected_sig = hmac.new(SECRET_KEY, request_body_bytes, hashlib.sha256).hexdigest()
-    # if hmac.compare_digest(expected_sig, request.headers.get("X-Fog-Signature")):
-    #     print("驗證成功")
-    ---------------------------------------------------------
-    """
-    secret = os.getenv("FOG_SECRET_KEY")
-    if not secret:
-        raise ValueError("缺少環境變數 FOG_SECRET_KEY，無法進行請求簽章。請確保 .env 中已設定該變數。")
-    
-    return hmac.new(secret.encode(), payload_bytes, hashlib.sha256).hexdigest()
+# HMAC 請求簽章已被移除
 
 DB_PATH = "fog_cache.db"
 CLOUD_URL = os.getenv("CLOUD_API_URL")
@@ -97,28 +80,12 @@ async def lifespan(app: FastAPI):
         # 引發錯誤會導致啟動停止
         raise RuntimeError("Cloud functionality probe failed.")
     yield
-    # --- 關閉時執行 (如有需要) ---
+    # --- 關閉時嵷行 (如有需要) ---
 
 app = FastAPI(title="FoodAware Fog Server - Vision Optimized", lifespan=lifespan)
 
-# 強化 CORS 處理
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"]
-)
-
-DB_PATH = "fog_cache.db"
-CLOUD_URL = os.getenv("CLOUD_API_URL")
-if not CLOUD_URL:
-    print("[!] 警告: 未在環境變數或 .env 中偵測到 CLOUD_API_URL！")
-print(f"[DEBUG] Using CLOUD_URL: {CLOUD_URL}")
-
 def calculate_personalized_score(result: dict, user_conditions: dict):
-    """根據使用者條件與 Cloud 提供之風險資料，即時計算個人化評分與扣分明細"""
+    """根據使用者條件與 Cloud 提供之風險資料，進行個人化健康分析，但評分以客觀 Nutri-Score 為主"""
     print(f"[DEBUG] Processing result from Cloud. Keys: {list(result.keys())}")
     
     # --- 1. 格式標準化 (Unwrapping) ---
@@ -157,17 +124,17 @@ def calculate_personalized_score(result: dict, user_conditions: dict):
     if "product_info" not in target and "name" in result:
         target["product_info"] = {"name": result.get("name"), "brand": result.get("brand", "")}
 
-    # 3. 取得基礎分數
-    raw_base = target["final_health_diagnosis"].get("score", 75)
-    base_score = max(75, raw_base)
-    
-    # ... (其餘評分邏輯保持不變)
+    # 3. 取得 Cloud 端計算之客觀 Nutri-Score 分數與等級
+    # 依照使用者需求，直接以 Nutri-Score 為評分標準，不做額外分數評判
+    objective_score = result.get("health_score") or target["final_health_diagnosis"].get("score", 75)
+    objective_grade = result.get("risk_level") or target["final_health_diagnosis"].get("grade") or result.get("grade") or "C"
     
     user_group = user_conditions.get("group", "adult")
     user_allergens = user_conditions.get("allergens", [])
     custom_allergens = user_conditions.get("custom_allergens", [])
     user_health = user_conditions.get("health_conditions", [])
     custom_conditions = user_conditions.get("custom_conditions", [])
+    chronic_conditions = user_conditions.get("chronic_conditions", [])
     
     # 合併標準與自訂過敏原
     all_user_allergens = user_allergens + custom_allergens
@@ -201,7 +168,7 @@ def calculate_personalized_score(result: dict, user_conditions: dict):
         "蛋": ["蛋", "卵", "egg"],
         "堅果": ["核桃", "腰果", "杏仁", "夏威夷豆", "榛果", "堅果", "nut"],
         "含麩質穀物": ["麵粉", "小麥", "大麥", "燕麥", "黑麥", "麩質", "gluten", "wheat"],
-        "大豆": ["黃豆", "大豆", "卵磷脂", "soy"],
+        "大豆": ["黃豆", "大豆", "卵聯脂", "soy"],
         "甲殼類": ["蝦", "蟹", "龍蝦", "shrimp", "crab"],
         "魚類": ["魚", "明膠", "fish"],
         "花生": ["花生", "落花生", "peanut"],
@@ -227,108 +194,189 @@ def calculate_personalized_score(result: dict, user_conditions: dict):
         if h in tag_map: active_tags.append(tag_map[h])
         else: active_tags.append(h)
         
+    # 加入慢性病設定至 active_tags (雙向相容)
+    for cc in chronic_conditions:
+        if cc in tag_map: active_tags.append(tag_map[cc])
+        else: active_tags.append(cc)
+        
     # 加入自訂健康條件/族群標籤
     for c in custom_conditions:
         active_tags.append(c)
 
-    current_score = base_score
-    breakdown = []
+    # 收集觸發的風險與警告文字
+    detected_warnings = []
+    matched_allergens = []
     
-    breakdown.append({
-        "reason": "基礎營養與客觀風險分", 
-        "description": "基於熱量、糖、鈉等營養標示之基礎評分。",
-        "points": base_score, 
-        "type": "base"
-    })
-    
-    # 2. 遍歷成分與原始文字，進行個人化加減分
+    # 遍歷成分與原始文字，進行個人化風險比對
     ingredients = target.get("ingredients_detail", [])
     # 取得產品原始成分文字與過敏原文字
     raw_ingredients_text = target.get("product_info", {}).get("ingredients", "") or ""
     product_allergens_text = target.get("product_info", {}).get("allergens", "") or ""
     
+    # 擴充：加入 ingredients_list 作為文字來源
+    ing_list = result.get("ingredients_list")
+    if isinstance(ing_list, list):
+        raw_ingredients_text += "," + ",".join(ing_list)
+    elif isinstance(target.get("ingredients_list"), list):
+        raw_ingredients_text += "," + ",".join(target.get("ingredients_list"))
+        
+    # 擴充：加入 ingredient_types 的 keys 作為文字來源
+    types_dict = target.get("ingredient_types") or result.get("ingredient_types") or {}
+    if isinstance(types_dict, dict) and types_dict:
+        raw_ingredients_text += "," + ",".join(types_dict.keys())
+    
     # 合併所有文字來源，增加比對命中率
     all_source_text = (raw_ingredients_text + product_allergens_text).lower()
-    
-    matched_allergens = []
 
-    # --- A. 針對詳細成分清單進行比對 ---
+    # --- A. 針對詳細成分清單進行過敏原與添加物風險比對 (不扣分，僅記錄警示) ---
     for ing in ingredients:
         ing_name = ing.get("name", "").lower()
+        
+        # 1. 比對過敏原
         for user_allergen in all_user_allergens:
             keywords = allergen_keywords.get(user_allergen, [user_allergen])
             if any(k in ing_name for k in keywords):
                 if user_allergen not in matched_allergens:
                     matched_allergens.append(user_allergen)
-                    penalty = -40 
-                    current_score += penalty
-                    breakdown.append({
-                        "reason": f"🚨 重度過敏原警告: {user_allergen}", 
-                        "description": f"產品細節成分中包含「{ing_name}」，請絕對避免食用！",
-                        "points": penalty, 
-                        "type": "allergen"
-                    })
+                    detected_warnings.append(f"[過敏原警告] {user_allergen} (成分包含「{ing_name}」)")
+                    break
+
+        # 2. 篩選對應群組之專屬添加物風險與過敏原 GroupRisks 模糊相似度比對
+        group_risks = ing.get("groupRisks", [])
+        for gr in group_risks:
+            target_tag = gr.get("group")
+            if not target_tag: continue
+            
+            # 過敏原 GroupRisks 模糊相似度比對
+            gr_matched = False
+            for user_allergen in all_user_allergens:
+                if user_allergen in matched_allergens: continue
+                kws = allergen_keywords.get(user_allergen, [user_allergen])
+                for kw in kws:
+                    kw_lower = kw.lower()
+                    tag_lower = target_tag.lower()
+                    if len(kw_lower) >= 2 and kw_lower.isalpha() and (kw_lower in tag_lower or tag_lower in kw_lower):
+                        matched_allergens.append(user_allergen)
+                        detected_warnings.append(f"[添加物過敏關聯] {user_allergen} (成分「{ing_name}」之風險標記與「{target_tag}」相關)")
+                        gr_matched = True
+                        break
+                if gr_matched:
+                    break
+            
+            if gr_matched: continue
+            
+            # 專屬群組風險比對
+            if target_tag in active_tags:
+                level = gr.get("riskLevel", 0)
+                if level >= 3:
+                    impact_desc = gr.get("reason", f"對「{target_tag}」有潛在影響。")
+                    if ing.get("caution"):
+                        impact_desc = f"{ing.get('caution')} (影響等級: {level})"
+                    
+                    detected_warnings.append(f"{ing_name} ({target_tag}專屬風險): {impact_desc}")
 
     # --- B. 針對原始文字 (大字串) 進行二次檢查 (防止 AI 沒拆解成分) ---
     for user_allergen in all_user_allergens:
-        if user_allergen in matched_allergens: continue # 已在 A 步驟抓到則跳過
+        if user_allergen in matched_allergens: continue
         
         keywords = allergen_keywords.get(user_allergen, [user_allergen])
         for k in keywords:
             if k in all_source_text:
                 matched_allergens.append(user_allergen)
-                penalty = -40
-                current_score += penalty
-                breakdown.append({
-                    "reason": f"🚨 文字偵測過敏原: {user_allergen}", 
-                    "description": f"產品標示文字中偵測到「{k}」，極可能包含過敏原，請謹慎！",
-                    "points": penalty, 
-                    "type": "allergen"
-                })
-                break # 抓到一個關鍵字就夠了
-            
-        group_risks = ing.get("groupRisks", [])
-        for gr in group_risks:
-            target_tag = gr.get("group")
-            if target_tag in active_tags:
-                level = gr.get("riskLevel", 0)
-                if level >= 3:
-                    penalty_map = {3: -8, 4: -12, 5: -20}
-                    penalty = penalty_map.get(level, -5)
-                    current_score += penalty
-                    
-                    impact_desc = gr.get("reason", f"對「{target_tag}」有潛在影響。")
-                    if ing.get("caution"):
-                        impact_desc = f"{ing.get('caution')} (影響等級: {level})"
-                    
-                    breakdown.append({
-                        "reason": f"{ing_name} ({target_tag}專屬風險)", 
-                        "description": impact_desc,
-                        "points": penalty, 
-                        "type": "group_risk"
-                    })
+                detected_warnings.append(f"[文字偵測過敏原] {user_allergen} (標示中含有「{k}」)")
+                break
 
+    # --- C. 營養素含量與慢性病警告 ---
     nutrition = target.get("nutrition_facts", {})
-    if ("高血壓" in active_tags or user_group == "hypertension") and nutrition.get("sodium", 0) > 400:
-        penalty = -15
-        current_score += penalty
-        breakdown.append({
-            "reason": "高血壓族群高鈉加權扣分", 
-            "description": f"此產品鈉含量為 {nutrition.get('sodium')}mg，超過高血壓建議閾值。",
-            "points": penalty, 
-            "type": "nutrition"
-        })
+    is_hypertension = "高血壓" in active_tags or user_group == "hypertension" or "hypertension" in chronic_conditions
+    if is_hypertension and nutrition.get("sodium", 0) > 400:
+        detected_warnings.append(f"[高血壓族群高鈉警示] 鈉含量為 {nutrition.get('sodium')}mg，超過建議閾值。")
     
-    if ("糖尿病" in active_tags or user_group == "diabetes") and nutrition.get("sugar", 0) > 10:
-        penalty = -20
-        current_score += penalty
-        breakdown.append({
-            "reason": "糖尿病族群高糖加權扣分", 
-            "description": f"此產品含糖量為 {nutrition.get('sugar')}g，對血糖波動影響顯著。",
-            "points": penalty, 
-            "type": "nutrition"
-        })
+    is_diabetes = "糖尿病" in active_tags or user_group == "diabetes" or "diabetes" in chronic_conditions
+    if is_diabetes and nutrition.get("sugar", 0) > 10:
+        detected_warnings.append(f"[糖尿病族群高糖警示] 糖含量為 {nutrition.get('sugar')}g，對血糖波動影響顯著。")
+
+    # 4. 生成動態個人化摘要，直接以 Nutri-Score 為評級
+    dynamic_summary = ""
+    if matched_allergens:
+        dynamic_summary = f"[警告] 【{tag_map.get(user_group, '使用者')}注意】偵測到高度不相符過敏原：{', '.join(matched_allergens[:2])}。建議絕對避免食用並諮詢專業醫護建議。"
+    elif detected_warnings:
+        dynamic_summary = f"[警告] 【健康警示】此產品含有與您設定相左之健康風險成分，請謹慎使用。"
+    elif objective_score > 18 or objective_grade in ["D", "E"]:
+        dynamic_summary = f"[警告] 【健康警示】此產品客觀 Nutri-Score 評分偏低 ({objective_score}分)，請謹慎食用。"
+    else:
+        dynamic_summary = f"【適宜建議】此產品與您的健康設定相符，評級為 {objective_grade}。"
     
+    # 命中時，將過敏原加入 allergen_warnings 列表
+    if "allergen_warnings" not in result:
+        result["allergen_warnings"] = []
+    if isinstance(result["allergen_warnings"], list):
+        for ma in matched_allergens:
+            warning_msg = f"偵測到過敏原：{ma}"
+            if warning_msg not in result["allergen_warnings"]:
+                result["allergen_warnings"].append(warning_msg)
+    
+    # 合併警告到 warnings 與 risk_tags
+    if "warnings" not in target["final_health_diagnosis"]:
+        target["final_health_diagnosis"]["warnings"] = []
+    if not isinstance(target["final_health_diagnosis"]["warnings"], list):
+        target["final_health_diagnosis"]["warnings"] = []
+        
+    for w in detected_warnings:
+        if w not in target["final_health_diagnosis"]["warnings"]:
+            target["final_health_diagnosis"]["warnings"].append(w)
+            
+    if "risk_tags" not in result:
+        result["risk_tags"] = []
+    if isinstance(result["risk_tags"], list):
+        for w in detected_warnings:
+            if w not in result["risk_tags"]:
+                result["risk_tags"].append(w)
+    
+    # 取得 Cloud 端提供的 AI 摘要
+    original_summary = target.get("product_info", {}).get("ai_summary") or target["final_health_diagnosis"].get("summary", "")
+    if "[AI 深度分析]：" in original_summary:
+        parts = original_summary.split("[AI 深度分析]：")
+        original_summary = parts[-1].strip()
+    target["final_health_diagnosis"]["summary"] = f"{dynamic_summary}\n\n[AI 深度分析]：{original_summary}"
+    
+    # 確保最終回傳結果中的分數及等級是客觀 Nutri-Score
+    result["health_score"] = objective_score
+    result["risk_level"] = objective_grade
+    target["final_health_diagnosis"]["score"] = objective_score
+    target["final_health_diagnosis"]["grade"] = objective_grade
+    
+    # 🛠️ 雙向相容映射：確保 overall_summary, additives_summary, safety_events_summary 在 result 最外層
+    if "overall_summary" not in result or not result["overall_summary"]:
+        explanation = result.get("explanation")
+        if isinstance(explanation, dict):
+            result["overall_summary"] = explanation.get("overall") or explanation.get("overall_summary")
+            
+    if "additives_summary" not in result or not result["additives_summary"]:
+        explanation = result.get("explanation")
+        if isinstance(explanation, dict):
+            result["additives_summary"] = explanation.get("additives") or explanation.get("additives_summary")
+
+    if "safety_events_summary" not in result or not result["safety_events_summary"]:
+        notes = result.get("personalized_notes")
+        if isinstance(notes, list) and len(notes) > 0:
+            result["safety_events_summary"] = "\n".join(notes)
+        elif isinstance(notes, str):
+            result["safety_events_summary"] = notes
+        else:
+            explanation = result.get("explanation")
+            if isinstance(explanation, dict):
+                result["safety_events_summary"] = explanation.get("safety") or explanation.get("safety_events_summary")
+                
+    # 同步複製到 target / final_health_diagnosis 以免其他位置需要
+    if "overall_summary" in result and isinstance(target.get("final_health_diagnosis"), dict):
+        target["final_health_diagnosis"]["overall_summary"] = result["overall_summary"]
+    if "additives_summary" in result and isinstance(target.get("final_health_diagnosis"), dict):
+        target["final_health_diagnosis"]["additives_summary"] = result["additives_summary"]
+    if "safety_events_summary" in result and isinstance(target.get("final_health_diagnosis"), dict):
+        target["final_health_diagnosis"]["safety_events_summary"] = result["safety_events_summary"]
+        
+    return result 
     # 3. 標章加分 (CAS, TAP, TQF, 健康食品, 有機農產品)
     certification_marks = target.get("certification_marks", [])
     mark_points = 0
@@ -408,15 +456,14 @@ async def query(request: Request, response: Response):
             action = "Image detected" if has_images else "First TEST probe"
             print(f"[CLOUD] {barcode} -> {action}, Forwarding...")
             try:
-                # 執行脫敏與簽章 (Task A & C)
+                # 執行脫敏 (Task A)
                 masked_data = mask_sensitive_data(data)
                 masked_data_bytes = json.dumps(masked_data).encode()
-                signature = sign_request(masked_data_bytes)
                 
                 cloud_resp = requests.post(
                     CLOUD_URL, 
                     data=masked_data_bytes, 
-                    headers={"Content-Type": "application/json", "X-Fog-Signature": signature},
+                    headers={"Content-Type": "application/json"},
                     timeout=90.0
                 )
                 result = cloud_resp.json()
@@ -465,15 +512,14 @@ async def query(request: Request, response: Response):
         # 3. 快取未命中 (或是快取中是 not_found)
         print(f"[MISS] {barcode} -> Forwarding to Cloud")
         try:
-            # 執行脫敏與簽章 (Task A & C)
+            # 執行脫敏 (Task A)
             masked_data = mask_sensitive_data(data)
             masked_data_bytes = json.dumps(masked_data).encode()
-            signature = sign_request(masked_data_bytes)
             
             cloud_resp = requests.post(
                 CLOUD_URL, 
                 data=masked_data_bytes, 
-                headers={"Content-Type": "application/json", "X-Fog-Signature": signature},
+                headers={"Content-Type": "application/json"},
                 timeout=50.0
             )
             if cloud_resp.status_code == 200:

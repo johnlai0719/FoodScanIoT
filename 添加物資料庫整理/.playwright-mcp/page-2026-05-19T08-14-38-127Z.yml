@@ -1,0 +1,54 @@
+- generic [active] [ref=e1]:
+  - link "IPCS INCHEM Home" [ref=e2] [cursor=pointer]:
+    - /url: http://www.inchem.org
+    - img "IPCS INCHEM Home" [ref=e3]
+  - generic [ref=e4]:
+    - strong [ref=e5]: FAO Nutrition Meetings
+    - strong [ref=e6]: Report Series No. 40A,B,C
+    - strong [ref=e7]: WHO/Food Add./67.29
+    - text: TOXICOLOGICAL EVALUATION OF SOME ANTIMICROBIALS, ANTIOXIDANTS, EMULSIFIERS, STABILIZERS, FLOUR-TREATMENT AGENTS, ACIDS AND BASES The content of this document is the result of the deliberations of the Joint FAO/WHO Expert Committee on Food Additives which met at Rome, 13-20 December, 1965
+    - superscript [ref=e8]: "1"
+    - text: Geneva, 11-18 October, 1966
+    - superscript [ref=e9]: "2"
+    - superscript [ref=e10]: "1"
+    - text: Ninth Report of the Joint FAO/WHO Expert Committee on Food Additives, FAO Nutrition Meetings Report Series, 1966 No. 40; Wld Hlth Org. techn. Rep. Ser., 1966, 339
+    - superscript [ref=e11]: "2"
+    - text: Tenth Report of the Joint FAO/WHO Expert Committee on Food Additives, FAO Nutrition Meetings Report Series, 1967, in press; Food and Agriculture Organization of the United Nations World Health Organization 1967
+    - text: SORBIC ACID Chemical names Sorbic acid; Trans, trans-2,4-hexadienoic acid Empirical formula C
+    - subscript [ref=e12]: "6"
+    - text: H
+    - subscript [ref=e13]: "8"
+    - text: O
+    - subscript [ref=e14]: "2"
+    - text: Structural formula
+    - img "MOLECULAR STRUCTURE 12" [ref=e15]
+    - text: Molecular weight 112.13 Definition Sorbic acid after drying for 4 hours in a vacuum desiccator over sulfuric acid, contains not less than 99 per cent. of C
+    - subscript [ref=e16]: "6"
+    - text: H
+    - subscript [ref=e17]: "8"
+    - text: O
+    - subscript [ref=e18]: "2"
+    - text: . Description Sorbic acid is a white, crystalline solid with a mildly acrid odour. Uses As an antimicrobial and fungistatic agent.
+    - text: Biological Data This additive was evaluated by the Joint FAO/WHO Expert Committee on Food Additives in its Sixth and Eighth Reports (FAO/WHO, 1962; FAO/WHO, 1965). Since their publication some new experimental work has been carried out on this compound. This and other work not included in the previous reports is presented in this monograph.
+    - text: Biochemical aspects The metabolism of 1-
+    - superscript [ref=e19]: "14"
+    - text: C-sorbic acid has been studied by Fingerhut et al. (1962); 85 per cent. of the activity was found in the expired CO
+    - subscript [ref=e20]: "2"
+    - text: ", 0.4 per cent. in the faeces, 2 per cent. in the urine as urea and CO"
+    - subscript [ref=e21]: "2"
+    - text: ", 3 per cent. in internal organs, 3 per cent. in the skeletal muscles and 6.6 per cent. in the other parts of the carcass. No glycogen was formed from sorbic acid. Most of the activity was found in the subcutaneous fat deposits and in the lipids of the organs. There was a linear relationship between dose and oxidation rate; the half-life, of the oxidation was 40-110 minutes in the dose range from 60-1200 mg/kg body-weight. In a similar experiment on mice, also using 1-"
+    - superscript [ref=e22]: "14"
+    - text: C-sorbic acid, these results were confirmed; 81 ± 10 per cent. of the sorbic acid was oxidised to CO
+    - subscript [ref=e23]: "2"
+    - text: ", the dose given ranging from 40-3000 mg/kg body-weight. About 7 per cent. of the activity was excreted as sorbic acid and 0.4 per cent. as trans, trans-muconic acid (Westöö, 1964)."
+    - text: Long-term studies The feeding experiment on groups of 100 rats (50 males and 50 females) given 0 and 5 per cent. sorbic acid was extended to the whole life-span of the first generation. The average life-span of the group receiving sorbic acid was 811 days for the males and 789 days for the females. In the control group the life-span of the males was 709 days and for the females 804 days, possibly suggesting protection by sorbic acid against lung infection. Autopsies were performed on all rats of the first generation that died during the experiment. There were no differences in the organ weight of the individual groups nor in the distribution of the causes of death. In each group (5 per cent. sorbic acid and controls) only 2 tumours were found. The animals of the second generation were sacrificed after 250 days of feeding sorbic acid. Examination of liver, kidney, heart and testes showed no abnormalities (Lang, 1962; Long et al., 1967).
+    - text: Evaluation (See potassium Sorbate)
+    - text: REFERENCES FAO/WHO (1962) FAO Nutrition Meetings Report Series No 31 Wld Hlth Org. techn. Rep. Ser., 228 FAO/WHO (1965) FAO Nutrition Meetings Report Series No. 38; Wld Hlth Org. techn. Rep. Ser., 309 Fingerhut, M., Schmidt, B. & Lang, K.(1962) Biochem. Z., 335, 118 Lang, K. (1962) Arzneimittelforsch., 10, 997 Lang, K. et al. (1967) In preparation Westöö, E. (1964) Acta chem. scand., 18, 1373
+  - generic [ref=e24]:
+    - text: "See Also:"
+    - link "Toxicological Abbreviations" [ref=e25] [cursor=pointer]:
+      - /url: ../../eintro/eintro/abreviat.htm
+    - link "Sorbic acid (ICSC)" [ref=e26] [cursor=pointer]:
+      - /url: ../../icsc/icsc/eics1284.htm
+    - link "SORBIC ACID (JECFA Evaluation)" [ref=e27] [cursor=pointer]:
+      - /url: ../../jecfa/jeceval/jec_2181.htm

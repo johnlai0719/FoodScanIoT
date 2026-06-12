@@ -10,6 +10,8 @@ export interface UserConditions {
   custom_allergens?: string[];
   /** 自定義健康條件/族群 */
   custom_conditions?: string[];
+  /** 慢性病設定，例如 ["hypertension", "diabetes"] */
+  chronic_conditions?: string[];
 }
 
 /**

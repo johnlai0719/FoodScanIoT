@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MessageSquare, Edit3, Send, AlertTriangle, Info, ShieldAlert } from 'lucide-react';
 
@@ -23,7 +23,7 @@ export default function AdditiveDetail() {
   const [suggestReason, setSuggestReason] = useState('');
   const [submittingSuggest, setSubmittingSuggest] = useState(false);
 
-  const fetchAdditiveDetails = async () => {
+  const fetchAdditiveDetails = useCallback(async () => {
     try {
       const response = await fetch(`http://127.0.0.1:8000/api/additives/${id}`);
       if (!response.ok) {
@@ -36,11 +36,13 @@ export default function AdditiveDetail() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
-    fetchAdditiveDetails();
-  }, [id]);
+    Promise.resolve().then(() => {
+      fetchAdditiveDetails();
+    });
+  }, [fetchAdditiveDetails]);
 
   const handleCommentSubmit = async (e) => {
     e.preventDefault();

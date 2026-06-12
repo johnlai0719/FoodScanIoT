@@ -1,0 +1,534 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - text: 自動換行
+    - checkbox "自動換行" [ref=e5]
+  - table [ref=e6]:
+    - rowgroup [ref=e7]:
+      - row "1 <html>" [ref=e8]:
+        - cell "1" [ref=e9]
+        - cell "<html>" [ref=e10]
+      - row "2 <head>" [ref=e11]:
+        - cell "2" [ref=e12]
+        - cell "<head>" [ref=e13]
+      - row "3 <SCRIPT LANGUAGE=JAVASCRIPT TYPE=\"TEXT/JAVASCRIPT\">" [ref=e14]:
+        - cell "3" [ref=e15]
+        - cell "<SCRIPT LANGUAGE=JAVASCRIPT TYPE=\"TEXT/JAVASCRIPT\">" [ref=e16]:
+          - generic [ref=e17]: <SCRIPT LANGUAGE=JAVASCRIPT TYPE="TEXT/JAVASCRIPT">
+      - row "4 <!-- Hide script from old browsers" [ref=e18]:
+        - cell "4" [ref=e19]
+        - cell "<!-- Hide script from old browsers" [ref=e20]
+      - row "5 //onError=null;" [ref=e21]:
+        - cell "5" [ref=e22]
+        - cell "//onError=null;" [ref=e23]
+      - 'row "6 function find_it(text) {" [ref=e24]':
+        - cell "6" [ref=e25]
+        - 'cell "function find_it(text) {" [ref=e26]'
+      - row "7 //window.find(text);" [ref=e27]:
+        - cell "7" [ref=e28]
+        - cell "//window.find(text);" [ref=e29]
+      - row "8" [ref=e30]:
+        - cell "8" [ref=e31]
+        - cell [ref=e32]
+      - 'row "9 }//end function" [ref=e33]':
+        - cell "9" [ref=e34]
+        - 'cell "}//end function" [ref=e35]'
+      - row "10" [ref=e36]:
+        - cell "10" [ref=e37]
+        - cell [ref=e38]
+      - row "11" [ref=e39]:
+        - cell "11" [ref=e40]
+        - cell [ref=e41]
+      - row "12 //document.onKeyPress = gotoindex;" [ref=e42]:
+        - cell "12" [ref=e43]
+        - cell "//document.onKeyPress = gotoindex;" [ref=e44]
+      - row "13 // End hiding script from old browsers -->" [ref=e45]:
+        - cell "13" [ref=e46]
+        - cell "// End hiding script from old browsers -->" [ref=e47]
+      - row "14 </SCRIPT>" [ref=e48]:
+        - cell "14" [ref=e49]
+        - cell "</SCRIPT>" [ref=e50]
+      - row "15" [ref=e51]:
+        - cell "15" [ref=e52]
+        - cell [ref=e53]
+      - row "16 <meta name=\"GENERATOR\" content=\"Microsoft FrontPage 3.0\">" [ref=e54]:
+        - cell "16" [ref=e55]
+        - cell "<meta name=\"GENERATOR\" content=\"Microsoft FrontPage 3.0\">" [ref=e56]:
+          - generic [ref=e57]: <meta name="GENERATOR" content="Microsoft FrontPage 3.0">
+      - row "17" [ref=e58]:
+        - cell "17" [ref=e59]
+        - cell [ref=e60]
+      - row "18 <title>JECFA Evaluations-SORBIC ACID- </title>" [ref=e61]:
+        - cell "18" [ref=e62]
+        - cell "<title>JECFA Evaluations-SORBIC ACID- </title>" [ref=e63]
+      - row "19" [ref=e64]:
+        - cell "19" [ref=e65]
+        - cell [ref=e66]
+      - row "20 <STYLE type=\"text/css\">" [ref=e67]:
+        - cell "20" [ref=e68]
+        - cell "<STYLE type=\"text/css\">" [ref=e69]:
+          - generic [ref=e70]: <STYLE type="text/css">
+      - 'row "21 A:link { color:#003399; }" [ref=e71]':
+        - cell "21" [ref=e72]
+        - 'cell "A:link { color:#003399; }" [ref=e73]'
+      - 'row "22 A:visited { color:#003399; }" [ref=e74]':
+        - cell "22" [ref=e75]
+        - 'cell "A:visited { color:#003399; }" [ref=e76]'
+      - 'row "23 A:hover { color:red; }" [ref=e77]':
+        - cell "23" [ref=e78]
+        - 'cell "A:hover { color:red; }" [ref=e79]'
+      - row "24 </STYLE>" [ref=e80]:
+        - cell "24" [ref=e81]
+        - cell "</STYLE>" [ref=e82]
+      - row "25 </head>" [ref=e83]:
+        - cell "25" [ref=e84]
+        - cell "</head>" [ref=e85]
+      - row "26 <CENTER><A HREF=\"http://www.inchem.org\"><IMG SRC=\"../../inchemhead.jpg\" WIDTH=\"630\" HEIGHT=\"65\" BORDER=\"0\" ALT=\"IPCS INCHEM Home\"></A></CENTER><br>" [ref=e86]:
+        - cell "26" [ref=e87]
+        - cell "<CENTER><A HREF=\"http://www.inchem.org\"><IMG SRC=\"../../inchemhead.jpg\" WIDTH=\"630\" HEIGHT=\"65\" BORDER=\"0\" ALT=\"IPCS INCHEM Home\"></A></CENTER><br>" [ref=e88]:
+          - text: <CENTER>
+          - generic [ref=e89]:
+            - text: <A HREF="
+            - link "http://www.inchem.org" [ref=e90] [cursor=pointer]:
+              - /url: http://www.inchem.org
+            - text: "\">"
+          - generic [ref=e91]:
+            - text: <IMG SRC="
+            - link "../../inchemhead.jpg" [ref=e92] [cursor=pointer]:
+              - /url: ../../inchemhead.jpg
+            - text: "\" WIDTH=\"630\" HEIGHT=\"65\" BORDER=\"0\" ALT=\"IPCS INCHEM Home\">"
+          - text: </A></CENTER><br>
+      - row "27" [ref=e93]:
+        - cell "27" [ref=e94]
+        - cell [ref=e95]
+      - row "28 <body bgcolor=\"#FFFFFF\" text=\"#000000\">" [ref=e96]:
+        - cell "28" [ref=e97]
+        - cell "<body bgcolor=\"#FFFFFF\" text=\"#000000\">" [ref=e98]:
+          - generic [ref=e99]: <body bgcolor="#FFFFFF" text="#000000">
+      - row "29" [ref=e100]:
+        - cell "29" [ref=e101]
+        - cell [ref=e102]
+      - row "30 <div align=\"center\">" [ref=e103]:
+        - cell "30" [ref=e104]
+        - cell "<div align=\"center\">" [ref=e105]:
+          - generic [ref=e106]: <div align="center">
+      - row "31" [ref=e107]:
+        - cell "31" [ref=e108]
+        - cell [ref=e109]
+      - row "32 <div align=\"center\"><center><table border=\"0\" width=\"600\">" [ref=e110]:
+        - cell "32" [ref=e111]
+        - cell "<div align=\"center\"><center><table border=\"0\" width=\"600\">" [ref=e112]:
+          - generic [ref=e113]: <div align="center">
+          - text: <center>
+          - generic [ref=e114]: <table border="0" width="600">
+      - row "33 <div align=\"center\"><strong>Summary of Evaluations Performed by the<br>Joint FAO/WHO Expert Committee on" [ref=e115]:
+        - cell "33" [ref=e116]
+        - cell "<div align=\"center\"><strong>Summary of Evaluations Performed by the<br>Joint FAO/WHO Expert Committee on" [ref=e117]:
+          - generic [ref=e118]: <div align="center">
+          - text: <strong>Summary of Evaluations Performed by the<br>Joint FAO/WHO Expert Committee on
+      - row "34 Food Additives</strong></div><br>" [ref=e119]:
+        - cell "34" [ref=e120]
+        - cell "Food Additives</strong></div><br>" [ref=e121]
+      - row "35 <div align=\"center\"><center>" [ref=e122]:
+        - cell "35" [ref=e123]
+        - cell "<div align=\"center\"><center>" [ref=e124]:
+          - generic [ref=e125]: <div align="center">
+          - text: <center>
+      - row "36 <tr>" [ref=e126]:
+        - cell "36" [ref=e127]
+        - cell "<tr>" [ref=e128]
+      - row "37 <td colspan=\"2\"" [ref=e129]:
+        - cell "37" [ref=e130]
+        - cell "<td colspan=\"2\"" [ref=e131]:
+          - generic [ref=e132]: <td colspan="2"
+      - 'row "38 style=\"border-left: 1px solid rgb(0,0,0); border-right: 3px solid rgb(0,0,0); border-top: 3px solid rgb(0,0,0); border-bottom: 1px solid rgb(0,0,0)\"" [ref=e133]':
+        - cell "38" [ref=e134]
+        - 'cell "style=\"border-left: 1px solid rgb(0,0,0); border-right: 3px solid rgb(0,0,0); border-top: 3px solid rgb(0,0,0); border-bottom: 1px solid rgb(0,0,0)\"" [ref=e135]':
+          - generic [ref=e136]: "style=\"border-left: 1px solid rgb(0,0,0); border-right: 3px solid rgb(0,0,0); border-top: 3px solid rgb(0,0,0); border-bottom: 1px solid rgb(0,0,0)\""
+      - row "39 bordercolor=\"#000000\"><em><small><font face=\"Verdana\"><strong>SORBIC ACID</strong></font></small></em></td>" [ref=e137]:
+        - cell "39" [ref=e138]
+        - cell "bordercolor=\"#000000\"><em><small><font face=\"Verdana\"><strong>SORBIC ACID</strong></font></small></em></td>" [ref=e139]:
+          - generic [ref=e140]: bordercolor="#000000">
+          - text: <em><small>
+          - generic [ref=e141]: <font face="Verdana">
+          - text: <strong>SORBIC ACID</strong></font></small></em></td>
+      - row "40 </tr>" [ref=e142]:
+        - cell "40" [ref=e143]
+        - cell "</tr>" [ref=e144]
+      - row "41" [ref=e145]:
+        - cell "41" [ref=e146]
+        - cell [ref=e147]
+      - row "42 <tr>" [ref=e148]:
+        - cell "42" [ref=e149]
+        - cell "<tr>" [ref=e150]
+      - row "43" [ref=e151]:
+        - cell "43" [ref=e152]
+        - cell [ref=e153]
+      - row "44 <td valign=\"top\" width=\"135\" align=\"left\"><em><small><font face=\"Verdana\"><strong><small>See:</small></strong></font></small></em></td>" [ref=e154]:
+        - cell "44" [ref=e155]
+        - cell "<td valign=\"top\" width=\"135\" align=\"left\"><em><small><font face=\"Verdana\"><strong><small>See:</small></strong></font></small></em></td>" [ref=e156]:
+          - generic [ref=e157]: <td valign="top" width="135" align="left">
+          - text: <em><small>
+          - generic [ref=e158]: <font face="Verdana">
+          - text: <strong><small>See:</small></strong></font></small></em></td>
+      - row "45 <td valign=\"top\" width=\"455\" align=\"left\">" [ref=e159]:
+        - cell "45" [ref=e160]
+        - cell "<td valign=\"top\" width=\"455\" align=\"left\">" [ref=e161]:
+          - generic [ref=e162]: <td valign="top" width="455" align="left">
+      - row "46" [ref=e163]:
+        - cell "46" [ref=e164]
+        - cell [ref=e165]
+      - row "47 <A href=\"jec_.htm\"><small><font face=\"Verdana\">(E,E)-2,4-HEXADIENOIC ACID FOR EVALUATION AS A FLAVOURING AGENT</font></small></a>" [ref=e166]:
+        - cell "47" [ref=e167]
+        - cell "<A href=\"jec_.htm\"><small><font face=\"Verdana\">(E,E)-2,4-HEXADIENOIC ACID FOR EVALUATION AS A FLAVOURING AGENT</font></small></a>" [ref=e168]:
+          - generic [ref=e169]:
+            - text: <A href="
+            - link "jec_.htm" [ref=e170] [cursor=pointer]:
+              - /url: jec_.htm
+            - text: "\">"
+          - text: <small>
+          - generic [ref=e171]: <font face="Verdana">
+          - text: (E,E)-2,4-HEXADIENOIC ACID FOR EVALUATION AS A FLAVOURING AGENT</font></small></a>
+      - row "48 </td>" [ref=e172]:
+        - cell "48" [ref=e173]
+        - cell "</td>" [ref=e174]
+      - row "49 </tr>" [ref=e175]:
+        - cell "49" [ref=e176]
+        - cell "</tr>" [ref=e177]
+      - row "50 <td valign=\"top\" width=\"135\" align=\"left\"><em><small><font face=\"Verdana\"><strong><small>INS:</small></strong></font></small></em></td>" [ref=e178]:
+        - cell "50" [ref=e179]
+        - cell "<td valign=\"top\" width=\"135\" align=\"left\"><em><small><font face=\"Verdana\"><strong><small>INS:</small></strong></font></small></em></td>" [ref=e180]:
+          - generic [ref=e181]: <td valign="top" width="135" align="left">
+          - text: <em><small>
+          - generic [ref=e182]: <font face="Verdana">
+          - text: <strong><small>INS:</small></strong></font></small></em></td>
+      - row "51 <td valign=\"top\" width=\"455\" align=\"left\"><small><font face=\"Verdana\">200</font></small></td>" [ref=e183]:
+        - cell "51" [ref=e184]
+        - cell "<td valign=\"top\" width=\"455\" align=\"left\"><small><font face=\"Verdana\">200</font></small></td>" [ref=e185]:
+          - generic [ref=e186]: <td valign="top" width="455" align="left">
+          - text: <small>
+          - generic [ref=e187]: <font face="Verdana">
+          - text: 200</font></small></td>
+      - row "52 </tr>" [ref=e188]:
+        - cell "52" [ref=e189]
+        - cell "</tr>" [ref=e190]
+      - row "53 <td valign=\"top\" align=\"left\" width=\"135\"><em><small><font face=\"Verdana\"><strong><small>Chemical names:</small></strong></font></small></em></td>" [ref=e191]:
+        - cell "53" [ref=e192]
+        - cell "<td valign=\"top\" align=\"left\" width=\"135\"><em><small><font face=\"Verdana\"><strong><small>Chemical names:</small></strong></font></small></em></td>" [ref=e193]:
+          - generic [ref=e194]: <td valign="top" align="left" width="135">
+          - text: <em><small>
+          - generic [ref=e195]: <font face="Verdana">
+          - text: <strong><small>Chemical names:</small></strong></font></small></em></td>
+      - row "54 <td valign=\"top\" align=\"left\" width=\"455\"><small><font face=\"Verdana\">SORBIC<b> </b>ACID;<b> </b>(E,E)-2,4-HEXADIENOIC<b> </b>ACID;<b> </b>2-PROPENYLACRYLIC<b> </b>ACID</font></small></td>" [ref=e196]:
+        - cell "54" [ref=e197]
+        - cell "<td valign=\"top\" align=\"left\" width=\"455\"><small><font face=\"Verdana\">SORBIC<b> </b>ACID;<b> </b>(E,E)-2,4-HEXADIENOIC<b> </b>ACID;<b> </b>2-PROPENYLACRYLIC<b> </b>ACID</font></small></td>" [ref=e198]:
+          - generic [ref=e199]: <td valign="top" align="left" width="455">
+          - text: <small>
+          - generic [ref=e200]: <font face="Verdana">
+          - text: SORBIC<b> </b>ACID;<b> </b>(E,E)-2,4-HEXADIENOIC<b> </b>ACID;<b> </b>2-PROPENYLACRYLIC<b> </b>ACID</font></small></td>
+      - row "55 </tr>" [ref=e201]:
+        - cell "55" [ref=e202]
+        - cell "</tr>" [ref=e203]
+      - row "56 <td valign=\"top\" align=\"left\" width=\"135\"><em><small><font face=\"Verdana\"><strong><small>Functional class:</small></strong></font></small></em></td>" [ref=e204]:
+        - cell "56" [ref=e205]
+        - cell "<td valign=\"top\" align=\"left\" width=\"135\"><em><small><font face=\"Verdana\"><strong><small>Functional class:</small></strong></font></small></em></td>" [ref=e206]:
+          - generic [ref=e207]: <td valign="top" align="left" width="135">
+          - text: <em><small>
+          - generic [ref=e208]: <font face="Verdana">
+          - text: <strong><small>Functional class:</small></strong></font></small></em></td>
+      - row "57 <td valign=\"top\" align=\"left\" width=\"455\"><small><font face=\"Verdana\">ANTIMICROBIAL<b> </b>PRESERVATIVE;<b> </b>FUNGISTATIC<b> </b>AGENT</font></small></td>" [ref=e209]:
+        - cell "57" [ref=e210]
+        - cell "<td valign=\"top\" align=\"left\" width=\"455\"><small><font face=\"Verdana\">ANTIMICROBIAL<b> </b>PRESERVATIVE;<b> </b>FUNGISTATIC<b> </b>AGENT</font></small></td>" [ref=e211]:
+          - generic [ref=e212]: <td valign="top" align="left" width="455">
+          - text: <small>
+          - generic [ref=e213]: <font face="Verdana">
+          - text: ANTIMICROBIAL<b> </b>PRESERVATIVE;<b> </b>FUNGISTATIC<b> </b>AGENT</font></small></td>
+      - row "58 </tr>" [ref=e214]:
+        - cell "58" [ref=e215]
+        - cell "</tr>" [ref=e216]
+      - row "59 <td valign=\"top\" align=\"left\" width=\"135\"><em><small><font face=\"Verdana\"><strong><small>Latest evaluation:</small></strong></font></small></em></td>" [ref=e217]:
+        - cell "59" [ref=e218]
+        - cell "<td valign=\"top\" align=\"left\" width=\"135\"><em><small><font face=\"Verdana\"><strong><small>Latest evaluation:</small></strong></font></small></em></td>" [ref=e219]:
+          - generic [ref=e220]: <td valign="top" align="left" width="135">
+          - text: <em><small>
+          - generic [ref=e221]: <font face="Verdana">
+          - text: <strong><small>Latest evaluation:</small></strong></font></small></em></td>
+      - row "60 <td valign=\"top\" align=\"left\" width=\"455\"><small><font face=\"Verdana\">1973</font></small></td>" [ref=e222]:
+        - cell "60" [ref=e223]
+        - cell "<td valign=\"top\" align=\"left\" width=\"455\"><small><font face=\"Verdana\">1973</font></small></td>" [ref=e224]:
+          - generic [ref=e225]: <td valign="top" align="left" width="455">
+          - text: <small>
+          - generic [ref=e226]: <font face="Verdana">
+          - text: 1973</font></small></td>
+      - row "61 </tr>" [ref=e227]:
+        - cell "61" [ref=e228]
+        - cell "</tr>" [ref=e229]
+      - row "62 <td valign=\"top\" align=\"left\" width=\"135\"><em><small><font face=\"Verdana\"><strong><small>ADI:</small></strong></font></small></em></td>" [ref=e230]:
+        - cell "62" [ref=e231]
+        - cell "<td valign=\"top\" align=\"left\" width=\"135\"><em><small><font face=\"Verdana\"><strong><small>ADI:</small></strong></font></small></em></td>" [ref=e232]:
+          - generic [ref=e233]: <td valign="top" align="left" width="135">
+          - text: <em><small>
+          - generic [ref=e234]: <font face="Verdana">
+          - text: <strong><small>ADI:</small></strong></font></small></em></td>
+      - row "63 <td valign=\"top\" align=\"left\" width=\"455\"><small><font face=\"Verdana\">0-25 mg/kg bw</font></small></td>" [ref=e235]:
+        - cell "63" [ref=e236]
+        - cell "<td valign=\"top\" align=\"left\" width=\"455\"><small><font face=\"Verdana\">0-25 mg/kg bw</font></small></td>" [ref=e237]:
+          - generic [ref=e238]: <td valign="top" align="left" width="455">
+          - text: <small>
+          - generic [ref=e239]: <font face="Verdana">
+          - text: 0-25 mg/kg bw</font></small></td>
+      - row "64 </tr>" [ref=e240]:
+        - cell "64" [ref=e241]
+        - cell "</tr>" [ref=e242]
+      - row "65 <td valign=\"top\" align=\"left\" width=\"135\"><em><small><font face=\"Verdana\"><strong><small>Comments:</small></strong></font></small></em></td>" [ref=e243]:
+        - cell "65" [ref=e244]
+        - cell "<td valign=\"top\" align=\"left\" width=\"135\"><em><small><font face=\"Verdana\"><strong><small>Comments:</small></strong></font></small></em></td>" [ref=e245]:
+          - generic [ref=e246]: <td valign="top" align="left" width="135">
+          - text: <em><small>
+          - generic [ref=e247]: <font face="Verdana">
+          - text: <strong><small>Comments:</small></strong></font></small></em></td>
+      - row "66 <td valign=\"top\" align=\"left\" width=\"455\"><small><font face=\"Verdana\">As sum of sorbic acid and calcium, potassium and sodium sorbates (expressed as sorbic acid)</font></small></td>" [ref=e248]:
+        - cell "66" [ref=e249]
+        - cell "<td valign=\"top\" align=\"left\" width=\"455\"><small><font face=\"Verdana\">As sum of sorbic acid and calcium, potassium and sodium sorbates (expressed as sorbic acid)</font></small></td>" [ref=e250]:
+          - generic [ref=e251]: <td valign="top" align="left" width="455">
+          - text: <small>
+          - generic [ref=e252]: <font face="Verdana">
+          - text: As sum of sorbic acid and calcium, potassium and sodium sorbates (expressed as sorbic acid)</font></small></td>
+      - row "67 </tr>" [ref=e253]:
+        - cell "67" [ref=e254]
+        - cell "</tr>" [ref=e255]
+      - row "68 <td valign=\"top\" align=\"left\" width=\"135\"><em><small><font face=\"Verdana\"><strong><small>Report:</small></strong></font></small></em></td>" [ref=e256]:
+        - cell "68" [ref=e257]
+        - cell "<td valign=\"top\" align=\"left\" width=\"135\"><em><small><font face=\"Verdana\"><strong><small>Report:</small></strong></font></small></em></td>" [ref=e258]:
+          - generic [ref=e259]: <td valign="top" align="left" width="135">
+          - text: <em><small>
+          - generic [ref=e260]: <font face="Verdana">
+          - text: <strong><small>Report:</small></strong></font></small></em></td>
+      - row "69 <td valign=\"top\" align=\"left\" width=\"455\"><small><font face=\"Verdana\">NMRS 53/TRS 539-JECFA 17/18</font></small></td>" [ref=e261]:
+        - cell "69" [ref=e262]
+        - cell "<td valign=\"top\" align=\"left\" width=\"455\"><small><font face=\"Verdana\">NMRS 53/TRS 539-JECFA 17/18</font></small></td>" [ref=e263]:
+          - generic [ref=e264]: <td valign="top" align="left" width="455">
+          - text: <small>
+          - generic [ref=e265]: <font face="Verdana">
+          - text: NMRS 53/TRS 539-JECFA 17/18</font></small></td>
+      - row "70 </tr>" [ref=e266]:
+        - cell "70" [ref=e267]
+        - cell "</tr>" [ref=e268]
+      - row "71 <td valign=\"top\" align=\"left\" width=\"135\"><em><small><font face=\"Verdana\"><strong><small>Specifications:</small></strong></font></small></em></td>" [ref=e269]:
+        - cell "71" [ref=e270]
+        - cell "<td valign=\"top\" align=\"left\" width=\"135\"><em><small><font face=\"Verdana\"><strong><small>Specifications:</small></strong></font></small></em></td>" [ref=e271]:
+          - generic [ref=e272]: <td valign="top" align="left" width="135">
+          - text: <em><small>
+          - generic [ref=e273]: <font face="Verdana">
+          - text: <strong><small>Specifications:</small></strong></font></small></em></td>
+      - row "72 <td valign=\"top\" align=\"left\" width=\"455\"><small><font face=\"Verdana\">COMPENDIUM ADDENDUM 12/FNP 52 Add. 12/68 (METALS LIMITS) (2004)</font></small></td>" [ref=e274]:
+        - cell "72" [ref=e275]
+        - cell "<td valign=\"top\" align=\"left\" width=\"455\"><small><font face=\"Verdana\">COMPENDIUM ADDENDUM 12/FNP 52 Add. 12/68 (METALS LIMITS) (2004)</font></small></td>" [ref=e276]:
+          - generic [ref=e277]: <td valign="top" align="left" width="455">
+          - text: <small>
+          - generic [ref=e278]: <font face="Verdana">
+          - text: COMPENDIUM ADDENDUM 12/FNP 52 Add. 12/68 (METALS LIMITS) (2004)</font></small></td>
+      - row "73 </tr>" [ref=e279]:
+        - cell "73" [ref=e280]
+        - cell "</tr>" [ref=e281]
+      - row "74 <td valign=\"top\" align=\"left\" width=\"135\"><em><small><font face=\"Verdana\"><strong><small>Tox monograph:</small></strong></font></small></em></td>" [ref=e282]:
+        - cell "74" [ref=e283]
+        - cell "<td valign=\"top\" align=\"left\" width=\"135\"><em><small><font face=\"Verdana\"><strong><small>Tox monograph:</small></strong></font></small></em></td>" [ref=e284]:
+          - generic [ref=e285]: <td valign="top" align="left" width="135">
+          - text: <em><small>
+          - generic [ref=e286]: <font face="Verdana">
+          - text: <strong><small>Tox monograph:</small></strong></font></small></em></td>
+      - row "75 <td valign=\"top\" align=\"left\" width=\"455\"><small><font face=\"Verdana\">FAS 5/NMRS 53A-JECFA 17/121</font></small></td>" [ref=e287]:
+        - cell "75" [ref=e288]
+        - cell "<td valign=\"top\" align=\"left\" width=\"455\"><small><font face=\"Verdana\">FAS 5/NMRS 53A-JECFA 17/121</font></small></td>" [ref=e289]:
+          - generic [ref=e290]: <td valign="top" align="left" width="455">
+          - text: <small>
+          - generic [ref=e291]: <font face="Verdana">
+          - text: FAS 5/NMRS 53A-JECFA 17/121</font></small></td>
+      - row "76 </tr>" [ref=e292]:
+        - cell "76" [ref=e293]
+        - cell "</tr>" [ref=e294]
+      - row "77 <td valign=\"top\" align=\"left\" width=\"135\"><em><small><font face=\"Verdana\"><strong><small>Previous status:</small></strong></font></small></em></td>" [ref=e295]:
+        - cell "77" [ref=e296]
+        - cell "<td valign=\"top\" align=\"left\" width=\"135\"><em><small><font face=\"Verdana\"><strong><small>Previous status:</small></strong></font></small></em></td>" [ref=e297]:
+          - generic [ref=e298]: <td valign="top" align="left" width="135">
+          - text: <em><small>
+          - generic [ref=e299]: <font face="Verdana">
+          - text: <strong><small>Previous status:</small></strong></font></small></em></td>
+      - row "78 <td valign=\"top\" align=\"left\" width=\"455\"><small><font face=\"Verdana\">1976, FAS 11/FNS 1B-JECFA 20/90 (1976); COMPENDIUM/1403. R" [ref=e300]:
+        - cell "78" [ref=e301]
+        - cell "<td valign=\"top\" align=\"left\" width=\"455\"><small><font face=\"Verdana\">1976, FAS 11/FNS 1B-JECFA 20/90 (1976); COMPENDIUM/1403. R" [ref=e302]:
+          - generic [ref=e303]: <td valign="top" align="left" width="455">
+          - text: <small>
+          - generic [ref=e304]: <font face="Verdana">
+          - text: 1976, FAS 11/FNS 1B-JECFA 20/90 (1976); COMPENDIUM/1403. R
+      - row "79 <br>1973, FNP 4-JECFA 17/175. R" [ref=e305]:
+        - cell "79" [ref=e306]
+        - cell "<br>1973, FNP 4-JECFA 17/175. R" [ref=e307]
+      - row "80 <br>1970, NMRS 48/TRS 462-JECFA 14/24, FAS 70.41/NMRS 48C-JECFA 14/27" [ref=e308]:
+        - cell "80" [ref=e309]
+        - cell "<br>1970, NMRS 48/TRS 462-JECFA 14/24, FAS 70.41/NMRS 48C-JECFA 14/27" [ref=e310]
+      - row "81 <br>1965, NMRS 40/TRS 339-JECFA 9/11, FAS 67.29/NMRS 40A,B,C-JECFA 9/58, FAS 67.29/NMRS 40A,B,C-JECFA 9/58. 0-12.5 (CONDITIONAL, 12.5-25; AS SUM OF SORBIC ACID AND CALCIUM AND POTASSIUM SORBATE, CALCULATED AS SORBIC ACID). CO. R" [ref=e311]:
+        - cell "81" [ref=e312]
+        - cell "<br>1965, NMRS 40/TRS 339-JECFA 9/11, FAS 67.29/NMRS 40A,B,C-JECFA 9/58, FAS 67.29/NMRS 40A,B,C-JECFA 9/58. 0-12.5 (CONDITIONAL, 12.5-25; AS SUM OF SORBIC ACID AND CALCIUM AND POTASSIUM SORBATE, CALCULATED AS SORBIC ACID). CO. R" [ref=e313]
+      - row "82 <br>1964, NMRS 38/TRS 309-JECFA 8/25. 0-12.5 (CONDITIONAL 12.5-25). CO" [ref=e314]:
+        - cell "82" [ref=e315]
+        - cell "<br>1964, NMRS 38/TRS 309-JECFA 8/25. 0-12.5 (CONDITIONAL 12.5-25). CO" [ref=e316]
+      - row "83 <br>1961, NMRS 31/TRS 228-JECFA 6/90, NMRS 31/TRS 228-JECFA 6/91. 0-12.5 (CONDITIONAL, 12.5-25; NATURALLY OCCURRING SUBSTANCE; THE ESTIMATED ACCEPTABLE INTAKES DO NOT INCLUDE THE AMOUNTS OCCURRING NATURALLY). CO" [ref=e317]:
+        - cell "83" [ref=e318]
+        - cell "<br>1961, NMRS 31/TRS 228-JECFA 6/90, NMRS 31/TRS 228-JECFA 6/91. 0-12.5 (CONDITIONAL, 12.5-25; NATURALLY OCCURRING SUBSTANCE; THE ESTIMATED ACCEPTABLE INTAKES DO NOT INCLUDE THE AMOUNTS OCCURRING NATURALLY). CO" [ref=e319]
+      - row "84 <br>1958, NMRS VOL. I-III/36. N</font></small></td>" [ref=e320]:
+        - cell "84" [ref=e321]
+        - cell "<br>1958, NMRS VOL. I-III/36. N</font></small></td>" [ref=e322]
+      - row "85 </tr>" [ref=e323]:
+        - cell "85" [ref=e324]
+        - cell "</tr>" [ref=e325]
+      - row "86 <tr><td colspan=\"2\">&nbsp;</td></tr>" [ref=e326]:
+        - cell "86" [ref=e327]
+        - cell "<tr><td colspan=\"2\">&nbsp;</td></tr>" [ref=e328]:
+          - text: <tr>
+          - generic [ref=e329]: <td colspan="2">
+          - text: "&nbsp;</td></tr>"
+      - row "87 <tr><td colspan=\"2\" align=\"right\"><font face=\"Verdana\" size=\"-2\"> 29 May 05&nbsp;&nbsp;&nbsp;&nbsp;</font></td></tr>" [ref=e330]:
+        - cell "87" [ref=e331]
+        - cell "<tr><td colspan=\"2\" align=\"right\"><font face=\"Verdana\" size=\"-2\"> 29 May 05&nbsp;&nbsp;&nbsp;&nbsp;</font></td></tr>" [ref=e332]:
+          - text: <tr>
+          - generic [ref=e333]: <td colspan="2" align="right">
+          - generic [ref=e334]: <font face="Verdana" size="-2">
+          - text: 29 May 05&nbsp;&nbsp;&nbsp;&nbsp;</font></td></tr>
+      - row "88" [ref=e335]:
+        - cell "88" [ref=e336]
+        - cell [ref=e337]
+      - row "89 </table>" [ref=e338]:
+        - cell "89" [ref=e339]
+        - cell "</table>" [ref=e340]
+      - row "90 </center></div><p align=\"center\">" [ref=e341]:
+        - cell "90" [ref=e342]
+        - cell "</center></div><p align=\"center\">" [ref=e343]:
+          - text: </center></div>
+          - generic [ref=e344]: <p align="center">
+      - row "91" [ref=e345]:
+        - cell "91" [ref=e346]
+        - cell [ref=e347]
+      - row "92 <br>" [ref=e348]:
+        - cell "92" [ref=e349]
+        - cell "<br>" [ref=e350]
+      - row "93 </td>" [ref=e351]:
+        - cell "93" [ref=e352]
+        - cell "</td>" [ref=e353]
+      - row "94 </tr>" [ref=e354]:
+        - cell "94" [ref=e355]
+        - cell "</tr>" [ref=e356]
+      - row "95 </table>" [ref=e357]:
+        - cell "95" [ref=e358]
+        - cell "</table>" [ref=e359]
+      - row "96 </center></div>" [ref=e360]:
+        - cell "96" [ref=e361]
+        - cell "</center></div>" [ref=e362]
+      - row "97" [ref=e363]:
+        - cell "97" [ref=e364]
+        - cell [ref=e365]
+      - row "98 <script src=\"/scripts/google_analytics.js\" type=\"text/javascript\"></script>" [ref=e366]:
+        - cell "98" [ref=e367]
+        - cell "<script src=\"/scripts/google_analytics.js\" type=\"text/javascript\"></script>" [ref=e368]:
+          - generic [ref=e369]:
+            - text: <script src="
+            - link "/scripts/google_analytics.js" [ref=e370] [cursor=pointer]:
+              - /url: /scripts/google_analytics.js
+            - text: "\" type=\"text/javascript\">"
+          - text: </script>
+      - row "99 </BODY>" [ref=e371]:
+        - cell "99" [ref=e372]
+        - cell "</BODY>" [ref=e373]
+      - row "100" [ref=e374]:
+        - cell "100" [ref=e375]
+        - cell [ref=e376]
+      - row "101" [ref=e377]:
+        - cell "101" [ref=e378]
+        - cell [ref=e379]
+      - row "102" [ref=e380]:
+        - cell "102" [ref=e381]
+        - cell [ref=e382]
+      - row "103" [ref=e383]:
+        - cell "103" [ref=e384]
+        - cell [ref=e385]
+      - row "104" [ref=e386]:
+        - cell "104" [ref=e387]
+        - cell [ref=e388]
+      - row "105" [ref=e389]:
+        - cell "105" [ref=e390]
+        - cell [ref=e391]
+      - row "106" [ref=e392]:
+        - cell "106" [ref=e393]
+        - cell [ref=e394]
+      - row "107" [ref=e395]:
+        - cell "107" [ref=e396]
+        - cell [ref=e397]
+      - row "108" [ref=e398]:
+        - cell "108" [ref=e399]
+        - cell [ref=e400]
+      - row "109" [ref=e401]:
+        - cell "109" [ref=e402]
+        - cell [ref=e403]
+      - row "110" [ref=e404]:
+        - cell "110" [ref=e405]
+        - cell [ref=e406]
+      - row "111" [ref=e407]:
+        - cell "111" [ref=e408]
+        - cell [ref=e409]
+      - row "112" [ref=e410]:
+        - cell "112" [ref=e411]
+        - cell [ref=e412]
+      - row "113" [ref=e413]:
+        - cell "113" [ref=e414]
+        - cell [ref=e415]
+      - row "114 <PRE>" [ref=e416]:
+        - cell "114" [ref=e417]
+        - cell "<PRE>" [ref=e418]
+      - row "115 </PRE>" [ref=e419]:
+        - cell "115" [ref=e420]
+        - cell "</PRE>" [ref=e421]
+      - row "116" [ref=e422]:
+        - cell "116" [ref=e423]
+        - cell [ref=e424]
+      - row "117 <PRE>" [ref=e425]:
+        - cell "117" [ref=e426]
+        - cell "<PRE>" [ref=e427]
+      - row "118 See Also:" [ref=e428]:
+        - cell "118" [ref=e429]
+        - cell "See Also:" [ref=e430]
+      - row "119 <A HREF=\"../../eintro/eintro/abreviat.htm\">Toxicological Abbreviations</A>" [ref=e431]:
+        - cell "119" [ref=e432]
+        - cell "<A HREF=\"../../eintro/eintro/abreviat.htm\">Toxicological Abbreviations</A>" [ref=e433]:
+          - generic [ref=e434]:
+            - text: <A HREF="
+            - link "../../eintro/eintro/abreviat.htm" [ref=e435] [cursor=pointer]:
+              - /url: ../../eintro/eintro/abreviat.htm
+            - text: "\">"
+          - text: Toxicological Abbreviations</A>
+      - row "120 <A HREF=\"../../icsc/icsc/eics1284.htm\">Sorbic acid (ICSC)</A>" [ref=e436]:
+        - cell "120" [ref=e437]
+        - cell "<A HREF=\"../../icsc/icsc/eics1284.htm\">Sorbic acid (ICSC)</A>" [ref=e438]:
+          - generic [ref=e439]:
+            - text: <A HREF="
+            - link "../../icsc/icsc/eics1284.htm" [ref=e440] [cursor=pointer]:
+              - /url: ../../icsc/icsc/eics1284.htm
+            - text: "\">"
+          - text: Sorbic acid (ICSC)</A>
+      - row "121 <A HREF=\"../../jecfa/jecmono/40abcj14.htm\">Sorbic acid (FAO Nutrition Meetings Report Series 40abc)</A>" [ref=e441]:
+        - cell "121" [ref=e442]
+        - cell "<A HREF=\"../../jecfa/jecmono/40abcj14.htm\">Sorbic acid (FAO Nutrition Meetings Report Series 40abc)</A>" [ref=e443]:
+          - generic [ref=e444]:
+            - text: <A HREF="
+            - link "../../jecfa/jecmono/40abcj14.htm" [ref=e445] [cursor=pointer]:
+              - /url: ../../jecfa/jecmono/40abcj14.htm
+            - text: "\">"
+          - text: Sorbic acid (FAO Nutrition Meetings Report Series 40abc)</A>
+      - row "122 </PRE>" [ref=e446]:
+        - cell "122" [ref=e447]
+        - cell "</PRE>" [ref=e448]
+      - row "123 </HTML>" [ref=e449]:
+        - cell "123" [ref=e450]
+        - cell "</HTML>" [ref=e451]
+      - row "124" [ref=e452]:
+        - cell "124" [ref=e453]
+        - cell [ref=e454]

@@ -1,0 +1,80 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e7]:
+      - link "World Health Organization" [ref=e9] [cursor=pointer]:
+        - /url: /food-additives-contaminants-jecfa-database/
+        - img "World Health Organization" [ref=e10]
+      - button [ref=e45] [cursor=pointer]
+  - article [ref=e55]:
+    - generic [ref=e56]:
+      - heading "SORBIC ACID" [level=1] [ref=e59]
+      - region "AddThis Sharing Buttons" [ref=e62]:
+        - text: AddThis Sharing Buttons
+        - button "Share to Print Print" [ref=e64]:
+          - text: Share to Print
+          - img "Print" [ref=e66]
+    - generic [ref=e72]:
+      - generic [ref=e73]:
+        - heading "Overview" [level=3] [ref=e75]
+        - generic [ref=e76]:
+          - generic [ref=e77]:
+            - generic [ref=e78]: Chemical Names
+            - generic [ref=e79]: Sorbic acid; (E,E)-2,4-Hexadienoic acid; 2-Propenylacrylic acid
+          - generic [ref=e80]:
+            - generic [ref=e81]: CAS number
+            - generic [ref=e83]: 110-44-1
+          - generic [ref=e84]:
+            - generic [ref=e85]: INS
+            - generic [ref=e87]: "200"
+          - generic [ref=e88]:
+            - generic [ref=e89]: Functional Class
+            - generic [ref=e90]:
+              - text: Food Additives
+              - text: PRESERVATIVE
+          - generic [ref=e91]:
+            - generic [ref=e92]: INS matches
+            - generic [ref=e93]: "200"
+      - generic [ref=e94]:
+        - heading "Evaluations" [level=3] [ref=e96]
+        - generic [ref=e97]:
+          - 'heading "Evaluation year: 1973" [level=4] [ref=e98]'
+          - 'heading "ADI: 0-25 mg/kg bw" [level=4] [ref=e99]':
+            - generic [ref=e100]:
+              - generic [ref=e101]: "ADI:"
+              - generic [ref=e102]: 0-25 mg/kg bw
+          - generic [ref=e103]:
+            - generic [ref=e104]: "Comments:"
+            - generic [ref=e105]: As sum of sorbic acid and calcium, potassium and sodium sorbates (expressed as sorbic acid)
+          - generic [ref=e106]:
+            - generic [ref=e107]: "Meeting:"
+            - generic [ref=e108]: "17"
+          - generic [ref=e109]:
+            - generic [ref=e110]: "Specs Code:"
+            - generic [ref=e111]: R (1976)
+          - generic [ref=e112]:
+            - generic [ref=e113]: "Report:"
+            - link "NMRS 53/TRS 539-JECFA 17/18" [ref=e115] [cursor=pointer]:
+              - /url: http://apps.who.int/iris/bitstream/10665/41072/1/WHO_TRS_539.pdf
+          - generic [ref=e116]:
+            - generic [ref=e117]: "Tox Monograph:"
+            - link "FAS 5/NMRS 53A-JECFA 17/121" [ref=e119] [cursor=pointer]:
+              - /url: http://www.inchem.org/pages/jecfa.html
+          - generic [ref=e120]:
+            - generic [ref=e121]: "Specification:"
+            - link "FAO Combined Compendium of Food Additive SpecificationsFAO Combined Compendium of Food Additive Specifications" [ref=e123] [cursor=pointer]:
+              - /url: https://www.fao.org/food/food-safety-quality/scientific-advice/jecfa/jecfa-additives/en/
+          - generic [ref=e124]:
+            - generic [ref=e125]: "Previous Years:"
+            - generic "1976, FAS 11/FNS 1B-JECFA 20/90 (1976); COMPENDIUM/1403. R 1973, FNP 4-JECFA 17/175. R 1970, NMRS 48/TRS 462-JECFA 14/24, FAS 70.41/NMRS 48C-JECFA 14/27 1965, NMRS 40/TRS 339-JECFA 9/11, FAS 67.29/NMRS 40A,B,C-JECFA 9/58, FAS 67.29/NMRS 40A,B,C-JECFA 9" [ref=e126]:
+              - generic [ref=e127]: 1976, FAS 11/FNS 1B-JECFA 20/90 (1976); COMPENDIUM/1403. R 1973, FNP 4-JECFA 17/175. R 1970, NMRS 48/TRS 462-JECFA 14/24, FAS 70.41/NMRS 48C-JECFA 14/27 1965, NMRS 40/TRS 339-JECFA 9/11, FAS 67.29/NMRS 40A,B,C-JECFA 9/58, FAS 67.29/NMRS 40A,B,C-JECFA 9
+  - contentinfo [ref=e128]:
+    - link "Home" [ref=e134] [cursor=pointer]:
+      - /url: /food-additives-contaminants-jecfa-database/
+      - img "Home" [ref=e135]
+    - generic [ref=e138]:
+      - link "Privacy Legal Notice" [ref=e142] [cursor=pointer]:
+        - /url: /food-additives-contaminants-jecfa-database/Home/About
+      - generic [ref=e144]:
+        - text: © 2021
+        - link "WHO" [ref=e147] [cursor=pointer]:
+          - /url: /about/policies/terms-of-use

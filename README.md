@@ -29,10 +29,14 @@ docker-compose up -d
 ### Environment Configuration
 Ensure a `.env` file exists in the server directory with the following variables:
 - GEMINI_API_KEY: Google Gemini AI API Key.
-- DATABASE_URL: MySQL connection string (automatically configured by docker-compose).
+- DATABASE_URL: PostgreSQL connection string.
+
+## Documentation
+
+Project documentation is maintained in Obsidian. Contact the maintainer for access.
 
 ## Technical Specifications
 - Frontend: React Native (Expo), TailwindCSS, NativeWind
 - Backend: FastAPI (Python)
 - AI: Google Gemini AI
-- Database: MySQL (Cloud), SQLAlchemy (ORM)
+- Database: PostgreSQL (Cloud), SQLAlchemy (ORM)

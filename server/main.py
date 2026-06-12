@@ -351,15 +351,42 @@ def submit_comment(record_id: str, req: CommentRequest):
     finally:
         conn.close()
 
+@app.get("/api/additives")
+def list_or_search_additives(q: str = None):
+    conn = get_db_conn()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    if q:
+        query = """
+            SELECT * FROM additives 
+            WHERE name_zh ILIKE %s 
+               OR name_en ILIKE %s 
+               OR ins_or_e_number ILIKE %s
+               OR aliases::text ILIKE %s
+            ORDER BY id ASC
+        """
+        like_pattern = f"%{q}%"
+        cur.execute(query, (like_pattern, like_pattern, like_pattern, like_pattern))
+    else:
+        cur.execute("SELECT * FROM additives ORDER BY id ASC")
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
 @app.get("/api/additives/{record_id}")
 def get_additive(record_id: str):
     conn = get_db_conn()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute("SELECT * FROM additives WHERE record_id = %s", (record_id,))
     row = cur.fetchone()
-    conn.close()
     if not row:
+        conn.close()
         raise HTTPException(status_code=404, detail="Additive not found")
+    
+    cur.execute("SELECT * FROM additive_comments WHERE record_id = %s ORDER BY created_at DESC", (record_id,))
+    comments = cur.fetchall()
+    conn.close()
+    
+    row["comments"] = comments
     return row
 
 @app.get("/api/admin/suggestions")

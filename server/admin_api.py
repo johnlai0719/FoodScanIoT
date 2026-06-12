@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 import os
-import mysql.connector
+import psycopg2
+import psycopg2.extras
 import json as _json
 from typing import List, Optional
 
@@ -8,19 +9,19 @@ router = APIRouter(prefix="/admin/api", tags=["admin"])
 
 DB_CONFIG = {
     "host": os.getenv("DB_HOST", "localhost"),
-    "user": os.getenv("DB_USER", "root"),
+    "user": os.getenv("DB_USER", "postgres"),
     "password": os.getenv("DB_PASSWORD", "password"),
-    "database": os.getenv("DB_NAME", "product_db"),
-    "charset": "utf8mb4"
+    "dbname": os.getenv("DB_NAME", "product_db"),
+    "port": int(os.getenv("DB_PORT", "5432")),
 }
 
 def get_db_conn():
-    return mysql.connector.connect(**DB_CONFIG)
+    return psycopg2.connect(**DB_CONFIG)
 
 @router.get("/list")
 async def list_products(limit: int = 100):
     db = get_db_conn()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cursor.execute("SELECT barcode, name, brand, manufacturer, created_at FROM products ORDER BY created_at DESC LIMIT %s", (limit,))
     products = cursor.fetchall()
     cursor.close()
@@ -63,7 +64,7 @@ async def delete_product(barcode: str):
 @router.post("/cleanup_tests")
 async def cleanup_tests():
     db = get_db_conn()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     
     # 找出所有包含 TEST 或 IMG_ 的條碼
     cursor.execute("SELECT barcode FROM products WHERE barcode LIKE '%TEST%' OR barcode LIKE 'IMG_%'")
