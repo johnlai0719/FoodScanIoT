@@ -1,0 +1,36 @@
+name: Deploy Fog to Pi 5
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'fog/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PI_TAILSCALE_IP }}
+          username: johnlai
+          key: ${{ secrets.FOG_SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/johnlai/fog/FoodScanIoT
+            git pull origin main
+            cd fog
+            source venv/bin/activate
+            pip install -r requirements.txt
+            npm install --production
+            npm run build
+            sudo systemctl restart fog-python fog-node
+            sleep 5
+            curl -sf http://localhost:3001/health || exit 1
+            curl -sf http://localhost:3002/health || exit 1
+            echo "Deploy success"
