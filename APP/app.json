@@ -1,31 +1,34 @@
 {
   "expo": {
-    "name": "FoodAware-Pro-Mobile",
-    "slug": "foodaware-pro-mobile",
+    "name": "FoodScan",
+    "slug": "expo-app",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "expoapp",
     "userInterfaceStyle": "light",
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FDF8F3"
+    },
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.foodaware.pro.mobile"
+      "supportsTablet": true
     },
     "android": {
-      "package": "com.foodaware.pro.mobile"
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundColor": "#FDF8F3"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "允許 FoodAware 使用相機來掃描食品條碼。",
-          "microphonePermission": false,
-          "recordAudioAndroid": false
-        }
-      ],
-      "expo-secure-store",
-      "expo-sqlite"
+      "expo-image-picker",
+      "expo-camera"
     ],
     "experiments": {
       "reactCompiler": true
