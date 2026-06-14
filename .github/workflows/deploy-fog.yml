@@ -16,6 +16,9 @@ jobs:
         with:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
 
+      - name: Wait for Tailscale
+        run: sleep 10
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
         with:
