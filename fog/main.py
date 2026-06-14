@@ -1,3 +1,4 @@
+# Fog Server v1.1
 from fastapi import FastAPI, Request, Response, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import sqlite3
