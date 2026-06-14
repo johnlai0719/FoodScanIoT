@@ -36,6 +36,7 @@ def _search_producer(producer_name: str) -> list[dict]:
     results = []
     
     try:
+        _t_tavily_start = time.time()
         search_params = {
             "query": query,
             "max_results": 15,
@@ -43,6 +44,7 @@ def _search_producer(producer_name: str) -> list[dict]:
         }
         print(f"[INFO] Querying Tavily with consolidated query: {query}")
         resp = _tavily.search(**search_params)
+        print(f"[PERF] Tavily Search: {(time.time() - _t_tavily_start)*1000:.0f}ms | results={len(resp.get('results', []))}")
         
         official_domains = {"fda.gov.tw", "mohw.gov.tw", "consumer.gov.tw", "gov.tw"}
         news_domains = {"udn.com", "ltn.com.tw", "cna.com.tw", "setn.com", "tvbs.com.tw", "yahoo.com", "chinatimes.com", "ettoday.net"}
@@ -135,7 +137,9 @@ Snippets to validate:
 
     try:
         print(f"[DEBUG] Sending batch of {len(snippets)} snippets to Gemini...")
+        _t_lite_start = time.time()
         response = _client.models.generate_content(model="gemini-2.5-flash-lite", contents=prompt)
+        print(f"[PERF] Gemini-2.5-flash-lite Validation: {(time.time() - _t_lite_start)*1000:.0f}ms | snippets={len(snippets)}")
         print(f"[DEBUG] Gemini response received successfully.")
         text = response.text.strip()
         import re

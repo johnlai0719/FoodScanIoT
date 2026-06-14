@@ -42,6 +42,22 @@ CLOUD_URL = os.getenv("CLOUD_API_URL")
 if not CLOUD_URL:
     print("[!] 警告: 未在環境變數或 .env 中偵測到 CLOUD_API_URL！")
 
+cloud_online = True
+
+def get_stale_from_db(barcode: str) -> tuple[dict | None, int]:
+    """查詢快取，忽略 TTL，回傳 (資料, 快取年齡秒數)"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT result_json, last_updated FROM cache WHERE barcode = ?", (barcode,))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            return json.loads(row[0]), int(time.time()) - row[1]
+    except Exception:
+        pass
+    return None, 0
+
 def check_cloud_functionality():
     """啟動時測試 Cloud 端是否能接通並正確回應"""
     print(f"[*] 正在探查 Cloud 端功能: {CLOUD_URL}")
@@ -71,16 +87,15 @@ def check_cloud_functionality():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # --- 啟動時檢查 ---
-    if not check_cloud_functionality():
+    global cloud_online
+    cloud_online = check_cloud_functionality()
+    if not cloud_online:
         print("="*60)
-        print("【 啟動中斷 】: Cloud 端功能檢查失敗！")
-        print("請檢查網域配置。")
+        print("[WARN] Cloud 不可用，以離線快取模式啟動")
+        print("[WARN] 僅能服務已快取條碼，新條碼查詢將回傳離線錯誤")
         print("="*60)
-        # 引發錯誤會導致啟動停止
-        raise RuntimeError("Cloud functionality probe failed.")
     yield
-    # --- 關閉時嵷行 (如有需要) ---
+    # --- 關閉時執行 (如有需要) ---
 
 app = FastAPI(title="FoodAware Fog Server - Vision Optimized", lifespan=lifespan)
 
@@ -484,7 +499,15 @@ async def query(request: Request, response: Response):
             except Exception as e:
                 conn.close()
                 print(f"[ERROR] Cloud Forwarding Error: {barcode} -> {str(e)}")
-                raise HTTPException(status_code=504, detail=f"Cloud Forwarding Error: {str(e)}")
+                stale, age = get_stale_from_db(barcode)
+                if stale:
+                    print(f"[STALE] {barcode} -> Serving stale cache (age: {age}s)")
+                    response.headers["X-Cache"] = "STALE"
+                    result = calculate_personalized_score(stale, user_conditions)
+                    result["_offline_mode"] = True
+                    result["_cache_age_seconds"] = age
+                    return result
+                raise HTTPException(status_code=504, detail=f"Cloud 不可用且無快取資料: {str(e)}")
 
         # 🛠️ 如果是測試模式且沒照片，直接從快取回傳上次的成功結果 (取代 Cloud 查詢)
         if is_test and test_cache_row:
@@ -547,7 +570,15 @@ async def query(request: Request, response: Response):
         except Exception as e:
             if 'conn' in locals(): conn.close()
             print(f"[ERROR] Cloud Forwarding Error: {barcode} -> {str(e)}")
-            return {"status": "error", "message": f"Cloud Forwarding Error: {str(e)}"}
+            stale, age = get_stale_from_db(barcode)
+            if stale:
+                print(f"[STALE] {barcode} -> Serving stale cache (age: {age}s)")
+                response.headers["X-Cache"] = "STALE"
+                result = calculate_personalized_score(stale, user_conditions)
+                result["_offline_mode"] = True
+                result["_cache_age_seconds"] = age
+                return result
+            return {"status": "error", "message": "Cloud 不可用且無快取資料", "offline": True}
 
     except Exception as e:
         print(f"[ERROR] Fog Error: {e}")

@@ -574,10 +574,6 @@ async def analyze_image_with_gemini(base64_images: list, barcode: str = "Unknown
           "manufacturer": "製造商全名 (請參考包裝標示)", 
           "allergy_warning": "過敏原注意事項文字",
           "certification_marks": ["標章名稱", "例如: TQF, CAS, TAP, 健康食品, 有機農產品"], 
-          "ingredient_details": {
-            "成分1": {"desc": "50字內專業功能介紹與健康影響說明", "purpose": "技術用途如：抗氧化劑"}, 
-            "成分2": {"desc": "...", "purpose": "..."}
-          }
         }
 
         【營養標示讀取規則 - 極重要】
@@ -594,7 +590,11 @@ async def analyze_image_with_gemini(base64_images: list, barcode: str = "Unknown
         JSON ONLY. No markdown. 數值皆為數字。其中 "additive" 代表食品添加物，"ingredient" 代表天然原料/食材；鍵必須與 ingredients_list 中的成分名稱完全對應。"""
         
         content = [prompt] + images_to_process
-        response = _genai_client.models.generate_content(model="gemini-2.5-flash", contents=content)
+        response = _genai_client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=content,
+            config={"thinking_config": {"thinking_budget": 0}}
+        )
         
         # [DEBUG] 記錄原始回傳，幫助診斷失敗原因
         try:
@@ -714,7 +714,10 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
         # 1. 如果有圖片，不論是否有條碼，直接啟動視覺同步
         if label_images and len(label_images) > 0:
             print(f"[INFO] [Analyze] Starting AI vision analysis for barcode: {barcode or 'NEW'}...")
+            _t_vision_start = time.time()
             vision_data = await analyze_image_with_gemini(label_images, barcode or "NEW")
+            _t_vision_end = time.time()
+            print(f"[PERF] Gemini-2.5-flash Vision: {(_t_vision_end - _t_vision_start)*1000:.0f}ms")
             
             # --- 核心連線邏輯：在分析完畢後才建立連線，防止超時 ---
             db = get_db_conn()
@@ -1243,12 +1246,16 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
             try:
                 try:
                     print(f"[DEBUG] [Analyze] Sending prompt to Gemma. Length: {len(composite_prompt)}")
-                    ai_resp = _genai_client.models.generate_content(model="gemma-4-31b-it", contents=composite_prompt)
+                    _t_gemma_start = time.time()
+                    ai_resp = _genai_client.models.generate_content(model="gemini-2.5-flash-lite", contents=composite_prompt)
                     ai_data = _json.loads(re.search(r'(\{.*\})', ai_resp.text, re.DOTALL).group(1))
+                    print(f"[PERF] Gemini-2.5-flash-lite Diagnosis: {(time.time() - _t_gemma_start)*1000:.0f}ms")
                 except Exception as first_e:
-                    print(f"[WARN] [Analyze] Gemma model failed, attempting fallback to gemini-2.5-flash... Error: {first_e}")
+                    print(f"[WARN] [Analyze] gemini-2.5-flash-lite failed, falling back to gemini-2.5-flash... Error: {first_e}")
+                    _t_gemma_start = time.time()
                     ai_resp = _genai_client.models.generate_content(model="gemini-2.5-flash", contents=composite_prompt)
                     ai_data = _json.loads(re.search(r'(\{.*\})', ai_resp.text, re.DOTALL).group(1))
+                    print(f"[PERF] Gemini-2.5-flash Diagnosis (fallback): {(time.time() - _t_gemma_start)*1000:.0f}ms")
             except Exception as ai_e:
                 print(f"[WARN] [Analyze] Both primary and fallback models failed: {ai_e}")
                 ai_data = {
@@ -1443,4 +1450,5 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=3002)
+    port = int(os.getenv("CLOUD_PORT", 3003))
+    uvicorn.run(app, host="0.0.0.0", port=port)
