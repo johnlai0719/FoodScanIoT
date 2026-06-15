@@ -362,6 +362,7 @@ def update_producer_safety_events(producer_id: int, producer_name: str):
                         models.SafetyAlert.title == ev["title"]
                     ).first()
                     if not exists:
+                        db.flush()
                         alert = models.SafetyAlert(
                             title=ev["title"][:500],
                             content=ev["summary"][:2000],
@@ -416,11 +417,16 @@ def update_producer_safety_events(producer_id: int, producer_name: str):
                 db = SessionLocal()
                 try:
                     complaint_inserts = 0
+                    inserted_titles = set()
                     for ev in validated_complaints:
+                        if ev["title"] in inserted_titles:
+                            continue
                         exists = db.query(models.SafetyAlert).filter(
                             models.SafetyAlert.title == ev["title"]
                         ).first()
                         if not exists:
+                            inserted_titles.add(ev["title"])
+                            db.flush()
                             alert = models.SafetyAlert(
                                 title=ev["title"][:500],
                                 content=ev["summary"][:2000],
