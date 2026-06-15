@@ -573,7 +573,7 @@ async def analyze_image_with_gemini(base64_images: list, barcode: str = "Unknown
           }, 
           "manufacturer": "製造商全名 (請參考包裝標示)", 
           "allergy_warning": "過敏原注意事項文字",
-          "certification_marks": ["標章名稱", "例如: TQF, CAS, TAP, 健康食品, 有機農產品"], 
+          "certification_marks": ["標章名稱", "例如: TQF, CAS, TAP, 健康食品, 有機農產品"]
         }
 
         【營養標示讀取規則 - 極重要】
@@ -1192,7 +1192,7 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
         {_json.dumps(user_conditions, ensure_ascii=False)}
         
         【任務】
-        請使用 Google Gemma 模型進行深度分析，並提供以下三個 AI 總結：
+        請進行深度分析，並提供以下三個 AI 總結：
         1. 「總體商品健康診斷總結」(overall_summary)：參考「確切總分」與「健康分級」，產出 50 字內之個人化核心診斷與長期過量攝取的累積慢性健康風險（例如：吃了沒事，但吃久了會有事）。
         2. 「添加物風險總結」(additives_summary)：分析本產品所含的食品添加物、人工化學成分（如防腐劑、防凝劑、甘味劑等）的組合風險，特別是針對該使用者背景（如糖尿病、孕婦、高血壓等）的危害程度，產出 100 字內的分析總結。若無添加物，請說明「本產品無添加化學食品添加物」。
         3. 「食安歷史事件總結」(safety_events_summary)：分析本產品製造商（廠商）以往的食安歷史違規與歷史事件，對消費者信任度與產品安全的影響，產出 100 字內的分析總結。若無歷史食安事件，請說明「該廠商無特定歷史食安違規紀錄」。
