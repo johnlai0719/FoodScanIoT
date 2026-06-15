@@ -450,13 +450,17 @@ def update_producer_safety_events(producer_id: int, producer_name: str):
             ).all()
             cleared = 0
             for prod in affected:
+                # 清除 PostgreSQL 的 AI 摘要快取，確保下次查詢重新生成含新事件的摘要
+                prod.safety_events_summary = None
+                prod.overall_summary = None
                 try:
                     r = requests.delete(f"{FOG_BASE}/cache/{prod.barcode}", timeout=3)
                     if r.status_code == 200:
                         cleared += 1
                 except Exception as e:
-                    print(f"[WARN] Failed to clear cache for {prod.barcode}: {e}")
-            print(f"[INFO] Cleared Fog cache for {cleared} products under {producer_name}")
+                    print(f"[WARN] Failed to clear Fog cache for {prod.barcode}: {e}")
+            db.commit()
+            print(f"[INFO] Cleared AI summaries + Fog cache for {len(affected)} products under {producer_name}")
         finally:
             db.close()
 
