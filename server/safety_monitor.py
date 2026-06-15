@@ -238,7 +238,7 @@ def _validate_consumer_complaints(producer_name: str, snippets: list[dict]) -> l
     "is_complaint": true or false,
     "title": "貼文標題",
     "summary": "投訴摘要",
-    "event_date": "YYYY-MM or """,
+    "event_date": "YYYY-MM 或不確定填空字串",
     "source_url": "URL",
     "source_type": "consumer_complaint",
     "severity": 1
