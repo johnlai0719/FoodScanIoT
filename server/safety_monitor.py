@@ -179,6 +179,102 @@ Snippets to validate:
         print(f"[WARN] Gemini batch validation failed or invalid response: {e}")
         return []
 
+def _search_consumer_complaints(producer_name: str) -> list[dict]:
+    if not _tavily:
+        return []
+    query = f"{producer_name} (客訴 OR 抱怨 OR 異物 OR 吃壞肚子 OR 食物中毒 OR 退費 OR 問題產品) site:ptt.cc OR site:dcard.tw OR site:facebook.com OR site:google.com/maps"
+    try:
+        _t = time.time()
+        resp = _tavily.search(query=query, max_results=10, search_depth="basic")
+        print(f"[PERF] Tavily Consumer Complaint Search: {(time.time() - _t)*1000:.0f}ms | results={len(resp.get('results', []))}")
+        results = []
+        seen_urls = set()
+        for r in resp.get("results", []):
+            url = r.get("url", "")
+            if url and url not in seen_urls:
+                seen_urls.add(url)
+                r["source_type"] = "consumer_complaint"
+                results.append(r)
+        return results
+    except Exception as e:
+        print(f"[WARN] Consumer complaint search failed for '{producer_name}': {e}")
+        return []
+
+def _validate_consumer_complaints(producer_name: str, snippets: list[dict]) -> list[dict]:
+    if not _client or not snippets:
+        return []
+
+    snippets_formatted = ""
+    for idx, s in enumerate(snippets):
+        snippets_formatted += f"--- Snippet {idx} ---\n"
+        snippets_formatted += f"Title: {s.get('title', '')}\n"
+        snippets_formatted += f"Content: {s.get('content', '')}\n"
+        snippets_formatted += f"URL: {s.get('url', '')}\n\n"
+
+    prompt = f"""你是消費者投訴紀錄分析師。以下是網路上關於「{producer_name}」的消費者貼文與討論。
+
+任務：判斷每則內容是否包含真實的消費者食品投訴（異物、食物中毒、變質、客訴未處理等）。
+
+納入條件（以下任一即可）：
+- 消費者描述吃到異物（頭髮、蟲、塑膠、金屬等）
+- 消費者描述吃後身體不適（腹瀉、嘔吐、過敏）
+- 消費者描述產品變質（發霉、有異味、過期）
+- 廠商客訴處理不當的具體描述
+
+排除條件：
+- 單純負評或口味不喜歡
+- 與食品安全無關的客訴（送貨延遲、包裝破損）
+- 無具體描述的謾罵
+
+規則：
+- summary 用繁體中文，50 字內，描述投訴內容
+- event_date 從文章中提取，格式 YYYY-MM，不確定填 ""
+- severity 固定為 1
+- source_type 固定為 "consumer_complaint"
+- 只回傳 JSON 陣列，不加 markdown
+
+[
+  {{
+    "is_complaint": true or false,
+    "title": "貼文標題",
+    "summary": "投訴摘要",
+    "event_date": "YYYY-MM or """,
+    "source_url": "URL",
+    "source_type": "consumer_complaint",
+    "severity": 1
+  }}
+]
+
+內容：
+{snippets_formatted}"""
+
+    try:
+        import re
+        _t = time.time()
+        response = _client.models.generate_content(model="gemini-2.5-flash-lite", contents=prompt)
+        print(f"[PERF] Flash Lite Consumer Complaint Validation: {(time.time() - _t)*1000:.0f}ms | snippets={len(snippets)}")
+        text = response.text.strip()
+        match = re.search(r"(\[.*\])", text, re.DOTALL)
+        if match:
+            text = match.group(1)
+        data = json.loads(text)
+        validated = []
+        for item in data:
+            if isinstance(item, dict) and item.get("is_complaint"):
+                validated.append({
+                    "is_food_safety_event": True,
+                    "title": item.get("title", "") or "",
+                    "summary": item.get("summary", "") or "",
+                    "event_date": item.get("event_date", "") or "",
+                    "source_url": item.get("source_url", "") or "",
+                    "source_type": "consumer_complaint",
+                    "severity": 1
+                })
+        return validated
+    except Exception as e:
+        print(f"[WARN] Consumer complaint validation failed: {e}")
+        return []
+
 def update_producer_safety_events(producer_id: int, producer_name: str):
     db = SessionLocal()
     canonical_name = producer_name
@@ -300,6 +396,51 @@ def update_producer_safety_events(producer_id: int, producer_name: str):
         db.close()
 
     print(f"[INFO] {cleaned_name}: {new_inserts} new alerts inserted in total")
+
+    # 消費者投訴線（獨立搜尋，寬鬆驗證）
+    complaint_snippets = _search_consumer_complaints(cleaned_name)
+    if complaint_snippets:
+        db = SessionLocal()
+        try:
+            existing_urls = set(
+                row[0] for row in db.query(models.SafetyAlert.source_url)
+                .filter(models.SafetyAlert.producer_id == producer_id)
+                .all()
+            )
+        finally:
+            db.close()
+        new_complaint_snippets = [s for s in complaint_snippets if s.get("url", "") not in existing_urls]
+        if new_complaint_snippets:
+            validated_complaints = _validate_consumer_complaints(cleaned_name, new_complaint_snippets)
+            if validated_complaints:
+                db = SessionLocal()
+                try:
+                    complaint_inserts = 0
+                    for ev in validated_complaints:
+                        exists = db.query(models.SafetyAlert).filter(
+                            models.SafetyAlert.title == ev["title"]
+                        ).first()
+                        if not exists:
+                            alert = models.SafetyAlert(
+                                title=ev["title"][:500],
+                                content=ev["summary"][:2000],
+                                alert_date=ev["event_date"][:50],
+                                source_url=ev.get("source_url", "")[:500],
+                                source_type="consumer_complaint",
+                                severity=1,
+                                producer_id=producer_id,
+                                keyword_used=cleaned_name[:50],
+                            )
+                            db.add(alert)
+                            complaint_inserts += 1
+                            new_inserts += 1
+                    db.commit()
+                    print(f"[INFO] {cleaned_name}: {complaint_inserts} consumer complaints inserted")
+                except Exception as e:
+                    db.rollback()
+                    print(f"[WARN] Failed to insert complaints: {e}")
+                finally:
+                    db.close()
 
     if new_inserts > 0:
         db = SessionLocal()
