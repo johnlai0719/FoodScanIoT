@@ -100,22 +100,34 @@ def _validate_batch_with_gemma(producer_name: str, snippets: list[dict]) -> list
         snippets_formatted += f"Published Date: {s.get('published_date', '')}\n"
         snippets_formatted += f"Source Type: {s.get('source_type', '')}\n\n"
 
-    prompt = f"""You are a food safety data validator. You will be given a list of web search result snippets about a company named "{producer_name}". Each snippet has a "Source Type" associated with it (either official, news, or social).
+    prompt = f"""You are a strict food safety incident validator. You will be given web search result snippets about a company named "{producer_name}".
 
 Your task:
-For each snippet, determine whether it describes a real food safety event (product recall, regulatory violation, contamination, lab test failure, or similar).
+Determine whether each snippet describes a DIRECT food safety incident — meaning a confirmed violation, recall, contamination, lab failure, or regulatory penalty that physically harmed or endangered consumers.
 
-Rules:
-- Gemini must only validate and extract information. Do NOT invent or infer information not present in the snippets. You are strictly forbidden from generating safety events on your own.
-- If a snippet does not describe a food safety event, set is_food_safety_event to false and leave other fields empty.
-- event_date must be in YYYY-MM format. If only year is known, use YYYY-01. If unknown, use "".
-- summary must be under 100 characters/words in Traditional Chinese (繁體中文) and based only on the snippet.
-- Return a JSON array containing one object for each snippet.
+STRICT exclusion rules (set is_food_safety_event to false):
+- PR responses, company statements, or rebuttals about food safety (e.g. "company denies allegations")
+- Advocacy, lobbying, or petitions related to food safety policy
+- Opinion articles, commentary, or analysis that merely mention food safety
+- Articles reporting that another party defended or criticized the company's food safety record
+- Social media posts without verifiable source
+- Articles where the incident described belongs to a DIFFERENT company
+- Any snippet where the actual safety violation is not clearly stated
+
+INCLUDE only:
+- Government regulatory violations with product name and penalty
+- Official product recalls with specific product and reason
+- Lab test failures detecting prohibited substances or excess limits
+- Confirmed contamination incidents
+
+Additional rules:
+- event_date must be the date the INCIDENT OCCURRED, NOT the article publication date. Extract from article content. Use YYYY-MM format, YYYY-01 if only year known, "" if truly unknown.
+- summary must be under 80 characters in Traditional Chinese (繁體中文), describing the actual violation only.
 - Return JSON ONLY, no markdown fences.
-- severity is an integer (1, 2, or 3) where:
+- severity is an integer (1, 2, or 3):
   1 = labeling/tagging violation (標示違規)
   2 = chemical/ingredient violation (成分違規)
-  3 = major safety incident (重大事件)
+  3 = major safety incident with health risk (重大食安事件)
 
 Required JSON Array Format:
 [
@@ -206,6 +218,34 @@ def update_producer_safety_events(producer_id: int, producer_name: str):
         finally:
             db.close()
         return
+
+    # 過濾掉 source_url 已存在於 DB 的 snippets，避免重複呼叫 Flash Lite
+    db = SessionLocal()
+    try:
+        existing_urls = set(
+            row[0] for row in db.query(models.SafetyAlert.source_url)
+            .filter(models.SafetyAlert.producer_id == producer_id)
+            .all()
+        )
+    finally:
+        db.close()
+
+    new_snippets = [s for s in snippets if s.get("url", "") not in existing_urls]
+    skipped = len(snippets) - len(new_snippets)
+    if skipped:
+        print(f"[INFO] {cleaned_name}: 跳過 {skipped} 筆已存在 URL，剩餘 {len(new_snippets)} 筆待驗證")
+    if not new_snippets:
+        print(f"[INFO] {cleaned_name}: 所有 URL 皆已存在，跳過 Flash Lite 驗證")
+        db = SessionLocal()
+        try:
+            producer = db.query(models.Producer).filter(models.Producer.id == producer_id).first()
+            if producer:
+                producer.last_audit_date = str(int(time.time()))
+                db.commit()
+        finally:
+            db.close()
+        return
+    snippets = new_snippets
 
     print(f"[INFO] {cleaned_name}: {len(snippets)} snippets to validate")
     BATCH_SIZE = 5
