@@ -1,7 +1,9 @@
 import os
 import json
+import re
 import requests
 import time
+from datetime import datetime
 from google import genai
 from tavily import TavilyClient
 from database import SessionLocal
@@ -24,6 +26,54 @@ if TAVILY_API_KEY:
 
 FOG_BASE = os.getenv("FOG_URL", "http://localhost:3001")
 
+_HTML_DATE_PATTERNS = [
+    r'article:published_time["\s]+content=["\']([^"\']+)',
+    r'datePublished["\s]*:["\s]*"([0-9]{4}-[0-9]{2}-[0-9]{2}[^"]*)"',
+    r'<time[^>]*datetime=["\']([0-9]{4}-[0-9]{2}-[0-9]{2}[^"\']*)',
+    r'publishdate["\s]+content=["\']([^"\']+)',
+]
+_FETCH_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+
+def _fetch_publish_date(url: str) -> str:
+    """從 URL 的 HTML meta 標籤抓發布日期，回傳 YYYY-MM 或空字串"""
+    if not url or url.endswith(".pdf"):
+        return ""
+    try:
+        resp = requests.get(url, headers=_FETCH_HEADERS, timeout=8)
+        html = resp.text[:20000]
+        for p in _HTML_DATE_PATTERNS:
+            m = re.search(p, html, re.IGNORECASE)
+            if m:
+                raw = m.group(1)[:10]
+                if re.match(r'^\d{4}-\d{2}', raw):
+                    year = int(raw[:4])
+                    if 1950 <= year <= datetime.now().year + 1:
+                        return raw[:7]
+    except Exception:
+        pass
+    return ""
+
+def _normalize_url(url: str) -> str:
+    """將 URL 標準化以利去重：移除 Threads/Instagram 等的尾部文字 slug"""
+    if not url:
+        return url
+    # Threads: /post/{ID}/{slug} → 只保留 /post/{ID}
+    m = re.match(r'(https?://(?:www\.)?threads\.(?:com|net)/@[^/]+/post/[^/]+)', url)
+    if m:
+        return m.group(1)
+    return url
+
+def _sanitize_event_date(date_str: str) -> str:
+    """驗證並清理 Gemini 回傳的日期，拒絕 0000-00 或格式錯誤的佔位符"""
+    if not date_str:
+        return ""
+    s = date_str.strip()
+    if re.match(r"^\d{4}-\d{2}$", s):
+        year = int(s[:4])
+        if 1950 <= year <= 2100:
+            return s
+    return ""
+
 def _search_producer(producer_name: str) -> list[dict]:
     if not _tavily:
         print("[WARN] Tavily client is not initialized")
@@ -40,7 +90,8 @@ def _search_producer(producer_name: str) -> list[dict]:
         search_params = {
             "query": query,
             "max_results": 15,
-            "search_depth": "advanced"
+            "search_depth": "advanced",
+            "include_raw_content": True,
         }
         print(f"[INFO] Querying Tavily with consolidated query: {query}")
         resp = _tavily.search(**search_params)
@@ -93,32 +144,35 @@ def _validate_batch_with_gemma(producer_name: str, snippets: list[dict]) -> list
 
     snippets_formatted = ""
     for idx, s in enumerate(snippets):
+        raw = (s.get('raw_content') or '')[:2000]
         snippets_formatted += f"--- Snippet {idx} ---\n"
         snippets_formatted += f"Title: {s.get('title', '')}\n"
-        snippets_formatted += f"Content: {s.get('content', '')}\n"
         snippets_formatted += f"URL: {s.get('url', '')}\n"
-        snippets_formatted += f"Published Date: {s.get('published_date', '')}\n"
-        snippets_formatted += f"Source Type: {s.get('source_type', '')}\n\n"
+        snippets_formatted += f"Source Type: {s.get('source_type', '')}\n"
+        snippets_formatted += f"Article Content:\n{raw}\n\n"
 
     prompt = f"""You are a strict food safety incident validator. You will be given web search result snippets about a company named "{producer_name}".
 
 Your task:
-Determine whether each snippet describes a DIRECT food safety incident — meaning a confirmed violation, recall, contamination, lab failure, or regulatory penalty that physically harmed or endangered consumers.
+Determine whether each snippet describes a DIRECT food safety incident — meaning a confirmed regulatory violation, product recall, contamination, lab test failure, or government penalty involving a specific product or raw material.
 
 STRICT exclusion rules (set is_food_safety_event to false):
-- PR responses, company statements, or rebuttals about food safety (e.g. "company denies allegations")
+- PR responses, company statements, apologies, or rebuttals about food safety
+- Post-incident corporate actions: donations, compensation pledges, fines paid, or CSR responses
+- News about what a company promised or did AFTER a food safety incident (e.g. "company donated after scandal")
 - Advocacy, lobbying, or petitions related to food safety policy
 - Opinion articles, commentary, or analysis that merely mention food safety
 - Articles reporting that another party defended or criticized the company's food safety record
 - Social media posts without verifiable source
 - Articles where the incident described belongs to a DIFFERENT company
-- Any snippet where the actual safety violation is not clearly stated
+- Tag pages, category pages, or article compilations covering multiple companies or events
+- Any snippet where the actual safety violation is not clearly and specifically stated
 
 INCLUDE only:
-- Government regulatory violations with product name and penalty
-- Official product recalls with specific product and reason
-- Lab test failures detecting prohibited substances or excess limits
-- Confirmed contamination incidents
+- Government or health authority findings of regulatory violations with specific product
+- Official product recalls with specific product and confirmed reason
+- Lab test failures detecting prohibited substances, excess chemical limits, or contamination
+- Confirmed foreign object incidents with specific product
 
 Additional rules:
 - event_date must be the date the INCIDENT OCCURRED, NOT the article publication date. Extract from article content. Use YYYY-MM format, YYYY-01 if only year known, "" if truly unknown.
@@ -319,14 +373,14 @@ def update_producer_safety_events(producer_id: int, producer_name: str):
     db = SessionLocal()
     try:
         existing_urls = set(
-            row[0] for row in db.query(models.SafetyAlert.source_url)
+            _normalize_url(row[0]) for row in db.query(models.SafetyAlert.source_url)
             .filter(models.SafetyAlert.producer_id == producer_id)
             .all()
         )
     finally:
         db.close()
 
-    new_snippets = [s for s in snippets if s.get("url", "") not in existing_urls]
+    new_snippets = [s for s in snippets if _normalize_url(s.get("url", "")) not in existing_urls]
     skipped = len(snippets) - len(new_snippets)
     if skipped:
         print(f"[INFO] {cleaned_name}: 跳過 {skipped} 筆已存在 URL，剩餘 {len(new_snippets)} 筆待驗證")
@@ -350,8 +404,9 @@ def update_producer_safety_events(producer_id: int, producer_name: str):
 
     for i in range(0, len(snippets), BATCH_SIZE):
         batch = snippets[i:i + BATCH_SIZE]
+        url_to_published = {s.get("url", ""): s.get("published_date", "") for s in batch}
         print(f"[INFO] Validating batch {i // BATCH_SIZE + 1} of {(len(snippets) + BATCH_SIZE - 1) // BATCH_SIZE} for {cleaned_name}...")
-        
+
         batch_validated = _validate_batch_with_gemma(cleaned_name, batch)
         if batch_validated:
             has_any_validated = True
@@ -363,11 +418,14 @@ def update_producer_safety_events(producer_id: int, producer_name: str):
                     ).first()
                     if not exists:
                         db.flush()
+                        event_date = _sanitize_event_date(ev.get("event_date", ""))
+                        if not event_date:
+                            event_date = _fetch_publish_date(ev.get("source_url", ""))
                         alert = models.SafetyAlert(
                             title=ev["title"][:500],
                             content=ev["summary"][:2000],
-                            alert_date=ev["event_date"][:50],
-                            source_url=ev.get("source_url", "")[:500],
+                            alert_date=event_date,
+                            source_url=_normalize_url(ev.get("source_url", ""))[:500],
                             source_type=ev.get("source_type", "")[:20],
                             severity=ev.get("severity"),
                             producer_id=producer_id,
@@ -411,6 +469,7 @@ def update_producer_safety_events(producer_id: int, producer_name: str):
         finally:
             db.close()
         new_complaint_snippets = [s for s in complaint_snippets if s.get("url", "") not in existing_urls]
+        complaint_url_to_published = {s.get("url", ""): s.get("published_date", "") for s in new_complaint_snippets}
         if new_complaint_snippets:
             validated_complaints = _validate_consumer_complaints(cleaned_name, new_complaint_snippets)
             if validated_complaints:
@@ -427,10 +486,13 @@ def update_producer_safety_events(producer_id: int, producer_name: str):
                         if not exists:
                             inserted_titles.add(ev["title"])
                             db.flush()
+                            event_date = _sanitize_event_date(ev.get("event_date", ""))
+                            if not event_date:
+                                event_date = _fetch_publish_date(ev.get("source_url", ""))
                             alert = models.SafetyAlert(
                                 title=ev["title"][:500],
                                 content=ev["summary"][:2000],
-                                alert_date=ev["event_date"][:50],
+                                alert_date=event_date,
                                 source_url=ev.get("source_url", "")[:500],
                                 source_type="consumer_complaint",
                                 severity=1,

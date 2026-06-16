@@ -713,15 +713,23 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
         
         # 1. 如果有圖片，不論是否有條碼，直接啟動視覺同步
         if label_images and len(label_images) > 0:
-            print(f"[INFO] [Analyze] Starting AI vision analysis for barcode: {barcode or 'NEW'}...")
-            _t_vision_start = time.time()
-            vision_data = await analyze_image_with_gemini(label_images, barcode or "NEW")
-            _t_vision_end = time.time()
-            print(f"[PERF] Gemini-2.5-flash Vision: {(_t_vision_end - _t_vision_start)*1000:.0f}ms")
-            
-            # --- 核心連線邏輯：在分析完畢後才建立連線，防止超時 ---
+            # 先查 PostgreSQL，已有完整資料則跳過 Vision
             db = get_db_conn()
             cursor = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            vision_data = None
+            if barcode:
+                cursor.execute("SELECT * FROM products WHERE barcode = %s", (barcode,))
+                existing = cursor.fetchone()
+                if existing and existing.get("name") and existing.get("ingredients_list"):
+                    print(f"[INFO] [Analyze] Reusing pre-analyzed AI summaries from PostgreSQL for barcode: {barcode}")
+                    product = dict(existing)
+                    label_images = []  # 清空圖片，進入 DB 快取路徑
+            if label_images:
+                print(f"[INFO] [Analyze] Starting AI vision analysis for barcode: {barcode or 'NEW'}...")
+                _t_vision_start = time.time()
+                vision_data = await analyze_image_with_gemini(label_images, barcode or "NEW")
+                _t_vision_end = time.time()
+                print(f"[PERF] Gemini-2.5-flash Vision: {(_t_vision_end - _t_vision_start)*1000:.0f}ms")
             
             if vision_data is not None:
                 try:
@@ -874,21 +882,23 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
             )
             safety_alerts = cursor.fetchall()
 
-        # 整理食安事件並進行去重與合併，同時限定近十年 (>= 2016)
+        # 整理食安事件並進行去重與合併，同時限定近十年
+        ten_years_ago = datetime.now().year - 10
         raw_events = []
         for e in safety_alerts:
             date_str = str(e.get('alert_date') or '').strip()
-            # 判斷近十年 (>= 2016)
-            is_recent = True
-            if date_str:
+            source_type = e.get('source_type', '')
+            if not date_str:
+                # 消費者投訴來自社群媒體，本來就沒有結構化日期，仍保留
+                if source_type != 'consumer_complaint':
+                    continue
+            else:
                 try:
                     year_part = date_str[:4]
-                    if year_part.isdigit() and int(year_part) < 2016:
-                        is_recent = False
+                    if not year_part.isdigit() or int(year_part) < ten_years_ago:
+                        continue
                 except Exception:
-                    pass
-            if not is_recent:
-                continue
+                    continue
 
             raw_events.append({
                 "date": date_str,
