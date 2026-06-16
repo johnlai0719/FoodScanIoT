@@ -15,7 +15,7 @@ import {
   StyleSheet,
   Modal,
 } from 'react-native';
-import { Sparkles, Sliders, Database, ShoppingBag, AlertOctagon, RotateCcw, Layers, ShieldCheck, Grid, ChevronRight, Zap, ChevronUp, ChevronDown, ArrowLeft, AlertTriangle, CheckCircle2, Info, ScanLine, Keyboard, Activity, Settings2, X } from 'lucide-react-native';
+import { Sparkles, Sliders, Database, ShoppingBag, AlertOctagon, RotateCcw, Layers, ShieldCheck, Grid, ChevronRight, Zap, ChevronUp, ChevronDown, ArrowLeft, AlertTriangle, CheckCircle2, Info, ScanLine, Keyboard, Activity, Settings2, X, Trash2 } from 'lucide-react-native';
 
 import { useFontScale } from '../contexts/FontScaleContext';
 import { UserConditions, AnalysisResponse } from '../types';
@@ -82,13 +82,14 @@ export default function HomeScreen() {
   const [customChronic, setCustomChronic] = useState('');
 
   useEffect(() => {
-    AsyncStorage.multiGet(['customGroup', 'customAllergen', 'chronicDiseases', 'customChronic']).then(pairs => {
+    AsyncStorage.multiGet(['customGroup', 'customAllergen', 'chronicDiseases', 'customChronic', 'allergens']).then(pairs => {
       pairs.forEach(([key, value]) => {
         if (!value) return;
         if (key === 'customGroup') setCustomGroup(value);
         if (key === 'customAllergen') setCustomAllergen(value);
         if (key === 'chronicDiseases') setChronicDiseases(JSON.parse(value));
         if (key === 'customChronic') setCustomChronic(value);
+        if (key === 'allergens') setAllergens(JSON.parse(value));
       });
     });
   }, []);
@@ -115,6 +116,7 @@ export default function HomeScreen() {
   const [barcodeInput, setBarcodeInput] = useState('');
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [serverEndpoint, setServerEndpoint] = useState<'fog' | 'cloud'>('fog');
+  const [clearCacheStatus, setClearCacheStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   const [inputMode, setInputMode] = useState<'manual' | 'scan'>('scan');
   const [advancedVisible, setAdvancedVisible] = useState(false);
@@ -127,8 +129,13 @@ export default function HomeScreen() {
   const [isScoreExpanded, setIsScoreExpanded] = useState(false);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
-  const toggleAllergen = (key: string) =>
-    setAllergens(prev => prev.includes(key) ? prev.filter(a => a !== key) : [...prev, key]);
+  const toggleAllergen = (key: string) => {
+    setAllergens(prev => {
+      const next = prev.includes(key) ? prev.filter(a => a !== key) : [...prev, key];
+      AsyncStorage.setItem('allergens', JSON.stringify(next));
+      return next;
+    });
+  };
 
   const handleQuickPreview = (code: string) => {
     const data = MOCK_RESULTS[code] ?? MOCK_RESULTS['4710018123456'];
@@ -137,6 +144,21 @@ export default function HomeScreen() {
     setAnalysisError(null);
     setIsAnalyzing(false);
     setCurrentStep(3);
+  };
+
+  const handleClearFogCache = async () => {
+    setClearCacheStatus('loading');
+    try {
+      const res = await fetch('http://100.86.249.39:3001/cache/clear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      setClearCacheStatus(res.ok ? 'success' : 'error');
+    } catch {
+      setClearCacheStatus('error');
+    } finally {
+      setTimeout(() => setClearCacheStatus('idle'), 2500);
+    }
   };
 
   const handleSubmitAnalysis = async () => {
@@ -156,10 +178,9 @@ export default function HomeScreen() {
     setCurrentStep(3);
 
     try {
-      // TODO: replace with actual IP when backend is ready
       const API_URL = serverEndpoint === 'fog'
-        ? 'http://100.119.217.100:3001/query'
-        : 'http://100.119.217.100:3002/api/analyze';
+        ? 'http://100.86.249.39:3001/query'
+        : 'http://100.119.217.100:3003/api/analyze';
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
@@ -225,9 +246,8 @@ export default function HomeScreen() {
 
   const scoreBreakdownList = getScoreBreakdownList(analysisResult);
 
-  // 從 allergen_warnings 提取 Fog 個人化命中的過敏原（格式：偵測到過敏原：XXX）
-  // 再與目前選取的 allergens 做交集，防止 Fog 快取帶入舊次分析的命中結果
-  const matchedAllergens = (analysisResult?.allergen_warnings ?? [])
+  // 後端個人化命中（格式：偵測到過敏原：XXX）
+  const backendMatchedAllergens = (analysisResult?.allergen_warnings ?? [])
     .filter(w => /偵測到過敏原[：:]/.test(w))
     .map(w => w.replace(/.*偵測到過敏原[：:]\s*/, '').trim())
     .filter(Boolean)
@@ -236,6 +256,15 @@ export default function HomeScreen() {
   // 通用警告（產品本身標示，非個人化命中）
   const generalAllergenWarnings = safeAllergenWarnings
     .filter(w => !/偵測到過敏原[：:]/.test(w));
+
+  // Fallback：後端未做個人化比對時，APP 自行掃描警語文字是否含用戶選取的過敏原關鍵字
+  const fallbackMatchedAllergens = backendMatchedAllergens.length === 0 && allergens.length > 0
+    ? allergens.filter(sel => generalAllergenWarnings.some(w => w.includes(sel)))
+    : [];
+
+  const matchedAllergens = backendMatchedAllergens.length > 0
+    ? backendMatchedAllergens
+    : fallbackMatchedAllergens;
   const { pos: dynamicPos, neg: dynamicNeg } = getDynamicHealthPoints(analysisResult, scoreBreakdownList);
   const healthSegments = getDynamicHealthSegments(analysisResult, scoreBreakdownList);
   const healthLegend = getDynamicHealthLegend(scoreBreakdownList);
@@ -851,7 +880,20 @@ export default function HomeScreen() {
             </Pressable>
           </View>
 
-          <Pressable style={[s.btnPrimary, { marginTop: 20 }]} onPress={() => setAdvancedVisible(false)}>
+          <Text style={[s.modalSectionLabel, { marginTop: 20 }]}>快取管理</Text>
+          <Text style={s.modalSectionSub}>清除 Fog 節點已暫存的分析結果，下次掃描將重新計算</Text>
+          <Pressable
+            style={[s.clearCacheBtn, clearCacheStatus === 'loading' && { opacity: 0.6 }]}
+            onPress={handleClearFogCache}
+            disabled={clearCacheStatus === 'loading'}
+          >
+            <Trash2 size={14} color={clearCacheStatus === 'success' ? '#009B52' : clearCacheStatus === 'error' ? '#ef4444' : '#757575'} />
+            <Text style={[s.clearCacheBtnText, clearCacheStatus === 'success' && { color: '#009B52' }, clearCacheStatus === 'error' && { color: '#ef4444' }]}>
+              {clearCacheStatus === 'loading' ? '清除中...' : clearCacheStatus === 'success' ? '清除成功' : clearCacheStatus === 'error' ? '清除失敗' : '清除 Fog 暫存'}
+            </Text>
+          </Pressable>
+
+          <Pressable style={[s.btnPrimary, { marginTop: 16 }]} onPress={() => setAdvancedVisible(false)}>
             <Text style={s.btnPrimaryText}>確認</Text>
           </Pressable>
         </View>
@@ -1260,4 +1302,11 @@ const createStyles = (scale: number) => StyleSheet.create({
   },
   modalSectionLabel: { fontSize: 12 * scale, fontWeight: '800', color: TEXT_DARK, marginBottom: 4 },
   modalSectionSub: { fontSize: 11 * scale, color: TEXT_MID, marginBottom: 12 },
+  clearCacheBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingVertical: 10, paddingHorizontal: 14,
+    borderRadius: 10, borderWidth: 1, borderColor: BORDER,
+    backgroundColor: '#F5F5F5',
+  },
+  clearCacheBtnText: { fontSize: 13 * scale, fontWeight: '700', color: TEXT_MID },
 });

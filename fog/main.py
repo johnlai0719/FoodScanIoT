@@ -241,8 +241,12 @@ def calculate_personalized_score(result: dict, user_conditions: dict):
     if isinstance(types_dict, dict) and types_dict:
         raw_ingredients_text += "," + ",".join(types_dict.keys())
     
+    # 加入 risk_tags 與現有 allergen_warnings 作為文字來源（例如：「本生產線亦生產含牛奶製品」）
+    risk_tags_text = " ".join(result.get("risk_tags", []) or [])
+    existing_warnings_text = " ".join(result.get("allergen_warnings", []) or [])
+
     # 合併所有文字來源，增加比對命中率
-    all_source_text = (raw_ingredients_text + product_allergens_text).lower()
+    all_source_text = (raw_ingredients_text + product_allergens_text + risk_tags_text + existing_warnings_text).lower()
 
     # --- A. 針對詳細成分清單進行過敏原與添加物風險比對 (不扣分，僅記錄警示) ---
     for ing in ingredients:

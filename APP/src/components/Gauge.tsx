@@ -94,6 +94,18 @@ export default function Gauge({ score, label, type, subtitle, pos = 3, neg = 8, 
         </View>
       </View>
 
+      {type === 'health' && healthSegments && (
+        <View style={styles.legend}>
+          {healthSegments.map((seg, idx) => (
+            <View key={idx} style={styles.legendRow}>
+              <View style={[styles.legendDot, { backgroundColor: seg.color }]} />
+              <Text style={styles.legendName}>{seg.name}</Text>
+              <Text style={styles.legendValue}>{seg.valueText}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
       <Text style={styles.labelText}>{label}</Text>
 
       {type === 'health' && (
@@ -151,6 +163,33 @@ const styles = StyleSheet.create({
     height: 112,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  legend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 10,
+  },
+  legendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  legendName: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1A1A1A',
+  },
+  legendValue: {
+    fontSize: 10,
+    color: '#757575',
+    marginLeft: 2,
   },
   centerText: {
     position: 'absolute',
