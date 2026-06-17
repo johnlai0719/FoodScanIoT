@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MessageSquare, Edit3, Send, AlertTriangle, Info, ShieldAlert } from 'lucide-react';
+import { API_BASE } from '../config';
 
 export default function AdditiveDetail() {
   const { id } = useParams();
@@ -25,7 +26,7 @@ export default function AdditiveDetail() {
 
   const fetchAdditiveDetails = useCallback(async () => {
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/additives/${id}`);
+      const response = await fetch(`${API_BASE}/api/additives/${id}`);
       if (!response.ok) {
         throw new Error('找不到該添加物資料');
       }
@@ -50,7 +51,7 @@ export default function AdditiveDetail() {
 
     setSubmittingComment(true);
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/additives/${id}/comment`, {
+      const response = await fetch(`${API_BASE}/api/additives/${id}/comment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -89,7 +90,7 @@ export default function AdditiveDetail() {
 
     setSubmittingSuggest(true);
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/additives/${id}/suggest`, {
+      const response = await fetch(`${API_BASE}/api/additives/${id}/suggest`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

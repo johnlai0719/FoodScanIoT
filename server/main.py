@@ -94,42 +94,93 @@ class VectorRAG:
 # 初始化全域向量 RAG 實例
 vector_rag = VectorRAG()
 
+# 已知食安事件關鍵字群組：每組代表「同一個事件」的各種說法（含繁簡與別名）。
+# 兩筆事件若命中同一組關鍵字且年份相容，視為同一事件。
+# 注意：異物類各自獨立（網帽 / 鼠頭 / 壁虎 / 刀片 不可混為一談）。
+INCIDENT_KEYWORD_GROUPS = {
+    "餿水油": ["餿水油", "地溝油", "地沟油", "劣質油", "劣质油", "劣質豬油", "全統香豬油", "强冠", "強冠"],
+    "飼料油": ["飼料油", "飼料用油", "飼料級"],
+    "銅葉綠素": ["銅葉綠素", "铜叶绿素", "大統", "大统", "富味鄉", "富味乡"],
+    "塑化劑": ["塑化劑", "塑化剂", "起雲劑", "起云剂", "鄰苯二甲酸", "邻苯二甲酸"],
+    "順丁烯二酸": ["順丁烯二酸", "顺丁烯二酸", "毒澱粉", "毒淀粉"],
+    "戴奧辛": ["戴奧辛", "戴奥辛"],
+    "單氯丙二醇": ["單氯丙二醇", "单氯丙二醇"],
+    "環氧乙烷": ["環氧乙烷", "环氧乙烷", "環氧乙烯"],
+    "三聚氰胺": ["三聚氰胺", "美耐皿"],
+    "蘇丹紅": ["蘇丹紅", "苏丹红"],
+    "塑膠網帽異物": ["網帽", "网帽", "塑膠網", "塑膠條", "塑胶条"],
+    "鼠頭異物": ["鼠頭", "鼠头"],
+    "壁虎異物": ["壁虎"],
+    "刀片異物": ["刀片"],
+    "手卷異物": ["手卷"],
+    "蘋果麵包中毒": ["蘋果麵包", "苹果面包"],
+    "真飽涼麵": ["真飽涼麵", "真饱凉面", "真飽", "真饱"],
+}
+
+def _incident_signature(evt: dict) -> set:
+    text = (evt.get('title', '') or '') + (evt.get('summary', '') or '')
+    return {gid for gid, terms in INCIDENT_KEYWORD_GROUPS.items() if any(t in text for t in terms)}
+
+def _event_year(evt: dict):
+    m = re.match(r'(\d{4})', str(evt.get('date', '') or ''))
+    return m.group(1) if m else None
+
 def is_similar_event(evt1: dict, evt2: dict) -> bool:
     def clean(text):
         if not text:
             return ""
-        return re.sub(r'[^\w\s]', '', text).lower().strip()
+        return re.sub(r'[^\w]', '', text)
+
+    def char_bigrams(text):
+        return set(text[i:i+2] for i in range(len(text) - 1))
 
     title1 = clean(evt1.get('title', ''))
     title2 = clean(evt2.get('title', ''))
-    summary1 = clean(evt1.get('summary', ''))
-    summary2 = clean(evt2.get('summary', ''))
 
     # 1. Exact or substring match in titles
     if title1 and title2:
         if title1 in title2 or title2 in title1:
             return True
 
-    # 2. Check for specific high-value keyword matches
-    keywords = ["8公分", "8cm", "手卷", "蘋果麵包", "塑化劑", "順丁烯二酸", "銅葉綠素", "戴奧辛", "單氯丙二醇", "立光農工", "真飽涼麵", "保明智"]
-    for kw in keywords:
-        kw_clean = kw.lower()
-        in_evt1 = (kw_clean in title1 or kw_clean in summary1)
-        in_evt2 = (kw_clean in title2 or kw_clean in summary2)
-        if in_evt1 and in_evt2:
+    # 2. 事件關鍵字群組：命中同一組事件關鍵字，且年份相容（相同或其一未知）→ 同一事件
+    sig1 = _incident_signature(evt1)
+    sig2 = _incident_signature(evt2)
+    if sig1 & sig2:
+        y1, y2 = _event_year(evt1), _event_year(evt2)
+        if y1 is None or y2 is None or y1 == y2:
             return True
 
-    # 3. Use Jaccard similarity on words of titles
-    words1 = set(title1.split())
-    words2 = set(title2.split())
-    if words1 and words2:
-        intersection = words1.intersection(words2)
-        union = words1.union(words2)
-        jaccard = len(intersection) / len(union)
-        if jaccard > 0.4:
-            return True
+    # 3. Character bigram Jaccard on titles (works for Chinese text without tokenization)
+    if len(title1) >= 2 and len(title2) >= 2:
+        bg1 = char_bigrams(title1)
+        bg2 = char_bigrams(title2)
+        union = bg1 | bg2
+        if union:
+            jaccard = len(bg1 & bg2) / len(union)
+            if jaccard > 0.10:
+                return True
 
     return False
+
+def _title_score(title: str, source_type: str) -> int:
+    """為事件標題評分，挑選最適合當「代表標題」的來源。
+    優先序：官方 > 新聞 > 維基 > 其他；並懲罰 PDF、個人貼文等雜訊標題。"""
+    if not title or not title.strip():
+        return -100
+    title = title.strip()
+    score = {"official": 30, "news": 20, "wiki": 10, "consumer_complaint": 5}.get(source_type or "", 0)
+    # 懲罰雜訊標題
+    if title.startswith("[PDF]") or title.startswith("[pdf]"):
+        score -= 20
+    # 個人貼文如「張哲生 - 1960年...」「某某 | Facebook」
+    if re.match(r'^[一-鿿]{2,4}\s*[-—|]', title):
+        score -= 15
+    if "facebook" in title.lower() or "instagram" in title.lower() or title.lower() == "instagram":
+        score -= 15
+    # 適中長度加分（太短資訊不足、太長多為內文截斷）
+    if 10 <= len(title) <= 45:
+        score += 5
+    return score
 
 def merge_events(events: list) -> list:
     merged_list = []
@@ -147,8 +198,10 @@ def merge_events(events: list) -> list:
                     if len(evt.get('summary')) > len(m_evt.get('summary', '')):
                         m_evt['summary'] = evt.get('summary')
                 
-                if evt.get('title') and len(evt.get('title', '')) > len(m_evt.get('title', '')):
+                cand_score = _title_score(evt.get('title', ''), evt.get('_raw_source_type') or '')
+                if evt.get('title') and cand_score > m_evt.get('_title_score', -100):
                     m_evt['title'] = evt.get('title')
+                    m_evt['_title_score'] = cand_score
 
                 if evt.get('severity') is not None:
                     if m_evt.get('severity') is None or evt.get('severity') > m_evt.get('severity'):
@@ -213,13 +266,15 @@ def merge_events(events: list) -> list:
                     "news": url if st == 'news' else None,
                     "social": url if st == 'social' else None
                 },
-                "_raw_source_type": st
+                "_raw_source_type": st,
+                "_title_score": _title_score(evt.get('title', ''), st)
             }
             merged_list.append(new_evt)
-            
+
     for evt in merged_list:
         evt.pop('_raw_source_type', None)
-        
+        evt.pop('_title_score', None)
+
     return merged_list
 
 
@@ -266,6 +321,15 @@ class SuggestionRequest(BaseModel):
 class CommentRequest(BaseModel):
     author: str
     content: str
+
+class SafetyEventRequest(BaseModel):
+    producer_id: int
+    title: str
+    content: str = ""
+    alert_date: str = ""
+    source_url: str = ""
+    source_type: str = "news"
+    severity: int = 1
 
 JWT_SECRET = os.getenv("JWT_SECRET", "super_secret_key_change_me")
 JWT_ALGORITHM = "HS256"
@@ -475,13 +539,135 @@ def reject_suggestion(suggestion_id: int, current_user = Depends(get_current_use
         conn.close()
 
 
+# ============================================================
+# 廠商食安事件管理 API（管理員專用，需 JWT）
+# ============================================================
+
+@app.get("/api/admin/producers")
+def admin_list_producers(current_user = Depends(get_current_user)):
+    """列出所有廠商，附帶各自的食安事件數量"""
+    conn = get_db_conn()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cur.execute("""
+            SELECT p.id, p.name, p.risk_level, p.last_audit_date,
+                   COUNT(s.id) AS event_count
+            FROM producers p
+            LEFT JOIN safety_alerts s ON s.producer_id = p.id
+            GROUP BY p.id, p.name, p.risk_level, p.last_audit_date
+            ORDER BY event_count DESC, p.name ASC
+        """)
+        return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.get("/api/admin/safety-events")
+def admin_list_safety_events(producer_id: int = None, current_user = Depends(get_current_user)):
+    """列出食安事件，可依 producer_id 篩選，依嚴重度與日期排序"""
+    conn = get_db_conn()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        if producer_id is not None:
+            cur.execute("""
+                SELECT s.id, s.title, s.content, s.alert_date, s.source_url,
+                       s.source_type, s.severity, s.producer_id, p.name AS producer_name
+                FROM safety_alerts s
+                LEFT JOIN producers p ON p.id = s.producer_id
+                WHERE s.producer_id = %s
+                ORDER BY s.severity DESC, s.alert_date DESC NULLS LAST, s.id DESC
+            """, (producer_id,))
+        else:
+            cur.execute("""
+                SELECT s.id, s.title, s.content, s.alert_date, s.source_url,
+                       s.source_type, s.severity, s.producer_id, p.name AS producer_name
+                FROM safety_alerts s
+                LEFT JOIN producers p ON p.id = s.producer_id
+                ORDER BY s.severity DESC, s.alert_date DESC NULLS LAST, s.id DESC
+            """)
+        return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.post("/api/admin/safety-events")
+def admin_create_safety_event(req: SafetyEventRequest, current_user = Depends(get_current_user)):
+    """手動新增一筆食安事件"""
+    conn = get_db_conn()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cur.execute("""
+            INSERT INTO safety_alerts
+                (producer_id, title, content, alert_date, source_url, source_type, severity, keyword_used)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id, producer_id, title, content, alert_date, source_url, source_type, severity
+        """, (req.producer_id, req.title, req.content, req.alert_date or None,
+              req.source_url or None, req.source_type, req.severity, "manual"))
+        row = cur.fetchone()
+        conn.commit()
+        return {"status": "success", "data": row}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.put("/api/admin/safety-events/{event_id}")
+def admin_update_safety_event(event_id: int, req: SafetyEventRequest, current_user = Depends(get_current_user)):
+    """更新食安事件（標題、內容、日期、來源、嚴重度）"""
+    conn = get_db_conn()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cur.execute("SELECT id FROM safety_alerts WHERE id = %s", (event_id,))
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="Safety event not found")
+        cur.execute("""
+            UPDATE safety_alerts
+            SET producer_id = %s, title = %s, content = %s, alert_date = %s,
+                source_url = %s, source_type = %s, severity = %s
+            WHERE id = %s
+            RETURNING id, producer_id, title, content, alert_date, source_url, source_type, severity
+        """, (req.producer_id, req.title, req.content, req.alert_date or None,
+              req.source_url or None, req.source_type, req.severity, event_id))
+        row = cur.fetchone()
+        conn.commit()
+        return {"status": "success", "data": row}
+    except HTTPException:
+        conn.rollback()
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.delete("/api/admin/safety-events/{event_id}")
+def admin_delete_safety_event(event_id: int, current_user = Depends(get_current_user)):
+    """刪除一筆食安事件"""
+    conn = get_db_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM safety_alerts WHERE id = %s", (event_id,))
+        deleted = cur.rowcount
+        conn.commit()
+        if deleted == 0:
+            raise HTTPException(status_code=404, detail="Safety event not found")
+        return {"status": "success", "deleted": deleted}
+    except HTTPException:
+        conn.rollback()
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+
 # [MOUNT] Static resource directories for product marks and temporary uploads
 # Establish path mappings
 MARKS_DIR = "/home/johnlai/projects/FoodScanIoT/Clients/Mobile_App/Resource/食品標章"
 if os.path.exists(MARKS_DIR):
     app.mount("/marks", StaticFiles(directory=MARKS_DIR), name="marks")
 
-UPLOADS_DIR = "/home/johnlai/projects/FoodScanIoT/Servers/Cloud/uploads"
+UPLOADS_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 if not os.path.exists(UPLOADS_DIR):
     os.makedirs(UPLOADS_DIR)
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
@@ -901,8 +1087,11 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
             })
 
         raw_events.sort(key=lambda x: x.get('date', ''), reverse=True)
-        # 去重與合併，並只保留最多 5 個不重複事件
-        final_safety_events = merge_events(raw_events)[:5]
+        merged = merge_events(raw_events)
+        # 重大事件（severity=3）全部保留，其餘最多 5 筆，皆以近期優先
+        critical = [e for e in merged if e.get('severity') == 3]
+        others   = [e for e in merged if e.get('severity') != 3][:5]
+        final_safety_events = critical + others
 
         # --- 5. 正常分析流程 (添加物比對) ---
         ing_list = product.get('ingredients_list', '[]')
@@ -912,7 +1101,7 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
         ai_ing_descs = vision_data.get('ingredient_descriptions', {}) if 'vision_data' in locals() else {}
 
         # 抓取完整的添加物知識庫資訊
-        cursor.execute("SELECT id, record_id, name_zh, name_en, aliases, ins_or_e_number, category, food_tech_purpose, adi, medical_caution, iarc_class, description, risks, description_sources FROM additives")
+        cursor.execute("SELECT id, record_id, name_zh, name_en, aliases, ins_or_e_number, category, food_tech_purpose, adi, medical_caution, iarc_class, description, risks, description_sources FROM additives ORDER BY LENGTH(name_zh) DESC")
         knowledge = cursor.fetchall()
         
         # --- 🚀 初始化向量 RAG 知識庫 (僅在需要時) ---

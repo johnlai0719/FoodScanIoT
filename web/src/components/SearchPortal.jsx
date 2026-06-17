@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, ChevronRight } from 'lucide-react';
+import { API_BASE } from '../config';
 
 export default function SearchPortal() {
   const [query, setQuery] = useState('');
@@ -13,8 +14,8 @@ export default function SearchPortal() {
       setLoading(true);
       try {
         const url = query
-          ? `http://127.0.0.1:8000/api/additives?q=${encodeURIComponent(query)}`
-          : 'http://127.0.0.1:8000/api/additives';
+          ? `${API_BASE}/api/additives?q=${encodeURIComponent(query)}`
+          : `${API_BASE}/api/additives`;
         const response = await fetch(url);
         if (response.ok) {
           const data = await response.json();

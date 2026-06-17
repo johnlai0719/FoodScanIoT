@@ -2,8 +2,11 @@ import os
 import json
 import requests
 import time
+import re
 from google import genai
 from tavily import TavilyClient
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity as sklearn_cosine
 from database import SessionLocal
 import models
 from dotenv import load_dotenv
@@ -24,6 +27,31 @@ if TAVILY_API_KEY:
 
 FOG_BASE = os.getenv("FOG_URL", "http://localhost:3001")
 
+TFIDF_DUPLICATE_THRESHOLD = 0.12
+
+def _is_duplicate_event(new_title: str, new_summary: str, existing_events: list[dict]) -> bool:
+    """TF-IDF 字元 bigram 去重：比對新事件與現有事件是否為同一事件"""
+    if not existing_events:
+        return False
+    new_text = f"{new_title} {new_summary}"
+    existing_texts = [
+        f"{e.get('title', '')} {e.get('content', '')}"
+        for e in existing_events
+    ]
+    try:
+        vec = TfidfVectorizer(analyzer='char', ngram_range=(2, 3))
+        matrix = vec.fit_transform(existing_texts + [new_text])
+        sims = sklearn_cosine(matrix[-1:], matrix[:-1])[0]
+        max_sim = float(max(sims))
+        if max_sim > TFIDF_DUPLICATE_THRESHOLD:
+            print(f"[INFO] [Dedup] 疑似重複事件（相似度 {max_sim:.3f}）: {new_title[:40]}")
+            return True
+        return False
+    except Exception as e:
+        print(f"[WARN] [Dedup] TF-IDF 比對失敗: {e}")
+        return False
+
+
 def _search_producer(producer_name: str) -> list[dict]:
     if not _tavily:
         print("[WARN] Tavily client is not initialized")
@@ -40,7 +68,8 @@ def _search_producer(producer_name: str) -> list[dict]:
         search_params = {
             "query": query,
             "max_results": 15,
-            "search_depth": "advanced"
+            "search_depth": "advanced",
+            "days": 1825,
         }
         print(f"[INFO] Querying Tavily with consolidated query: {query}")
         resp = _tavily.search(**search_params)
@@ -105,20 +134,15 @@ def _validate_batch_with_gemma(producer_name: str, snippets: list[dict]) -> list
 Your task:
 Determine whether each snippet describes a DIRECT food safety incident — meaning a confirmed violation, recall, contamination, lab failure, or regulatory penalty that physically harmed or endangered consumers.
 
-STRICT exclusion rules (set is_food_safety_event to false):
-- PR responses, company statements, or rebuttals about food safety (e.g. "company denies allegations")
-- Advocacy, lobbying, or petitions related to food safety policy
-- Opinion articles, commentary, or analysis that merely mention food safety
-- Articles reporting that another party defended or criticized the company's food safety record
-- Social media posts without verifiable source
+Exclusion rules (set is_food_safety_event to false):
+- General brand opinions or unrelated content with no specific incident
 - Articles where the incident described belongs to a DIFFERENT company
-- Any snippet where the actual safety violation is not clearly stated
+- Content that contains no food safety incident at all
 
-INCLUDE only:
-- Government regulatory violations with product name and penalty
-- Official product recalls with specific product and reason
-- Lab test failures detecting prohibited substances or excess limits
-- Confirmed contamination incidents
+INCLUDE (set is_food_safety_event to true):
+- Any news, social media post, consumer report, or government notice that describes a specific food safety incident involving this company
+- This includes: regulatory violations, product recalls, lab test failures, contamination, foreign objects, food poisoning, labeling violations
+- Social media and news reports are equally valid — we relay information, not certify it
 
 Additional rules:
 - event_date must be the date the INCIDENT OCCURRED, NOT the article publication date. Extract from article content. Use YYYY-MM format, YYYY-01 if only year known, "" if truly unknown.
@@ -147,12 +171,24 @@ Snippets to validate:
 {snippets_formatted}
 """
 
+    for attempt in range(3):
+        try:
+            if attempt > 0:
+                wait = 5 * attempt
+                print(f"[INFO] Retry {attempt}/2 after {wait}s...")
+                time.sleep(wait)
+            print(f"[DEBUG] Sending batch of {len(snippets)} snippets to Gemini...")
+            _t_lite_start = time.time()
+            response = _client.models.generate_content(model="gemini-2.5-flash-lite", contents=prompt)
+            print(f"[PERF] Gemini-2.5-flash-lite Validation: {(time.time() - _t_lite_start)*1000:.0f}ms | snippets={len(snippets)}")
+            print(f"[DEBUG] Gemini response received successfully.")
+            break
+        except Exception as _retry_e:
+            if attempt == 2:
+                print(f"[WARN] Gemini batch validation failed after 3 attempts: {_retry_e}")
+                return []
+            continue
     try:
-        print(f"[DEBUG] Sending batch of {len(snippets)} snippets to Gemini...")
-        _t_lite_start = time.time()
-        response = _client.models.generate_content(model="gemini-2.5-flash-lite", contents=prompt)
-        print(f"[PERF] Gemini-2.5-flash-lite Validation: {(time.time() - _t_lite_start)*1000:.0f}ms | snippets={len(snippets)}")
-        print(f"[DEBUG] Gemini response received successfully.")
         text = response.text.strip()
         import re
         match = re.search(r"(\[.*\])", text, re.DOTALL)
@@ -248,11 +284,23 @@ def _validate_consumer_complaints(producer_name: str, snippets: list[dict]) -> l
 內容：
 {snippets_formatted}"""
 
+    for attempt in range(3):
+        try:
+            if attempt > 0:
+                wait = 5 * attempt
+                print(f"[INFO] Consumer complaint retry {attempt}/2 after {wait}s...")
+                time.sleep(wait)
+            import re
+            _t = time.time()
+            response = _client.models.generate_content(model="gemini-2.5-flash-lite", contents=prompt)
+            print(f"[PERF] Flash Lite Consumer Complaint Validation: {(time.time() - _t)*1000:.0f}ms | snippets={len(snippets)}")
+            break
+        except Exception as _retry_e:
+            if attempt == 2:
+                print(f"[WARN] Consumer complaint validation failed: {_retry_e}")
+                return []
+            continue
     try:
-        import re
-        _t = time.time()
-        response = _client.models.generate_content(model="gemini-2.5-flash-lite", contents=prompt)
-        print(f"[PERF] Flash Lite Consumer Complaint Validation: {(time.time() - _t)*1000:.0f}ms | snippets={len(snippets)}")
         text = response.text.strip()
         match = re.search(r"(\[.*\])", text, re.DOTALL)
         if match:
@@ -357,24 +405,36 @@ def update_producer_safety_events(producer_id: int, producer_name: str):
             has_any_validated = True
             db = SessionLocal()
             try:
+                # 取出該廠商現有所有事件供去重比對
+                existing_alerts = db.query(models.SafetyAlert).filter(
+                    models.SafetyAlert.producer_id == producer_id
+                ).all()
+                existing_for_dedup = [{"title": a.title, "content": a.content} for a in existing_alerts]
+
                 for ev in batch_validated:
+                    # 第一層：精確標題比對
                     exists = db.query(models.SafetyAlert).filter(
                         models.SafetyAlert.title == ev["title"]
                     ).first()
-                    if not exists:
-                        db.flush()
-                        alert = models.SafetyAlert(
-                            title=ev["title"][:500],
-                            content=ev["summary"][:2000],
-                            alert_date=ev["event_date"][:50],
-                            source_url=ev.get("source_url", "")[:500],
-                            source_type=ev.get("source_type", "")[:20],
-                            severity=ev.get("severity"),
-                            producer_id=producer_id,
-                            keyword_used=cleaned_name[:50],
-                        )
-                        db.add(alert)
-                        new_inserts += 1
+                    if exists:
+                        continue
+                    # 第二層：TF-IDF 相似度去重
+                    if _is_duplicate_event(ev["title"], ev["summary"], existing_for_dedup):
+                        continue
+                    db.flush()
+                    alert = models.SafetyAlert(
+                        title=ev["title"][:500],
+                        content=ev["summary"][:2000],
+                        alert_date=ev["event_date"][:50],
+                        source_url=ev.get("source_url", "")[:500],
+                        source_type=ev.get("source_type", "")[:20],
+                        severity=ev.get("severity"),
+                        producer_id=producer_id,
+                        keyword_used=cleaned_name[:50],
+                    )
+                    db.add(alert)
+                    existing_for_dedup.append({"title": ev["title"], "content": ev["summary"]})
+                    new_inserts += 1
                 db.commit()
             except Exception as batch_e:
                 db.rollback()
@@ -469,6 +529,155 @@ def update_producer_safety_events(producer_id: int, producer_name: str):
             print(f"[INFO] Cleared AI summaries + Fog cache for {len(affected)} products under {producer_name}")
         finally:
             db.close()
+
+def _search_wiki_producer(producer_name: str) -> str:
+    """用 Wikipedia API 搜尋廠商頁面並回傳內容"""
+    headers = {"User-Agent": "FoodScanIoT/1.0 (food safety research; johnlai07197@gmail.com)"}
+
+    # 先用 opensearch 找最接近的頁面標題
+    search_url = "https://zh.wikipedia.org/w/api.php"
+    try:
+        resp = requests.get(search_url, headers=headers, timeout=10, params={
+            "action": "opensearch",
+            "search": producer_name,
+            "limit": 3,
+            "format": "json",
+        })
+        resp.raise_for_status()
+        results = resp.json()
+        titles = results[1] if len(results) > 1 else []
+        if not titles:
+            print(f"[INFO] [Wiki] 找不到 '{producer_name}' 的 Wikipedia 頁面")
+            return ""
+        page_title = titles[0]
+        print(f"[INFO] [Wiki] 找到頁面: {page_title}")
+    except Exception as e:
+        print(f"[WARN] [Wiki] 搜尋失敗 '{producer_name}': {e}")
+        return ""
+
+    # 抓取頁面內容
+    try:
+        resp = requests.get(search_url, headers=headers, timeout=15, params={
+            "action": "query",
+            "titles": page_title,
+            "prop": "extracts",
+            "explaintext": True,
+            "format": "json",
+            "redirects": 1,
+        })
+        resp.raise_for_status()
+        data = resp.json()
+        pages = data.get("query", {}).get("pages", {})
+        for page in pages.values():
+            content = page.get("extract", "")
+            if content:
+                return content
+    except Exception as e:
+        print(f"[WARN] [Wiki] 抓取頁面失敗 '{page_title}': {e}")
+    return ""
+
+
+def _parse_wiki_events_with_gemini(producer_name: str, content: str) -> list[dict]:
+    """用 Gemini 從廠商 Wikipedia 頁面萃取食安事件"""
+    if not _client or not content:
+        return []
+
+    content_trimmed = content[:8000]
+    prompt = f"""你是食品安全事件資料庫整理員。以下是維基百科關於「{producer_name}」的頁面內容。
+
+請從中萃取所有與該廠商相關的食品安全事件或爭議。
+
+severity 定義：
+1 = 標示/包裝違規
+2 = 成分/添加物違規（如塑化劑、違禁添加物）
+3 = 重大食安事件（致死、大規模中毒、重金屬污染）
+
+若該頁面完全無食安相關記載，請回傳空陣列 []。
+只回傳 JSON 陣列，不加 markdown：
+[
+  {{
+    "title": "事件標題（50字內）",
+    "summary": "事件摘要（100字內，繁體中文）",
+    "event_date": "YYYY-MM 或 YYYY-01 或空字串",
+    "severity": 1
+  }}
+]
+
+維基百科內容：
+{content_trimmed}
+"""
+    try:
+        t = time.time()
+        response = _client.models.generate_content(model="gemini-2.5-flash-lite", contents=prompt)
+        print(f"[PERF] [Wiki] Gemini 解析耗時: {(time.time()-t)*1000:.0f}ms")
+        text = response.text.strip()
+        match = re.search(r"(\[.*\])", text, re.DOTALL)
+        if match:
+            text = match.group(1)
+        return json.loads(text)
+    except Exception as e:
+        print(f"[WARN] [Wiki] Gemini 解析失敗: {e}")
+        return []
+
+
+def fetch_wiki_safety_events_for_producer(producer_id: int, producer_name: str):
+    """查詢特定廠商的 Wikipedia 頁面，萃取食安事件寫入資料庫，source_type = 'wiki'"""
+    cleaned_name = producer_name.strip()
+    if not cleaned_name or len(cleaned_name) < 2:
+        return
+
+    content = _search_wiki_producer(cleaned_name)
+    if not content:
+        return
+
+    events = _parse_wiki_events_with_gemini(cleaned_name, content)
+    if not events:
+        print(f"[INFO] [Wiki] '{cleaned_name}' 頁面無食安事件記載")
+        return
+
+    print(f"[INFO] [Wiki] '{cleaned_name}' 解析出 {len(events)} 筆事件")
+    db = SessionLocal()
+    try:
+        inserted = 0
+        existing_alerts = db.query(models.SafetyAlert).filter(
+            models.SafetyAlert.producer_id == producer_id
+        ).all()
+        existing_for_dedup = [{"title": a.title, "content": a.content} for a in existing_alerts]
+
+        for ev in events:
+            title = str(ev.get("title", "")).strip()[:500]
+            summary = str(ev.get("summary", "")).strip()
+            if not title:
+                continue
+            exists = db.query(models.SafetyAlert).filter(
+                models.SafetyAlert.title == title,
+                models.SafetyAlert.source_type == "wiki"
+            ).first()
+            if exists:
+                continue
+            if _is_duplicate_event(title, summary, existing_for_dedup):
+                continue
+            alert = models.SafetyAlert(
+                title=title,
+                content=str(ev.get("summary", "")).strip()[:2000],
+                alert_date=str(ev.get("event_date", "")).strip()[:50],
+                source_url=f"https://zh.wikipedia.org/wiki/{cleaned_name}",
+                source_type="wiki",
+                severity=ev.get("severity"),
+                producer_id=producer_id,
+                keyword_used=cleaned_name[:50],
+            )
+            db.add(alert)
+            existing_for_dedup.append({"title": title, "content": summary})
+            inserted += 1
+        db.commit()
+        print(f"[INFO] [Wiki] '{cleaned_name}' 新增 {inserted} 筆事件")
+    except Exception as e:
+        db.rollback()
+        print(f"[WARN] [Wiki] 寫入失敗: {e}")
+    finally:
+        db.close()
+
 
 def update_safety_events():
     db = SessionLocal()
