@@ -16,24 +16,28 @@ load_dotenv()
 def mask_sensitive_data(payload: dict) -> dict:
     """
     執行數據脫敏處理 (Task A)
-    移除：device_id, uuid, location
+    移除：device_id, uuid, location, user_conditions
     模糊化：timestamp 截斷至小時精度
     """
     clean_payload = copy.deepcopy(payload)
-    
+
     # 1. 刪除敏感欄位
     clean_payload.pop("device_id", None)
     clean_payload.pop("uuid", None)
-    
+
     # 2. 刪除地理位置資訊
     clean_payload.pop("location", None)
-    
-    # 3. 時間戳記截斷至小時精度 (格式假設: 2024-01-15T14:25:30 -> 2024-01-15T14:00:00)
+
+    # 3. 刪除使用者健康背景（過敏原、慢性病等），不轉發至 Cloud
+    #    Fog 自身的個人化評分使用呼叫端另外保留的 user_conditions 變數，不受此處影響
+    clean_payload.pop("user_conditions", None)
+
+    # 4. 時間戳記截斷至小時精度 (格式假設: 2024-01-15T14:25:30 -> 2024-01-15T14:00:00)
     if "timestamp" in clean_payload:
         ts = clean_payload["timestamp"]
         if isinstance(ts, str) and len(ts) >= 13:
             clean_payload["timestamp"] = ts[:13] + ":00:00"
-            
+
     return clean_payload
 
 # HMAC 請求簽章已被移除

@@ -1,7 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MessageSquare, Edit3, Send, AlertTriangle, Info, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Edit3, Send, AlertTriangle, Info, ShieldAlert, ExternalLink, BookOpen } from 'lucide-react';
 import { API_BASE } from '../config';
+
+// 依網域標注來源類型
+function sourceLabel(url) {
+  const u = url.toLowerCase();
+  if (u.includes('inchem') || u.includes('jecfa')) return { tag: 'JECFA', cls: 'tag-green' };
+  if (u.includes('efsa')) return { tag: 'EFSA', cls: 'tag-green' };
+  if (u.includes('pubmed')) return { tag: 'PubMed', cls: 'tag-orange' };
+  if (u.includes('fda')) return { tag: 'FDA', cls: 'tag-green' };
+  if (u.includes('pubchem')) return { tag: 'PubChem', cls: 'tag-amber' };
+  return { tag: '其他來源', cls: 'tag-amber' };
+}
 
 export default function AdditiveDetail() {
   const { id } = useParams();
@@ -238,6 +249,35 @@ export default function AdditiveDetail() {
           <div className="panel" style={{ padding: '20px', lineHeight: '1.7', color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>
             {additive.description || '目前暫無詳細說明描述。'}
           </div>
+
+          {/* 資料來源 */}
+          {Array.isArray(additive.description_sources) && additive.description_sources.length > 0 && (
+            <div style={{ marginTop: '16px' }}>
+              <h4 style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.95rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>
+                <BookOpen size={16} style={{ color: 'var(--info)' }} />
+                資料來源（{additive.description_sources.length}）
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {additive.description_sources.map((url, idx) => {
+                  const { tag, cls } = sourceLabel(url);
+                  return (
+                    <a
+                      key={idx}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="panel"
+                      style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', textDecoration: 'none', color: 'var(--text-primary)' }}
+                    >
+                      <span className={`tag ${cls}`} style={{ fontSize: '0.75rem', flexShrink: 0 }}>{tag}</span>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--off-orange-dark)', wordBreak: 'break-all' }}>{url}</span>
+                      <ExternalLink size={14} style={{ marginLeft: 'auto', flexShrink: 0, color: 'var(--text-muted)' }} />
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
         {/* 特定族群健康風險 (Group Risks) */}
         <div style={{ marginBottom: '32px' }}>
