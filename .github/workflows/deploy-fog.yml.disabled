@@ -1,3 +1,6 @@
+# 暫時停用(2026-07-24):樹莓派裝置已搬遷,PI_TAILSCALE_IP 需要更新後
+# 才能恢復連線,否則此 workflow 會在 SSH 連線步驟失敗。
+# 恢復方式:改回副檔名 .yml 即可重新啟用(內容未變動)。
 name: Deploy Fog to Pi 5
 
 on:

@@ -17,6 +17,8 @@ mysql_data_old/
 *.ibd
 *.dblwr
 binlog.*
+*.sql
+!server/seed_data/*.sql
 
 # 資料與 CSV (通常太大且不適合進 Git)
 mysql_csv/
@@ -72,3 +74,26 @@ quarto-*.deb
 start_app_only.sh
 start_backend.sh
 資料抓取/
+
+# --- 2026-08-03 首次大量提交前補充 ---
+# 暫存與工具產物：內含下載的執行檔（如 typst，54 MB），不應進版控
+scratch/
+*/scratch/
+*.out
+
+# 大型原始資料檔。原始來源可重新下載，見各 README 記載的下載位址
+*.xlsx
+*.xls
+
+# macOS 在非 HFS 磁碟上產生的中繼資料殘留（._IMG_xxx.HEIC 之類）
+._*
+.AppleDouble
+
+# 原始照片。回測用的辨識結果存於 predictions/，不需保留原圖
+*.HEIC
+*.heic
+*.webp
+
+# 抓取原文的本機存檔（38 MB）。不進版控：來源網址已隨資料存於資料庫的
+# description_sources 欄位，此處僅為抓取當下的快取，需要時可依網址重新取得。
+添加物資料庫整理/03_llm_ingestion/source_archive/

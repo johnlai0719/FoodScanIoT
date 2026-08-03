@@ -27,9 +27,20 @@ docker-compose up -d
 ```
 
 ### Environment Configuration
-Ensure a `.env` file exists in the server directory with the following variables:
-- GEMINI_API_KEY: Google Gemini AI API Key.
-- DATABASE_URL: PostgreSQL connection string.
+Copy `server/.env.example` to `server/.env` and fill in your own local database credentials and your own API keys (Gemini, Tavily). `.env` is gitignored and must never be committed — each contributor keeps their own local copy.
+
+### Database Setup (new contributors)
+The repository does not ship a full database dump (that would mean sharing real credentials and stale production data). Instead, the schema and safe reference data are fully reproducible from code:
+
+```bash
+cd server
+python db_init.py
+```
+
+This single command will:
+- Create all tables from the SQLAlchemy models (`models.py`)
+- Import the reference dataset (`seed_data/reference_seed.sql`) — the curated additives knowledge base and manufacturer list, which contain no personal or credential data
+- Create the admin/review tables and a **local-only default admin account** (`admin` / `admin123`) so you can log in to the review console immediately. Change this password before deploying anywhere beyond your own machine.
 
 ## Documentation
 

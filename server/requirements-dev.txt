@@ -1,0 +1,8 @@
+# 僅本機開發工具需要,不會被 Dockerfile 安裝(部署容器不需要這些)。
+# 安裝方式: pip install -r requirements.txt -r requirements-dev.txt
+
+# database_scripts/import_tfda_excel.py 讀取 Excel 用
+openpyxl
+
+# module_c/review_console.py — Module C 人工審核台(streamlit run 啟動)
+streamlit

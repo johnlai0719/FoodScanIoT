@@ -8,3 +8,6 @@ Pillow
 python-dotenv
 numpy
 tavily-python
+bcrypt
+PyJWT
+scikit-learn
