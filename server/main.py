@@ -94,188 +94,8 @@ class VectorRAG:
 # 初始化全域向量 RAG 實例
 vector_rag = VectorRAG()
 
-# 已知食安事件關鍵字群組：每組代表「同一個事件」的各種說法（含繁簡與別名）。
-# 兩筆事件若命中同一組關鍵字且年份相容，視為同一事件。
-# 注意：異物類各自獨立（網帽 / 鼠頭 / 壁虎 / 刀片 不可混為一談）。
-INCIDENT_KEYWORD_GROUPS = {
-    "餿水油": ["餿水油", "地溝油", "地沟油", "劣質油", "劣质油", "劣質豬油", "全統香豬油", "强冠", "強冠"],
-    "飼料油": ["飼料油", "飼料用油", "飼料級"],
-    "銅葉綠素": ["銅葉綠素", "铜叶绿素", "大統", "大统", "富味鄉", "富味乡"],
-    "塑化劑": ["塑化劑", "塑化剂", "起雲劑", "起云剂", "鄰苯二甲酸", "邻苯二甲酸"],
-    "順丁烯二酸": ["順丁烯二酸", "顺丁烯二酸", "毒澱粉", "毒淀粉"],
-    "戴奧辛": ["戴奧辛", "戴奥辛"],
-    "單氯丙二醇": ["單氯丙二醇", "单氯丙二醇"],
-    "環氧乙烷": ["環氧乙烷", "环氧乙烷", "環氧乙烯"],
-    "三聚氰胺": ["三聚氰胺", "美耐皿"],
-    "蘇丹紅": ["蘇丹紅", "苏丹红"],
-    "塑膠網帽異物": ["網帽", "网帽", "塑膠網", "塑膠條", "塑胶条"],
-    "鼠頭異物": ["鼠頭", "鼠头"],
-    "壁虎異物": ["壁虎"],
-    "刀片異物": ["刀片"],
-    "手卷異物": ["手卷"],
-    "蘋果麵包中毒": ["蘋果麵包", "苹果面包"],
-    "真飽涼麵": ["真飽涼麵", "真饱凉面", "真飽", "真饱"],
-}
-
-def _incident_signature(evt: dict) -> set:
-    text = (evt.get('title', '') or '') + (evt.get('summary', '') or '')
-    return {gid for gid, terms in INCIDENT_KEYWORD_GROUPS.items() if any(t in text for t in terms)}
-
-def _event_year(evt: dict):
-    m = re.match(r'(\d{4})', str(evt.get('date', '') or ''))
-    return m.group(1) if m else None
-
-def is_similar_event(evt1: dict, evt2: dict) -> bool:
-    def clean(text):
-        if not text:
-            return ""
-        return re.sub(r'[^\w]', '', text)
-
-    def char_bigrams(text):
-        return set(text[i:i+2] for i in range(len(text) - 1))
-
-    title1 = clean(evt1.get('title', ''))
-    title2 = clean(evt2.get('title', ''))
-
-    # 1. Exact or substring match in titles
-    if title1 and title2:
-        if title1 in title2 or title2 in title1:
-            return True
-
-    # 2. 事件關鍵字群組：命中同一組事件關鍵字，且年份相容（相同或其一未知）→ 同一事件
-    sig1 = _incident_signature(evt1)
-    sig2 = _incident_signature(evt2)
-    if sig1 & sig2:
-        y1, y2 = _event_year(evt1), _event_year(evt2)
-        if y1 is None or y2 is None or y1 == y2:
-            return True
-
-    # 3. Character bigram Jaccard on titles (works for Chinese text without tokenization)
-    if len(title1) >= 2 and len(title2) >= 2:
-        bg1 = char_bigrams(title1)
-        bg2 = char_bigrams(title2)
-        union = bg1 | bg2
-        if union:
-            jaccard = len(bg1 & bg2) / len(union)
-            if jaccard > 0.10:
-                return True
-
-    return False
-
-def _title_score(title: str, source_type: str) -> int:
-    """為事件標題評分，挑選最適合當「代表標題」的來源。
-    優先序：官方 > 新聞 > 維基 > 其他；並懲罰 PDF、個人貼文等雜訊標題。"""
-    if not title or not title.strip():
-        return -100
-    title = title.strip()
-    score = {"official": 30, "news": 20, "wiki": 10, "consumer_complaint": 5}.get(source_type or "", 0)
-    # 懲罰雜訊標題
-    if title.startswith("[PDF]") or title.startswith("[pdf]"):
-        score -= 20
-    # 個人貼文如「張哲生 - 1960年...」「某某 | Facebook」
-    if re.match(r'^[一-鿿]{2,4}\s*[-—|]', title):
-        score -= 15
-    if "facebook" in title.lower() or "instagram" in title.lower() or title.lower() == "instagram":
-        score -= 15
-    # 適中長度加分（太短資訊不足、太長多為內文截斷）
-    if 10 <= len(title) <= 45:
-        score += 5
-    return score
-
-def merge_events(events: list) -> list:
-    merged_list = []
-    for evt in events:
-        found = False
-        for m_evt in merged_list:
-            if is_similar_event(evt, m_evt):
-                # Merge evt into m_evt
-                d1 = m_evt.get('date', '')
-                d2 = evt.get('date', '')
-                if d2 and (not d1 or d2 > d1):
-                    m_evt['date'] = d2
-                
-                if evt.get('summary') and evt.get('summary') not in m_evt.get('summary', ''):
-                    if len(evt.get('summary')) > len(m_evt.get('summary', '')):
-                        m_evt['summary'] = evt.get('summary')
-                
-                cand_score = _title_score(evt.get('title', ''), evt.get('_raw_source_type') or '')
-                if evt.get('title') and cand_score > m_evt.get('_title_score', -100):
-                    m_evt['title'] = evt.get('title')
-                    m_evt['_title_score'] = cand_score
-
-                if evt.get('severity') is not None:
-                    if m_evt.get('severity') is None or evt.get('severity') > m_evt.get('severity'):
-                        m_evt['severity'] = evt.get('severity')
-
-                url = evt.get('source_url', '')
-                if url:
-                    link_title = "來源連結"
-                    url_lower = url.lower()
-                    st = evt.get('_raw_source_type') or ''
-                    if "threads.com" in url_lower:
-                        link_title = "Threads 連結"
-                    elif "wikipedia.org" in url_lower:
-                        link_title = "維基百科"
-                    elif st == "official":
-                        link_title = "官方公告"
-                    elif st == "news":
-                        link_title = "新聞連結"
-                    elif st == "social":
-                        link_title = "社群討論"
-                    
-                    if not any(lnk['url'] == url for lnk in m_evt['links']):
-                        m_evt['links'].append({"title": link_title, "url": url})
-                    
-                    if 'sources' not in m_evt or not m_evt['sources']:
-                        m_evt['sources'] = {"official": None, "news": None, "social": None}
-                    if st in ["official", "news", "social"]:
-                        m_evt['sources'][st] = url
-                
-                found = True
-                break
-        
-        if not found:
-            links = []
-            url = evt.get('source_url', '')
-            st = evt.get('_raw_source_type') or ''
-            if url:
-                link_title = "來源連結"
-                url_lower = url.lower()
-                if "threads.com" in url_lower:
-                    link_title = "Threads 連結"
-                elif "wikipedia.org" in url_lower:
-                    link_title = "維基百科"
-                elif st == "official":
-                    link_title = "官方公告"
-                elif st == "news":
-                    link_title = "新聞連結"
-                elif st == "social":
-                    link_title = "社群討論"
-                links.append({"title": link_title, "url": url})
-
-            new_evt = {
-                "date": evt.get('date') or '',
-                "type": evt.get('type') or '未知來源',
-                "title": evt.get('title') or '',
-                "summary": evt.get('summary') or '',
-                "source_url": url,
-                "severity": evt.get('severity'),
-                "links": links,
-                "sources": {
-                    "official": url if st == 'official' else None,
-                    "news": url if st == 'news' else None,
-                    "social": url if st == 'social' else None
-                },
-                "_raw_source_type": st,
-                "_title_score": _title_score(evt.get('title', ''), st)
-            }
-            merged_list.append(new_evt)
-
-    for evt in merged_list:
-        evt.pop('_raw_source_type', None)
-        evt.pop('_title_score', None)
-
-    return merged_list
+# 事件去重/合併邏輯已抽出至 module_c/dedup.py(2026-07-24),邏輯逐字未改動。
+from module_c.dedup import merge_events
 
 
 from typing import List, Dict, Any
@@ -284,9 +104,26 @@ import io
 from PIL import Image
 
 # 匯入食安監控模組與 Nutri-Score V7 計算機
-from safety_monitor import update_producer_safety_events
+from module_c.safety_monitor import update_producer_safety_events
+
+# 廠商食安事件功能總開關（2026-07-26 關閉）
+#
+# 關閉理由：目前呈現的是舊 Tavily 管線寫入 safety_alerts 表的資料，其品質未經
+# 驗證——實測可見來源標為「社群討論」且指向 Dcard、以及廠商已公開否認之指控，
+# 摘要卻仍以肯定語氣敘述。新的 Grounding 管線（module_c/grounding_discovery.py）
+# 雖品質較佳，但同樣因已知限制（來源標題多為網域名、維基語言版本重複計算、
+# 部分事件僅以公司總覽頁為佐證）決定暫不上線，見
+# 專案管理/Cloud/資料抓取/07-Grounding管線與資料來源查證。
+#
+# 一個會顯示不精確食安紀錄的功能，成本高於其價值：錯誤指控一家公司的代價，
+# 遠高於少一項功能。故在資料品質達到可上線水準前，整條路徑（背景蒐集與前端
+# 呈現）一併停用，而非只停其中一半。
+#
+# 恢復方式：改為 True 即可；若要改接新管線，需將讀取來源從 safety_alerts 表
+# 換成 module_c/query.py 的 get_events_payload()。
+SAFETY_EVENTS_ENABLED = False
 from admin_api import router as admin_router
-from nutriscore_v7 import calculator as ns_calculator
+from module_b.nutriscore_v7 import calculator as ns_calculator
 
 # 配置 AI
 API_KEY = os.getenv("GEMINI_API_KEY")
@@ -710,10 +547,12 @@ DB_CONFIG = {
 def get_db_conn():
     return psycopg2.connect(**DB_CONFIG)
 
-def normalize_text(text: str) -> str:
-    if not text: return ""
-    text = "".join([chr(ord(c) - 0xfee0) if 0xff01 <= ord(c) <= 0xff5e else c for c in text])
-    return re.sub(r'\(.*?\)|（.*?）|\s+', '', text)
+# normalize_text 已抽出至 module_a/ingredient_matching.py(2026-07-24),邏輯逐字未改動。
+from module_a.ingredient_matching import normalize_text, match_ingredients
+from module_d.response_builder import build_response
+from module_b.scoring import calculate_nutriscore
+from module_b.daily_reference import get_daily_reference_payload
+from module_d.diagnosis import generate_ai_diagnosis
 
 def normalize_manufacturer_name(name: str) -> str:
     """正規化廠商名稱，移除常見後綴以提高匹配率"""
@@ -728,52 +567,93 @@ def normalize_manufacturer_name(name: str) -> str:
 
 async def analyze_image_with_gemini(base64_images: list, barcode: str = "Unknown"):
     try:
+        # 注意:此處僅解碼供辨識,不存檔。圖片留待通過相關性閘門後才存(見 _save_scan_images)。
         images_to_process = []
         for i, b64 in enumerate(base64_images):
             if "base64," in b64:
                 b64 = b64.split("base64,")[1]
             img_data = base64.b64decode(b64)
-            
-            # --- 🛠️ 儲存圖片至實體路徑 ---
-            img_filename = f"scan_{int(time.time())}_{barcode}_{i}.jpg"
-            img_path = os.path.join(UPLOADS_DIR, img_filename)
-            with open(img_path, "wb") as f:
-                f.write(img_data)
-            print(f"[INFO] [Storage] Image saved to: /uploads/{img_filename}")
-            
             img = Image.open(io.BytesIO(img_data))
             images_to_process.append(img)
-            
+
         prompt = """解析這些食品包裝照片，回傳繁體中文 JSON：
         {
-          "name": "產品完整名稱 (若不明確請結合品牌與產品類型描述，例如：XX牌草莓夾心餅乾)", 
+          "is_food_label": true 或 false（這張照片是否為食品包裝或其成分／營養標示）,
+          "reject_reason": "若非食品標籤，簡述原因（例如：非食品照片／無成分標示／過於模糊），否則留空",
+          "name": "產品完整名稱 (若不明確請結合品牌與產品類型描述，例如：XX牌草莓夾心餅乾)",
           "brand": "品牌", 
+          "ingredients_raw": "成分欄位的完整原文，逐字照抄、保留標點與括號，不要拆解或改寫",
           "ingredients_list": ["成分1", "成分2"], 
-          "ingredient_types": {"成分1": "additive", "成分2": "ingredient"}, 
           "nutrition": {
-            "calories": 0,
-            "protein": 0,
-            "fat": 0,
-            "sugar": 0,
-            "sodium": 0
+            "calories": 數字或 null,
+            "protein": 數字或 null,
+            "fat": 數字或 null,
+            "saturated_fat": 數字或 null,
+            "trans_fat": 數字或 null,
+            "carbohydrates": 數字或 null,
+            "sugar": 數字或 null,
+            "fiber": 數字或 null,
+            "sodium": 數字或 null
+          },
+          "serving_size": 每一份量的公克或毫升數字（如「每份30公克」填 30），無標示則 null,
+          "servings_per_container": 每包裝含幾份的數字（如「本包裝含2份」填 2），無標示則 null,
+          "serving_description": "每一份量欄位的原始文字（如「每份30公克(約10片)」），無則 null",
+          "nutrition_raw": "營養標示整個表格的逐字原文（含每份/每100g兩欄的所有列與數值），照抄不整理",
+          "nutrition_other": {"營養素名稱(照標示，如 鈣/鐵/維生素C/膽固醇/單元不飽和脂肪)": {"per_100": 數字或 null, "per_serving": 數字或 null}},
+          "nutrition_per_serving": {
+            "calories": 數字或 null,
+            "protein": 數字或 null,
+            "fat": 數字或 null,
+            "saturated_fat": 數字或 null,
+            "trans_fat": 數字或 null,
+            "carbohydrates": 數字或 null,
+            "sugar": 數字或 null,
+            "fiber": 數字或 null,
+            "sodium": 數字或 null
           }, 
           "manufacturer": "製造商全名 (請參考包裝標示)", 
           "allergy_warning": "過敏原注意事項文字",
           "certification_marks": ["標章名稱", "例如: TQF, CAS, TAP, 健康食品, 有機農產品"]
         }
 
+        【相關性判斷 - 最優先】
+        請先判斷照片是否為食品包裝，或其成分／營養標示。
+        若不是（例如人物、自拍、風景、動物、無關物品，或完全看不到成分與營養標示），
+        請將 is_food_label 設為 false、reject_reason 填寫原因，其餘欄位一律留空或空陣列。
+        切勿為非食品照片捏造成分、營養數值或產品名稱。
+        若確為食品標籤，is_food_label 設為 true 並正常解析。
+
+        【成分原文保留規則】
+        ingredients_raw 請逐字照抄包裝上「成分」欄位的整段文字，包含括號內的補充
+        說明（如「麥芽糊精(玉米來源)」）、連接標點與排列順序，不要拆解、不要改寫、
+        不要省略。ingredients_list 則是把同一段文字拆成個別成分名稱後的結果。
+        兩者必須來自同一段標示；若成分欄位無法辨識，ingredients_raw 留空字串。
+
         【營養標示讀取規則 - 極重要】
-        nutrition 欄位必須使用「每 100 公克」或「每 100 毫升」的數值。
-        若包裝同時列有「每份」與「每 100ml/g」兩欄，請取「每 100ml/g」。
-        若只有「每份」，請以每份數值除以每份份量(g或ml)再乘以100換算。
-        calories = 大卡(kcal)數字，例如包裝標示 39.2大卡/100ml → 填 39.2。
+        台灣營養標示通常同時或擇一列出「每份」與「每100公克/毫升」兩欄。請**分別**填入：
+          nutrition            → 「每100公克/毫升」那一欄的值。
+          nutrition_per_serving → 「每份（每一份量）」那一欄的值。
+        **兩欄都照抄標示上的原始數字，不要自行換算、不要互相推導。** 標示上只有其中
+        一欄時，另一欄整組填 null（後端會處理，不需你換算——換算易出錯）。
+        serving_size 填「每一份量」的公克/毫升數（如「每份 30 公克」→ 30）；
+        servings_per_container 填「本包裝含 N 份」的 N。這兩者若無標示則填 null。
+        calories = 大卡(kcal)數字，例如標示 39.2大卡 → 填 39.2。
+        **標示上沒有的欄位請填 null，不要填 0，也不要自行推估。**
+        0 代表「標示為零」，null 代表「標示上沒有這一項」，兩者意義完全不同。
+        依我國營養標示規定，熱量、蛋白質、脂肪、飽和脂肪、反式脂肪、碳水化合物、
+        糖、鈉為強制標示項目，通常都找得到；膳食纖維為自願標示，可能沒有。
+        **上列九項以外，只要出現在營養標示表格內的任何營養素（如鈣、鐵、鉀、
+        維生素、膽固醇、單元／多元不飽和脂肪、糖醇、乳糖等），一律收進 nutrition_other**，
+        鍵用標示上的名稱，值填每100g與每份兩欄的數字。
+        另外 nutrition_raw 請把整個營養標示表格逐字照抄（含標題列、每份/每100g欄與所有數值），
+        作為完整存底——結構化欄位若漏抓，仍可由原文回溯。
 
         【標章辨識任務】
         請主動辨識所有標章 logo，尤其是：
         TQF（優良食品驗證，盾牌形金色logo）、CAS（優良農產品）、TAP（產銷履歷）、
         健康食品（小綠人）、有機農產品。若同一款標章出現多個編號，仍只回傳一個 "TQF"。
 
-        JSON ONLY. No markdown. 數值皆為數字。其中 "additive" 代表食品添加物，"ingredient" 代表天然原料/食材；鍵必須與 ingredients_list 中的成分名稱完全對應。"""
+        JSON ONLY. No markdown. 數值皆為數字。成分只需回傳 ingredients_raw 與 ingredients_list；成分是否為添加物由後端依食藥署正面表列判定，不需在此分類。"""
         
         content = [prompt] + images_to_process
         response = _genai_client.models.generate_content(
@@ -796,6 +676,51 @@ async def analyze_image_with_gemini(base64_images: list, barcode: str = "Unknown
         print(f"[ERROR] Gemini Vision Error: {e}")
         return None
 
+def _save_scan_images(base64_images, barcode):
+    """將上傳圖片存至 uploads/。僅在通過相關性閘門後呼叫,避免無關照片佔用硬碟。"""
+    saved = []
+    for i, b64 in enumerate(base64_images or []):
+        try:
+            if "base64," in b64:
+                b64 = b64.split("base64,")[1]
+            fn = f"scan_{int(time.time())}_{barcode}_{i}.jpg"
+            with open(os.path.join(UPLOADS_DIR, fn), "wb") as f:
+                f.write(base64.b64decode(b64))
+            saved.append(f"/uploads/{fn}")
+            print(f"[INFO] [Storage] Image saved to: /uploads/{fn}")
+        except Exception as e:
+            print(f"[WARN] [Storage] 圖片存檔失敗: {e}")
+    return saved
+
+
+def _is_valid_food_scan(vision_data) -> tuple:
+    """相關性／品質閘門:判斷視覺辨識結果是否值得寫入共享資料庫。
+    回傳 (是否通過, 原因)。非食品標籤或無實質內容者一律不寫入,避免污染。"""
+    if not vision_data or not isinstance(vision_data, dict):
+        return False, "無法辨識內容"
+    # 第一關:視覺模型相關性旗標(明確判定為非食品標籤時直接擋)
+    if vision_data.get("is_food_label") is False:
+        return False, vision_data.get("reject_reason") or "非食品標籤"
+
+    def _num(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return 0.0
+
+    # 第二關:確定性訊號檢查 —— 至少要有成分、營養數值、或有意義的品名其一
+    ingredients = vision_data.get("ingredients_list") or []
+    has_ingredients = isinstance(ingredients, list) and any(str(x).strip() for x in ingredients)
+    nutrition = vision_data.get("nutrition") or {}
+    has_nutrition = any(_num(nutrition.get(k)) > 0 for k in ("calories", "protein", "fat", "sugar", "sodium"))
+    name = (vision_data.get("name") or "").strip()
+    has_name = bool(name) and name not in ("待確認產品", "未知品牌", "未知產品")
+
+    if has_ingredients or has_nutrition or has_name:
+        return True, ""
+    return False, "照片中未偵測到成分或營養標示"
+
+
 @app.post("/query")
 @app.post("/analyze")
 @app.post("/api/analyze")
@@ -814,6 +739,8 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
         # --- 🚀 支持 Fog Node 快取重算邏輯 ---
         cached_result = data.get("cached_result")
         product = None
+        vision_data = None  # 明確初始化,取代原本以 locals() 判斷是否存在的隱式狀態
+        ai_data = None  # 明確初始化,取代原本以 locals() 判斷是否存在的隱式狀態
         if cached_result and not label_images:
             print(f"[INFO] [Query] Re-calculating personalization for cached barcode: {barcode}")
             # 從快取中提取產品基本資訊，進行個人化診斷與快速重算
@@ -878,6 +805,9 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
                 "producer_id": prod_id,
                 "manufacturer": v_mfg,
                 "ingredients_list": _json.dumps(ing_list, ensure_ascii=False),
+                # 成分原文要一起帶進來(2026-07-30):比對已改以原文為來源,這條快取
+                # 路徑不帶的話會退回模型整理的清單,複合食品內部的添加物又會消失。
+                "ingredients_raw": cached_result.get("ingredients_raw"),
                 "certifications": certs_str,
                 "calories": nut.get("calories") or nut.get("calories", 0.0),
                 "protein": nut.get("protein") or nut.get("protein", 0.0),
@@ -908,11 +838,26 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
             # --- 核心連線邏輯：在分析完畢後才建立連線，防止超時 ---
             db = get_db_conn()
             cursor = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-            
+
+            # --- 相關性／品質閘門：非食品標籤或無實質內容者，不寫入共享資料庫 ---
+            scan_ok, scan_reason = _is_valid_food_scan(vision_data)
+            if not scan_ok:
+                print(f"[GATE] 上傳圖片未通過相關性/品質閘門：{scan_reason}，不寫入 DB")
+                if not barcode or barcode in ("NEW", "TEST", ""):
+                    return {
+                        "status": "rejected",
+                        "message": f"無法從照片辨識出食品成分標示（{scan_reason}）。請對準產品的成分表與營養標示，重新拍攝清晰照片。"
+                    }
+                # 有真實條碼可回退：略過視覺寫入，改走條碼查詢
+                vision_data = None
+
             if vision_data is not None:
                 try:
                     # 即使 vision_data 是空字典 {}，也要繼續處理
                     target_barcode = barcode or f"IMG_{int(time.time())}"
+
+                    # 通過相關性閘門後才存圖,避免無關照片佔用硬碟
+                    _save_scan_images(label_images, target_barcode)
                     
                     # 偵錯：印出 AI 回傳的欄位
                     print(f"[DEBUG] [Vision] Fields received: {list(vision_data.keys())}")
@@ -943,8 +888,23 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
                         prod_id = 1 # 降級使用手動建立的備胎廠商
 
                     ing_json = _json.dumps(vision_data.get('ingredients_list', []), ensure_ascii=False)
+                    # 標示原文(2026-07-26)。拆解後的名稱陣列會遺失括號內的補充說明
+                    # (如「麥芽糊精(玉米來源)」拆完只剩「麥芽糊精」),原文留存才可回溯。
+                    ing_raw = (vision_data.get('ingredients_raw') or '').strip() or None
                     cert_json = _json.dumps(vision_data.get('certification_marks', []), ensure_ascii=False)
                     n = vision_data.get('nutrition', {})
+                    # 營養標示的完整存底（2026-07-26）：核心九項存於 products 各欄，
+                    # 以下打包「每份核心值、九項以外的其他營養素、整塊原文、份量描述」，
+                    # 一併存入 other_nutrition。設計同 ingredients_raw：結構化供計算，
+                    # 原文供回溯，避免因固定欄位只列九項而漏記標示上的其他營養素。
+                    _other_nut = {
+                        "per_serving": vision_data.get('nutrition_per_serving') or None,
+                        "other": vision_data.get('nutrition_other') or None,
+                        "raw": (vision_data.get('nutrition_raw') or '').strip() or None,
+                        "serving_desc": (vision_data.get('serving_description') or '').strip() or None,
+                    }
+                    other_nut_json = (_json.dumps(_other_nut, ensure_ascii=False)
+                                      if any(_other_nut.values()) else None)
                     # 確保 allergens 為標準 JSON 字串
                     allergy_text = _json.dumps(vision_data.get('allergy_warning', ''), ensure_ascii=False)
                     
@@ -953,20 +913,40 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
                         sql = """
                             INSERT INTO products (
                                 barcode, name, brand, producer_id, manufacturer,
-                                ingredients_list, certifications, calories, protein, fat, sugar, sodium, allergens
+                                ingredients_list, ingredients_raw, certifications,
+                                calories, protein, fat, saturated_fat, carbohydrates,
+                                sugar, fiber, sodium, allergens,
+                                serving_size, servings_per_container, other_nutrition
                             )
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                             ON CONFLICT (barcode) DO UPDATE SET
                             name=EXCLUDED.name, brand=EXCLUDED.brand, producer_id=EXCLUDED.producer_id,
                             manufacturer=EXCLUDED.manufacturer, ingredients_list=EXCLUDED.ingredients_list,
+                            -- 原文僅在本次確實辨識到時才覆蓋，避免既有原文被空值洗掉
+                            ingredients_raw=COALESCE(EXCLUDED.ingredients_raw, products.ingredients_raw),
                             certifications=EXCLUDED.certifications,
                             calories=EXCLUDED.calories, protein=EXCLUDED.protein, fat=EXCLUDED.fat,
-                            sugar=EXCLUDED.sugar, sodium=EXCLUDED.sodium, allergens=EXCLUDED.allergens
+                            -- 新增欄位以 COALESCE 保護：本次辨識不到時不覆蓋既有值
+                            saturated_fat=COALESCE(EXCLUDED.saturated_fat, products.saturated_fat),
+                            carbohydrates=COALESCE(EXCLUDED.carbohydrates, products.carbohydrates),
+                            fiber=COALESCE(EXCLUDED.fiber, products.fiber),
+                            sugar=EXCLUDED.sugar, sodium=EXCLUDED.sodium, allergens=EXCLUDED.allergens,
+                            serving_size=COALESCE(EXCLUDED.serving_size, products.serving_size),
+                            servings_per_container=COALESCE(EXCLUDED.servings_per_container, products.servings_per_container),
+                            other_nutrition=COALESCE(EXCLUDED.other_nutrition, products.other_nutrition)
                         """
                         params = (target_barcode, v_name, v_brand, 
-                              prod_id, mfg_name, ing_json, cert_json,
-                              n.get('calories', 0), n.get('protein', 0), n.get('fat', 0), 
-                              n.get('sugar', 0), n.get('sodium', 0), allergy_text)
+                              prod_id, mfg_name, ing_json, ing_raw, cert_json,
+                              n.get('calories', 0), n.get('protein', 0), n.get('fat', 0),
+                              # 缺漏一律存 None 而非 0：0 代表「標示為零」，
+                              # None 代表「標示上沒有」，計分時的處理必須不同。
+                              n.get('saturated_fat'), n.get('carbohydrates'),
+                              n.get('sugar', 0), n.get('fiber'), n.get('sodium', 0), allergy_text,
+                              # 每份份量、份數，以及每份營養（存於 other_nutrition，
+                              # 供每日參考值改用「每份」為基準；缺則 None，不換算）
+                              vision_data.get('serving_size'),
+                              vision_data.get('servings_per_container'),
+                              other_nut_json)
                         
                         cursor.execute(sql, params)
                         if not is_test_mode:
@@ -998,6 +978,7 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
                         "producer_id": prod_id,
                         "manufacturer": mfg_name,
                         "ingredients_list": ing_json,
+                        "ingredients_raw": ing_raw,
                         "calories": n.get('calories', 0),
                         "protein": n.get('protein', 0),
                         "fat": n.get('fat', 0),
@@ -1032,8 +1013,10 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
                 "message": "資料庫查無此條碼紀錄，請點擊下方「上傳照片」按鈕，讓 AI 視覺大腦為您即時解析包裝！"
             }
 
-        # 背景食安監控任務
-        if product.get('producer_id'):
+        # 背景食安監控任務（2026-07-26 停用，見下方 SAFETY_EVENTS_ENABLED 說明）。
+        # 舊的 Tavily 監控每次掃描都會觸發、往 safety_alerts 表寫入並消耗 API，
+        # 但其產出已決定不對使用者呈現，繼續執行只是持續累積不會被使用的資料。
+        if SAFETY_EVENTS_ENABLED and product.get('producer_id'):
             mfg = product.get('manufacturer') or '未知製造商'
             if not is_test_mode:
                 background_tasks.add_task(update_producer_safety_events, product['producer_id'], mfg)
@@ -1053,7 +1036,7 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
 
         # --- 4. 抓取廠商食安警訊 ---
         safety_alerts = []
-        if product.get('producer_id'):
+        if SAFETY_EVENTS_ENABLED and product.get('producer_id'):
             cursor.execute(
                 "SELECT title, content, alert_date, source_url, source_type, severity FROM safety_alerts WHERE producer_id = %s ORDER BY severity DESC, alert_date DESC, id DESC LIMIT 50",
                 (product['producer_id'],)
@@ -1094,544 +1077,51 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
         final_safety_events = critical + others
 
         # --- 5. 正常分析流程 (添加物比對) ---
-        ing_list = product.get('ingredients_list', '[]')
-        if isinstance(ing_list, str): ing_list = _json.loads(ing_list)
-        
-        # 獲取 AI 產出的臨時描述 (用於資料庫缺失時)
-        ai_ing_descs = vision_data.get('ingredient_descriptions', {}) if 'vision_data' in locals() else {}
-
-        # 抓取完整的添加物知識庫資訊
-        cursor.execute("SELECT id, record_id, name_zh, name_en, aliases, ins_or_e_number, category, food_tech_purpose, adi, medical_caution, iarc_class, description, risks, description_sources FROM additives ORDER BY LENGTH(name_zh) DESC")
-        knowledge = cursor.fetchall()
-        
-        # --- 🚀 初始化向量 RAG 知識庫 (僅在需要時) ---
-        if not vector_rag.is_initialized and knowledge:
-            vector_rag.update_knowledge_base(knowledge)
-
-        basic, chemical = [], []
-        CHEM_CHARS = ["酯", "鈉", "鉀", "酸", "磷", "聚", "精", "醇", "膠", "素"]
-        
-        # 準備資料庫更新清單 (智能補完)
-        db_updates = []
-
-        CONCERN_TO_LEVEL = {"caution": 1, "avoid": 3, "danger": 5}
-        GROUP_ZH_TO_EN = {
-            "孕婦": "pregnant", "哺乳期婦女": "pregnant",
-            "嬰幼兒": "child", "兒童": "child", "兒童及青少年": "child",
-            "六個月以下嬰兒": "child", "一歲以下嬰幼兒": "child",
-            "慢性腎臟病患者": "kidney_disease",
-            "氣喘患者": "asthma",
-            "阿斯匹靈過敏者": "aspirin_allergy",
-            "苯酮尿症患者": "pku",
-            "過敏體質者": "allergy", "對牛奶過敏者": "allergy",
-        }
-
-        calculated_ingredient_types = {}
-        for ing in ing_list:
-            if not ing: continue
-            norm = normalize_text(ing)
-            match = None
-            # 若為水等純原料成分，直接跳過添加物比對，避免誤判
-            if norm in ["水", "純水", "熱水", "冰水", "蒸餾水", "礦泉水", "飲用水", "water"]:
-                match = None
-            else:
-                for a in knowledge:
-                    # 1. 中文名稱比對 (name_zh) - 僅允許資料庫名稱是成分名稱的子字串（如「檸檬酸」匹配「檸檬酸鈉」）
-                    # 絕對不允許成分名稱是資料庫名稱的子字串（如「水」不應匹配「去水醋酸」）
-                    if a.get('name_zh') and a['name_zh'] in norm:
-                        match = a
-                        break
-                    # 2. 英文名稱比對 (name_en)
-                    if a.get('name_en') and a['name_en'].lower() in norm.lower():
-                        match = a
-                        break
-                    # 3. INS / E 編號比對
-                    if a.get('ins_or_e_number'):
-                        ins_norm = normalize_text(a['ins_or_e_number'])
-                        if ins_norm and ins_norm in norm:
-                            match = a
-                            break
-                    # 4. 別名比對 (aliases)
-                    aliases_raw = a.get('aliases')
-                    if aliases_raw:
-                        aliases_list = []
-                        if isinstance(aliases_raw, list):
-                            aliases_list = aliases_raw
-                        elif isinstance(aliases_raw, str):
-                            try:
-                                aliases_list = _json.loads(aliases_raw)
-                            except Exception:
-                                aliases_list = [aliases_raw]
-                        if isinstance(aliases_list, list):
-                            if any(alias and alias in norm for alias in aliases_list):
-                                match = a
-                                break
-            
-            # --- 🚀 向量 RAG 補償邏輯：只有含化學性字元的成分才做語義匹配，避免「水」等原料誤判 ---
-            if not match and any(c in norm for c in CHEM_CHARS):
-                match = vector_rag.find_nearest(norm)
-            
-            # 獲取 AI 產出的專業描述 (從 vision_data 或 ingredient_details 獲取)
-            ai_info = {}
-            if 'vision_data' in locals():
-                ai_info = vision_data.get('ingredient_details', {}).get(ing, {})
-            
-            ai_desc = ai_info.get('desc')
-            ai_purpose = ai_info.get('purpose')
-
-            # 決策邏輯：1. 優先使用資料庫 -> 2. 資料庫沒有或沒描述則記錄待更新 -> 3. 使用 AI 產出的描述
-            if match and match['description']:
-                final_desc = match['description']
-                final_purpose = match['food_tech_purpose']
-            elif ai_desc:
-                final_desc = ai_desc
-                final_purpose = ai_purpose
-                # 如果資料庫已有此項但沒描述，或根本沒有此項，則加入更新清單
-                db_updates.append({
-                    "name": ing,
-                    "description": ai_desc,
-                    "purpose": ai_purpose,
-                    "exists": bool(match),
-                    "id": match['id'] if match else None
-                })
-            elif match:
-                final_desc = f"此成分為{match['food_tech_purpose'] or '食品添加物'}，建議依個人體質適量攝取。"
-                final_purpose = match['food_tech_purpose']
-            else:
-                final_desc = "一般成分，目前無特定風險紀錄。"
-                final_purpose = None
-
-            # 優先使用 Gemini 的分類結果
-            is_additive = False
-            is_additive_from_gemini = None
-            if 'vision_data' in locals() and vision_data:
-                ing_types = vision_data.get('ingredient_types', {})
-                raw_gemini_type = ing_types.get(ing)
-                if not raw_gemini_type:
-                    # 嘗試進行去空白、大小寫模糊匹配
-                    for k, v in ing_types.items():
-                        if k.strip().lower() == ing.strip().lower():
-                            raw_gemini_type = v
-                            break
-                if raw_gemini_type in ["additive", "ingredient"]:
-                    is_additive_from_gemini = (raw_gemini_type == "additive")
-
-            if is_additive_from_gemini is not None:
-                is_additive = is_additive_from_gemini
-            else:
-                is_additive = bool(match)
-
-            calculated_ingredient_types[ing] = "additive" if is_additive else "ingredient"
-            if is_additive:
-                # 處理化學食品添加物之中英文名稱
-                display_name = ing
-                if match:
-                    if match.get('name_en'):
-                        display_name = f"{match['name_en']} ({ing})"
-                    elif match.get('aliases'):
-                        try:
-                            aliases_list = match['aliases']
-                            if isinstance(aliases_list, str):
-                                aliases_list = _json.loads(aliases_list)
-                            if isinstance(aliases_list, list):
-                                en_name = next((a for a in aliases_list if re.match(r'^[A-Za-z0-9\s\-\(\)\.\,\']+$', a)), None)
-                                if en_name:
-                                    display_name = f"{en_name.strip()} ({ing})"
-                        except Exception:
-                            pass
-
-                # 解析 risks 欄位並轉換為 Fog 可讀格式
-                risks_raw = match.get('risks') if match else []
-                if isinstance(risks_raw, str):
-                    try:
-                        risks_raw = _json.loads(risks_raw)
-                    except Exception:
-                        risks_raw = []
-
-                group_risks = []
-                for r in (risks_raw or []):
-                    zh_group = r.get("group", "")
-                    en_group = GROUP_ZH_TO_EN.get(zh_group)
-                    if not en_group:
-                        continue
-                    group_risks.append({
-                        "group": en_group,
-                        "riskLevel": CONCERN_TO_LEVEL.get(r.get("concern", "caution"), 1),
-                        "reason": r.get("ai_reasoning") or r.get("source_quote") or zh_group,
-                        "confidence": r.get("confidence", ""),
-                    })
-                
-                adi_val = None
-                if match and match.get('adi'):
-                    clean_adi = str(match['adi']).strip().lower()
-                    if clean_adi not in ["unknown", "none", "", "null", "見標示"]:
-                        adi_val = match['adi']
-
-                chemical.append({
-                    "name": display_name,
-                    "isAdditive": True,
-                    "officialName": match['name_zh'] if match else ing,
-                    "purpose": final_purpose or "食品添加物",
-                    "adiValue": adi_val,
-                    "caution": match['medical_caution'] if match else "無",
-                    "iarcRating": match['iarc_class'] if match else "未分類",
-                    "description": final_desc,
-                    "groupRisks": group_risks,
-                    "risk_level": "medium" if match or ai_desc else "low",
-                    "description_sources": match.get('description_sources') or [] if match else []
-                })
-            else:
-                basic.append(ing)
-
-        # 執行資料庫智能補完 (暫時註解以確保穩定性)
-        # if db_updates:
-        #     print(f"[INFO] 發現 {len(db_updates)} 個缺失添加物，準備智能補齊...")
-        #     for up in db_updates:
-        #         try:
-        #             if up['exists']:
-        #                 cursor.execute(
-        #                     "UPDATE additives SET description = %s, food_tech_purpose = %s WHERE id = %s",
-        #                     (up['description'], up['purpose'], up['id'])
-        #                 )
-        #             else:
-        #                 cursor.execute(
-        #                     "INSERT INTO additives (name, description, food_tech_purpose) VALUES (%s, %s, %s)",
-        #                     (up['name'], up['description'], up['purpose'])
-        #                 )
-        #             db.commit()
-        #         except Exception as e:
-        #             print(f"[WARN] 智能補齊添加物失敗: {up['name']}, Error: {e}")
-        #             db.rollback()
+        # 成分比對邏輯已抽出至 module_a/ingredient_matching.py(2026-07-24)。
+        # 2026-07-30:改以標示原文為比對來源。本次辨識的原文優先(vision_data),
+        # 沒有(掃條碼命中既有商品)則用資料庫裡存的那份;兩者皆無才退回模型清單。
+        _ing_raw = (vision_data or {}).get('ingredients_raw') or product.get('ingredients_raw')
+        _match_result = match_ingredients(
+            product.get('ingredients_list', '[]'), vision_data, cursor, vector_rag,
+            ingredients_raw=_ing_raw
+        )
+        ing_list = _match_result["ing_list"]
+        basic = _match_result["basic"]
+        basic_detail = _match_result["basic_detail"]
+        chemical = _match_result["chemical"]
+        calculated_ingredient_types = _match_result["calculated_ingredient_types"]
 
         # --- 🚀 核心：Nutri-Score V7 硬代碼精準計分 (對照 PDF V7 標準) ---
-        # 準備計算所需數值，確保類型為 float
-        ns_data = {
-            "energy": float(product['calories']) * 4.184, # kcal 轉 kJ
-            "sugars": float(product['sugar']),
-            "sfa": float(product['fat']) * 0.35, # 假設飽和脂肪佔總脂肪 35% (若資料庫無此欄位)
-            "salt": float(product['sodium']) / 1000 * 2.5, # mg 鈉 轉 g 鹽
-            "proteins": float(product['protein']),
-            "fibres": 2.0, # 預設纖維
-            "fruit_veg_pct": 10.0 # 預設蔬果比
-        }
-        
-        # 判定是否為特定類別 (後續可優化為從資料庫讀取)
-        is_beverage = any(kw in product['name'] for kw in ["飲", "水", "汁", "奶", "啡", "茶"])
-        is_cheese = any(kw in product['name'] for kw in ["乳酪", "起司", "Cheese"])
-        
-        # 飲料細項判定：檢測是否為純水
-        is_water = is_beverage and any(kw in product['name'] for kw in ["水", "礦泉水"]) and not any(kw in product['name'] for kw in ["茶", "奶", "汁", "啡", "飲", "風味", "汽水", "可樂", "蘇打", "沙士"])
-        
-        # 飲料細項判定：檢測是否含有非營養性甜味劑 (NNS)
-        sweetener_keywords = [
-            "阿斯巴甜", "aspartame", 
-            "醋磺內酯鉀", "acesulfame", "安賽蜜",
-            "蔗糖素", "sucralose", "三氯蔗糖",
-            "糖精", "saccharin", 
-            "紐甜", "neotame", 
-            "愛德萬甜", "advantame", 
-            "甜菊", "steviol", "stevia",
-            "甜蜜素", "cyclamate", 
-            "索馬甜", "thaumatin",
-            "赤藻糖醇", "erythritol",
-            "木糖醇", "xylitol",
-            "山梨糖醇", "sorbitol",
-            "甘露糖醇", "mannitol",
-            "麥芽糖醇", "maltitol",
-            "異麥芽", "isomalt",
-            "乳糖醇", "lactitol"
-        ]
-        has_sweeteners = False
-        if isinstance(ing_list, list):
-            has_sweeteners = any(
-                any(kw in str(ing).lower() for kw in sweetener_keywords)
-                for ing in ing_list
-            )
-        
-        # 執行 100% 準確的 V7 演算法
-        calc_result = ns_calculator.calculate(
-            ns_data, 
-            is_beverage=is_beverage, 
-            is_cheese=is_cheese, 
-            has_sweeteners=has_sweeteners,
-            is_water=is_water
+        # 計分邏輯已抽出至 module_b/scoring.py(2026-07-24),邏輯逐字未改動。
+        _ns_result = calculate_nutriscore(product, ing_list)
+        calc_result = _ns_result["calc_result"]
+        deterministic_score = _ns_result["deterministic_score"]
+        deterministic_grade = _ns_result["deterministic_grade"]
+        # 哪幾項計分輸入為推估（標示未提供）。呈現端須據此加註，
+        # 否則使用者會以為等級完全依實際標示算出。
+        ns_estimated = _ns_result.get("estimated_inputs", [])
+
+        # 每日參考值百分比(2026-07-26)。只陳述「佔一天建議量的幾 %」,不做風險判斷;
+        # 分母依使用者族群改用附表一對應欄位,見 module_b/daily_reference.py。
+        daily_reference = get_daily_reference_payload(product, user_conditions)
+
+        # LLM 摘要生成 + 持久化已抽出至 module_d/diagnosis.py(2026-07-24),邏輯逐字未改動。
+        _diag_result = generate_ai_diagnosis(
+            product, chemical, final_safety_events, user_conditions, nutrition,
+            deterministic_score, deterministic_grade, ai_data, raw_allergens,
+            cursor, db, _genai_client
         )
-        deterministic_score = calc_result['score']
-        deterministic_grade = calc_result['grade']
+        ai_data = _diag_result["ai_data"]
+        raw_allergens = _diag_result["raw_allergens"]
 
-        # 強化後的複合式 Prompt，使用 Google Gemma 同時生成總體、添加物與歷史事件三個 AI 總結
-        composite_prompt = f"""
-        你是 FoodAware Pro 專家系統。請執行「臨床風險診斷」並針對商品進行「添加物風險總結」、「食安歷史事件總結」與「總體商品健康診斷總結」。
-        
-        【產品資訊】
-        產品: {product['name']} | 品牌: {product['brand']} | 廠商: {product['manufacturer']}
-        營養成分: {_json.dumps(nutrition, ensure_ascii=False)}
-        
-        【權威計分依據 (Nutri-Score V7 2024 最新版)】
-        依據歐盟 2024 演算法算出的確切總分: {deterministic_score}
-        確定之健康分級: {deterministic_grade} 級 (A為最優，E為最差)
-        
-        【廠商食安歷史 (Module C)】
-        {_json.dumps(final_safety_events, ensure_ascii=False)}
-        
-        【權威資料庫已提供之食品添加物資訊 (Module B)】
-        {_json.dumps(chemical, ensure_ascii=False)}
-        
-        【使用者健康背景】
-        {_json.dumps(user_conditions, ensure_ascii=False)}
-        
-        【任務】
-        請進行深度分析，並提供以下三個 AI 總結：
-        1. 「總體商品健康診斷總結」(overall_summary)：參考「確切總分」與「健康分級」，產出 50 字內之個人化核心診斷與長期過量攝取的累積慢性健康風險（例如：吃了沒事，但吃久了會有事）。
-        2. 「添加物風險總結」(additives_summary)：分析本產品所含的食品添加物、人工化學成分（如防腐劑、防凝劑、甘味劑等）的組合風險，特別是針對該使用者背景（如糖尿病、孕婦、高血壓等）的危害程度，產出 100 字內的分析總結。若無添加物，請說明「本產品無添加化學食品添加物」。
-        3. 「食安歷史事件總結」(safety_events_summary)：分析本產品製造商（廠商）以往的食安歷史違規與歷史事件，對消費者信任度與產品安全的影響，產出 100 字內的分析總結。若無歷史食安事件，請說明「該廠商無特定歷史食安違規紀錄」。
-        4. 產出具體「個人化警示」(warnings) 清單。
-        
-        請以繁體中文回答。回傳格式必須為純 JSON，不可有任何 Markdown 標記，結構如下：
-        {{
-          "score": {deterministic_score},
-          "grade": "{deterministic_grade}",
-          "overall_summary": "總體商品健康診斷總結文字",
-          "additives_summary": "添加物風險總結文字",
-          "safety_events_summary": "食安歷史事件總結文字",
-          "warnings": ["警告1", "警告2"]
-        }}
-        """
-        
-        # --- 🚀 檢查資料庫中是否有預存的 AI 總結，若有則直接重用 ---
-        ai_data_exists = 'ai_data' in locals() and ai_data is not None
-        is_reused_from_db = False
-        if not ai_data_exists and product and product.get("overall_summary") and product.get("overall_summary") != "診斷引擎暫時降級運作。":
-            print(f"[INFO] [Analyze] Reusing pre-analyzed AI summaries from PostgreSQL for barcode: {product['barcode']}")
-            
-            # 防禦性解析過敏原字串
-            raw_allergens = product.get("allergens")
-            warnings_list = []
-            if raw_allergens:
-                if isinstance(raw_allergens, list):
-                    warnings_list = raw_allergens
-                elif isinstance(raw_allergens, str):
-                    if raw_allergens.strip().startswith("["):
-                        try:
-                            warnings_list = _json.loads(raw_allergens)
-                        except Exception:
-                            warnings_list = [raw_allergens]
-                    else:
-                        warnings_list = [raw_allergens]
-            
-            ai_data = {
-                "score": deterministic_score,
-                "grade": deterministic_grade,
-                "overall_summary": product.get("overall_summary"),
-                "additives_summary": product.get("additives_summary"),
-                "safety_events_summary": product.get("safety_events_summary"),
-                "warnings": warnings_list
-            }
-            ai_data_exists = True
-            is_reused_from_db = True
-
-        # --- 🚀 只有在無快取 AI 資料且無資料庫預存時才發送大模型請求 ---
-        if not ai_data_exists:
-            try:
-                try:
-                    print(f"[DEBUG] [Analyze] Sending prompt to Gemma. Length: {len(composite_prompt)}")
-                    _t_gemma_start = time.time()
-                    ai_resp = _genai_client.models.generate_content(model="gemini-2.5-flash-lite", contents=composite_prompt)
-                    ai_data = _json.loads(re.search(r'(\{.*\})', ai_resp.text, re.DOTALL).group(1))
-                    print(f"[PERF] Gemini-2.5-flash-lite Diagnosis: {(time.time() - _t_gemma_start)*1000:.0f}ms")
-                except Exception as first_e:
-                    print(f"[WARN] [Analyze] gemini-2.5-flash-lite failed, falling back to gemini-2.5-flash... Error: {first_e}")
-                    _t_gemma_start = time.time()
-                    ai_resp = _genai_client.models.generate_content(model="gemini-2.5-flash", contents=composite_prompt)
-                    ai_data = _json.loads(re.search(r'(\{.*\})', ai_resp.text, re.DOTALL).group(1))
-                    print(f"[PERF] Gemini-2.5-flash Diagnosis (fallback): {(time.time() - _t_gemma_start)*1000:.0f}ms")
-            except Exception as ai_e:
-                print(f"[WARN] [Analyze] Both primary and fallback models failed: {ai_e}")
-                ai_data = {
-                    "score": deterministic_score,
-                    "grade": deterministic_grade,
-                    "overall_summary": "診斷引擎暫時降級運作。",
-                    "additives_summary": "無法分析添加物風險。",
-                    "safety_events_summary": "無法分析廠商食安歷史。",
-                    "warnings": []
-                }
-        else:
-            if not is_reused_from_db:
-                print("[INFO] [Query] Reusing pre-cached AI summaries (Skipping LLM Generation for Fog/Cache mode)")
-            # 即使是使用快取，健康評分與等級仍然依據本次重算的結果更新，以維持個人化計算的準確性
-            ai_data["score"] = deterministic_score
-            ai_data["grade"] = deterministic_grade
-        
-        # 將新生成的 AI 總結持久化儲存到資料庫中，以實現「一次分析，永久重用」
-        if not is_reused_from_db and ai_data and ai_data.get("overall_summary") != "診斷引擎暫時降級運作。" and product and product.get("barcode"):
-            try:
-                update_sql = """
-                    UPDATE products 
-                    SET overall_summary = %s, additives_summary = %s, safety_events_summary = %s
-                    WHERE barcode = %s
-                """
-                cursor.execute(update_sql, (
-                    ai_data.get("overall_summary"),
-                    ai_data.get("additives_summary"),
-                    ai_data.get("safety_events_summary"),
-                    product['barcode']
-                ))
-                db.commit()
-                print(f"[SUCCESS] [DB] 持久化預存 AI 總結於資料庫: {product['barcode']}")
-            except Exception as update_e:
-                print(f"[WARN] [DB] Failed to save AI summaries to DB: {update_e}")
-                db.rollback()
-
-        cursor.close()
-        db.close()
-
-        # 獲取標章資訊 (從資料庫)
-        raw_certs = product.get('certifications', '[]')
-        if not raw_certs: raw_certs = '[]'
-        if isinstance(raw_certs, str): cert_marks = _json.loads(raw_certs)
-        else: cert_marks = raw_certs
-
-        # --- 6. 依照 Fog 端標準化格式建構回傳 (對齊 shared/types.ts) ---
-        # 映射等級到風險程度
-        grade_to_risk = {"A": "low", "B": "low", "C": "medium", "D": "high", "E": "high"}
-        risk_level = grade_to_risk.get(ai_data.get("grade", "C"), "medium")
-
-        # 整理過敏原，兼容 JSON 字串與普通逗號分隔字串
-        final_allergens = []
-        if raw_allergens:
-            raw_allergens_str = str(raw_allergens).strip()
-            if raw_allergens_str.startswith('[') or raw_allergens_str.startswith('"'):
-                try:
-                    parsed = _json.loads(raw_allergens_str)
-                    if isinstance(parsed, list):
-                        final_allergens = [str(x) for x in parsed if x]
-                    elif isinstance(parsed, str):
-                        if parsed and parsed != '[]':
-                            final_allergens = [parsed]
-                except Exception:
-                    final_allergens = [a.strip() for a in raw_allergens_str.split(",") if a.strip()]
-            else:
-                if raw_allergens_str and raw_allergens_str != '[]':
-                    final_allergens = [a.strip() for a in raw_allergens_str.split(",") if a.strip()]
-
-        # 整合添加物（chemical）與天然成分（basic），建構完整的 ingredients_detail
-        full_ingredients_detail = []
-        for chem_item in chemical:
-            full_ingredients_detail.append(chem_item)
-        for basic_item in basic:
-            full_ingredients_detail.append({
-                "name": basic_item,
-                "isAdditive": False,
-                "description": "天然成分，提供基礎營養。"
-            })
-
-        # 建立符合 App 格式之個人化分數細項（score_breakdown）
-        formatted_score_breakdown = []
-        breakdown_raw = calc_result['details']['breakdown']
-        
-        # 扣分指標映射（penalties，值轉為負數）
-        penalty_mapping = {
-            "energy": ("熱量 (Energy)", "熱量成分得分為 {} 分，含有較高熱量會增加身體代謝負荷。"),
-            "sugars": ("糖分 (Sugars)", "糖分得分為 {} 分，高糖攝取易引發慢性病與肥胖風險。"),
-            "sfa": ("飽和脂肪 (Saturated Fatty Acids)", "飽和脂肪得分為 {} 分，過量可能影響心血管健康。"),
-            "salt": ("鈉/鹽分 (Sodium/Salt)", "鈉分得分為 {} 分，高鈉攝取增加高血壓與腎臟負擔。")
-        }
-        # 加分指標映射（bonuses，值維持正數）
-        bonus_mapping = {
-            "protein": ("蛋白質 (Protein)", "含有豐富蛋白質，有助於身體組織與肌肉修復。"),
-            "fibre": ("膳食纖維 (Fibre)", "含有膳食纖維，有益於腸胃蠕動與消化健康。"),
-            "fruit_veg": ("天然蔬果比例 (Fruit & Vegetables)", "富含天然蔬果成分，提供多種維生素與抗氧化物。")
-        }
-        
-        for k, v in breakdown_raw.items():
-            if v > 0:
-                if k in penalty_mapping:
-                    name, desc_tpl = penalty_mapping[k]
-                    # 嘗試使用資料庫中的具體數據補充描述
-                    actual_val_desc = desc_tpl.format(int(v))
-                    if k == "sugars" and product.get("sugar") is not None:
-                        actual_val_desc = f"含有 {product['sugar']} 公克添加糖，糖分得分為 {int(v)} 分，高糖攝取易引發慢性病與肥胖風險。"
-                    elif k == "energy" and product.get("calories") is not None:
-                        actual_val_desc = f"含有 {product['calories']} kcal 熱量，熱量成分得分為 {int(v)} 分，高熱量會增加身體代謝負荷。"
-                    elif k == "salt" and product.get("sodium") is not None:
-                        actual_val_desc = f"含有 {product['sodium']} 毫克鈉，鈉分得分為 {int(v)} 分，高鈉攝取增加高血壓與腎臟負擔。"
-                    
-                    formatted_score_breakdown.append({
-                        "reason": name,
-                        "description": actual_val_desc,
-                        "points": -int(v)
-                    })
-                elif k in bonus_mapping:
-                      name, desc = bonus_mapping[k]
-                      formatted_score_breakdown.append({
-                          "reason": name,
-                          "description": desc,
-                          "points": int(v)
-                      })
-
-        # 食安事件已在上方預先去重並限定近十年且最多 5 個，此處直接使用 final_safety_events
-
-        # 建立產品基礎資訊供根目錄顯示
-        product_info_root = {
-            "name": product['name'] or "AI 解析產品",
-            "brand": product['brand'] or "AI 解析品牌",
-            "manufacturer": product['manufacturer'] or "未知製造商",
-            "barcode": product['barcode']
-        }
-
-        # 取得三個 AI 總結欄位值
-        overall_summary = ai_data.get("overall_summary") or ai_data.get("summary") or "診斷完成。"
-        additives_summary = ai_data.get("additives_summary") or "無法獲取添加物風險總結。"
-        safety_events_summary = ai_data.get("safety_events_summary") or "無法獲取廠商食安歷史總結。"
-
-        # 為維持與行動 App 分割邏輯的相容性，將三個總結結合並加入「[AI 深度分析]：」分割符
-        combined_summary = f"{overall_summary}\n\n[AI 深度分析]：\n【添加物風險總結】\n{additives_summary}\n\n【食安歷史事件總結】\n{safety_events_summary}"
-
-        # 建立滿足 React Native App 與 API_SPEC_APP.md 串接要求的診斷物件
-        final_health_diagnosis_obj = {
-            "score": ai_data.get("score", deterministic_score),
-            "summary": combined_summary,
-            "overall_summary": overall_summary,
-            "additives_summary": additives_summary,
-            "safety_events_summary": safety_events_summary,
-            "warnings": ai_data.get("warnings", []),
-            "score_breakdown": formatted_score_breakdown,
-            "groupRiskSummary": [],
-            "evidence_chain": []
-        }
-
-        # 建構 FogQueryResult 與 API_SPEC_APP 回應格式
-        return {
-            "status": "success",
-            "barcode": product['barcode'],
-            "health_score": ai_data.get("score", deterministic_score),
-            "risk_level": risk_level,
-            "product_info": product_info_root,
-            "overall_summary": overall_summary,
-            "additives_summary": additives_summary,
-            "safety_events_summary": safety_events_summary,
-            "score_breakdown": formatted_score_breakdown,
-            "risk_tags": ai_data.get("warnings", []),
-            "allergen_warnings": final_allergens,
-            "ingredients_detail": full_ingredients_detail,
-            "ingredient_types": calculated_ingredient_types,
-            "food_safety_events": final_safety_events,
-            "final_health_diagnosis": final_health_diagnosis_obj,
-            "explanation": {
-                "triggers": [ch['name'] for ch in chemical if ch.get('risk_level') == 'high'],
-                "sources": ["歐盟 Nutri-Score V7 (2024)", "FoodScanIoT 食品添加物知識庫"]
-            },
-            "personalized_notes": [combined_summary],
-            "processed_at": datetime.now().isoformat(),
-            # 原始詳細資料保留於 data 欄位供前端舊版適配與擴充顯示
-            "data": {
-                "product_info": product_info_root,
-                "ingredients_detail": chemical,
-                "nutrition_facts": nutrition,
-                "certification_marks": cert_marks,
-                "ingredient_types": calculated_ingredient_types
-            }
-        }
+        # --- 6. 依照 Fog 端標準化格式建構回傳(對齊 shared/types.ts) ---
+        # 回應組裝邏輯已抽出至 module_d/response_builder.py(2026-07-24),邏輯逐字未改動。
+        return build_response(
+            product, ai_data, calc_result, deterministic_score,
+            chemical, basic, calculated_ingredient_types,
+            final_safety_events, raw_allergens, nutrition, daily_reference,
+            basic_detail, ns_estimated
+        )
     except Exception as e:
         import traceback
         traceback.print_exc()
