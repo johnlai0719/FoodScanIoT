@@ -1,12 +1,19 @@
 import os
+import sys
 import psycopg2
 import bcrypt
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
 
-def init_tables():
-    conn = psycopg2.connect(os.getenv("DATABASE_URL"))
+# 與 database.py 採同一套連線設定來源(DATABASE_URL 或拆開的 DB_* 變數),
+# 避免兩處設定各自為政、其中一處失去同步。
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from database import SQLALCHEMY_DATABASE_URL
+
+
+def init_tables(db_url: str = None):
+    conn = psycopg2.connect(db_url or SQLALCHEMY_DATABASE_URL.replace("postgresql+psycopg2", "postgresql"))
     cur = conn.cursor()
     
     # 建立 admin_users 表
@@ -59,9 +66,11 @@ def init_tables():
     VALUES (%s, %s)
     ON CONFLICT (username) DO NOTHING;
     """, (username, pwd_hash))
-    
+
     conn.commit()
     conn.close()
+    print(f"✅ 管理審核表已就緒。本機預設帳號(僅供開發使用,正式環境請自行更換密碼):"
+          f" username={username} / password={password}")
 
 if __name__ == "__main__":
     init_tables()
