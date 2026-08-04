@@ -6,3 +6,7 @@ openpyxl
 
 # module_c/review_console.py — Module C 人工審核台(streamlit run 啟動)
 streamlit
+
+# tests/contract/ — 跨層契約測試(純函式,不需 DB/API key)
+# 執行方式: 於 repo 根目錄 pytest
+pytest

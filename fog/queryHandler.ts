@@ -1,5 +1,5 @@
 import fetch from 'node-fetch';
-import { FogQueryRequest, FogQueryResult } from '../shared/types';
+import { FogQueryRequest } from '../shared/types';
 import { getCache, setCache, getStaleCache } from './cache';
 
 // 使用 127.0.0.1 代替 localhost 以提高穩定性

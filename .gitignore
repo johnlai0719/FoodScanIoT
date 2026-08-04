@@ -60,7 +60,12 @@ RoadMap/
 !README.md
 !cloud/requirements.txt
 !fog/requirements.txt
-tests/
+# tests/ 底下多為需要跑起伺服器與資料庫的臨時整合腳本，預設不進版控。
+# 但 tests/contract/ 是跨層契約測試（純函式、CI 會實際執行），必須進版控，
+# 否則 CI 上的 pytest 會收集不到任何測試而「假綠」。
+# 註：git 無法在父目錄被排除後再重新納入子目錄，故此處用 tests/* 而非 tests/。
+tests/*
+!tests/contract/
 test_img
 *.bak
 convert_to_pdf.py
