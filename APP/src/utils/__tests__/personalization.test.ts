@@ -139,11 +139,13 @@ describe('族群添加物風險', () => {
     expect(matchAdditiveRisks(result, ['child'])).toEqual([]);
   });
 
-  it("buildActiveTags 排除 'adult'，納入慢性病與自訂族群", () => {
+  it("buildActiveTags 排除 'adult'，納入慢性病", () => {
     expect(buildActiveTags({
-      group: 'adult', allergens: [], chronicConditions: ['hypertension'], customGroup: '  自訂  ',
-    })).toEqual(['hypertension', '自訂']);
+      group: 'adult', allergens: [], chronicConditions: ['hypertension'],
+    })).toEqual(['hypertension']);
     expect(buildActiveTags({ ...ADULT, group: 'pregnant' })).toEqual(['pregnant']);
+    expect(buildActiveTags({ ...ADULT, group: 'child', chronicConditions: ['diabetes'] }))
+      .toEqual(['child', 'diabetes']);
   });
 });
 

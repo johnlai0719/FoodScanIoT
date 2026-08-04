@@ -18,10 +18,16 @@ interface Props {
   visible: boolean;
   onClose: () => void;
   onBarcodeScanned: (code: string) => void;
-  onPhotosSubmit: (photos: string[]) => void;
+  /**
+   * 提供此回呼才會顯示「拍照」模式。
+   * 掃描頁已另有 PackageImageScanner 負責標示照片，兩者送往同一個 uploadedImages，
+   * 對使用者是兩個入口做同一件事，故 2026-08-05 起掃描頁不再傳入此 prop。
+   */
+  onPhotosSubmit?: (photos: string[]) => void;
 }
 
 export default function BarcodeScanner({ visible, onClose, onBarcodeScanned, onPhotosSubmit }: Props) {
+  const photoModeEnabled = typeof onPhotosSubmit === 'function';
   const [mode, setMode] = useState<'barcode' | 'photo'>('barcode');
   const [scanned, setScanned] = useState(false);
   const [capturing, setCapturing] = useState(false);
@@ -88,7 +94,7 @@ export default function BarcodeScanner({ visible, onClose, onBarcodeScanned, onP
   };
 
   const handleSubmit = () => {
-    if (photos.length === 0) return;
+    if (photos.length === 0 || !onPhotosSubmit) return;
     const batch = [...photos];
     reset();
     onPhotosSubmit(batch);
@@ -197,22 +203,31 @@ export default function BarcodeScanner({ visible, onClose, onBarcodeScanned, onP
           <Pressable style={s.iconBtn} onPress={mode === 'photo' ? () => setMode('barcode') : handleClose}>
             <ArrowLeft size={22} color="#fff" />
           </Pressable>
-          <View style={s.modeToggle}>
-            <Pressable
-              style={[s.modeBtn, mode === 'barcode' && s.modeBtnActive]}
-              onPress={() => setMode('barcode')}
-            >
-              <ScanLine size={13} color={mode === 'barcode' ? '#fff' : 'rgba(255,255,255,0.5)'} />
-              <Text style={[s.modeBtnText, mode === 'barcode' && { color: '#fff' }]}>條碼</Text>
-            </Pressable>
-            <Pressable
-              style={[s.modeBtn, mode === 'photo' && s.modeBtnActiveAmber]}
-              onPress={switchToPhoto}
-            >
-              <Camera size={13} color={mode === 'photo' ? '#fff' : 'rgba(255,255,255,0.5)'} />
-              <Text style={[s.modeBtnText, mode === 'photo' && { color: '#fff' }]}>拍照</Text>
-            </Pressable>
-          </View>
+          {photoModeEnabled ? (
+            <View style={s.modeToggle}>
+              <Pressable
+                style={[s.modeBtn, mode === 'barcode' && s.modeBtnActive]}
+                onPress={() => setMode('barcode')}
+              >
+                <ScanLine size={13} color={mode === 'barcode' ? '#fff' : 'rgba(255,255,255,0.5)'} />
+                <Text style={[s.modeBtnText, mode === 'barcode' && { color: '#fff' }]}>條碼</Text>
+              </Pressable>
+              <Pressable
+                style={[s.modeBtn, mode === 'photo' && s.modeBtnActiveAmber]}
+                onPress={switchToPhoto}
+              >
+                <Camera size={13} color={mode === 'photo' ? '#fff' : 'rgba(255,255,255,0.5)'} />
+                <Text style={[s.modeBtnText, mode === 'photo' && { color: '#fff' }]}>拍照</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View style={s.modeToggle}>
+              <View style={[s.modeBtn, s.modeBtnActive]}>
+                <ScanLine size={13} color="#fff" />
+                <Text style={[s.modeBtnText, { color: '#fff' }]}>條碼</Text>
+              </View>
+            </View>
+          )}
           <Pressable style={s.iconBtn} onPress={handleClose}>
             <X size={22} color="#fff" />
           </Pressable>

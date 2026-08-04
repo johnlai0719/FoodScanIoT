@@ -18,12 +18,17 @@ import { AnalysisResponse, UserConditions } from '../types';
 export interface PersonalProfile {
   /** 群體單選；'adult' 視為無特殊族群，不參與比對 */
   group: UserConditions['group'];
-  /** 過敏原，應已合併自訂輸入 */
+  /**
+   * 過敏原。可含使用者自訂的自由文字——查不到擴展關鍵字時會直接以該文字比對，
+   * 故法定 11 大類以外的過敏原（如木瓜）仍能命中。
+   */
   allergens: string[];
-  /** 慢性病，應已合併自訂輸入 */
+  /**
+   * 慢性病，僅接受預設代碼（hypertension / diabetes）。
+   * 自訂中文文字無意義：groupRisks[].group 只會是 7 個英文碼，營養閾值也只認
+   * 這兩個代碼，中文字串兩邊都對不上。UI 的自訂欄位已於 2026-08-05 移除。
+   */
   chronicConditions: string[];
-  /** 自訂族群自由文字（選填） */
-  customGroup?: string;
 }
 
 export interface AdditiveRisk {
@@ -126,7 +131,6 @@ export function buildActiveTags(profile: PersonalProfile): string[] {
   const tags = [
     ...(profile.group !== 'adult' ? [profile.group] : []),
     ...profile.chronicConditions,
-    ...(profile.customGroup?.trim() ? [profile.customGroup.trim()] : []),
   ];
   return Array.from(new Set(tags.filter(Boolean)));
 }
