@@ -59,8 +59,12 @@ export interface Explanation {
 export interface FogQueryRequest {
   /** 食品條碼 (EAN-8/13) */
   barcode: string;
-  /** 使用者個人化條件 */
-  user_conditions: UserConditions;
+  /**
+   * 使用者個人化條件
+   * @deprecated 個人化已於 2026-08-04 移至 App 端本地計算，健康背景不再離開裝置。
+   *             新版 App 不會送出此欄位；保留為選填僅為相容舊版 App。
+   */
+  user_conditions?: UserConditions;
   /** 標籤影像陣列 (Base64 字串，用於 OCR 備援與多角度分析) */
   label_images?: string[];
 }
@@ -107,6 +111,10 @@ export interface CloudAnalyzeRequest {
   nutrition: Record<string, any>;
   /** 歷史食安紀錄 */
   food_safety_records: FoodSafetyEvent[];
-  /** 使用者個人化條件 */
-  user_conditions: UserConditions;
+  /**
+   * 使用者個人化條件
+   * @deprecated Fog 的 mask_sensitive_data() 一律剝除此欄位，Cloud 實際上永遠收不到。
+   *             宣告為選填以與執行期行為一致。
+   */
+  user_conditions?: UserConditions;
 }

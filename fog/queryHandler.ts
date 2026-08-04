@@ -7,15 +7,15 @@ const CLOUD_API_URL = process.env.PYTHON_API_URL || 'http://127.0.0.1:3002/query
 const CLOUD_TIMEOUT = 60000; // 提高到 60 秒超時，對應視覺分析
 
 export async function handleQuery(reqData: FogQueryRequest): Promise<{ status: number, data: any, cacheHeader: string }> {
-  const { barcode, user_conditions } = reqData;
+  const { barcode } = reqData;
   const startTime = Date.now();
 
-  // 1. 查詢快取 (命中後仍需送往 Python 進行個人化計算)
+  // 1. 查詢快取 (命中後仍需送往 Python 做格式正規化；個人化已移至 App 端)
   const cachedData = getCache(barcode);
   if (cachedData) {
-    console.log(`[HIT] ${barcode} -> Re-calculating personalization...`);
+    console.log(`[HIT] ${barcode} -> Normalizing cached result...`);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 這裡快取重算給 15 秒就好
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 正規化給 15 秒就好
 
     try {
       const response = await fetch(CLOUD_API_URL, {
@@ -31,11 +31,11 @@ export async function handleQuery(reqData: FogQueryRequest): Promise<{ status: n
       clearTimeout(timeoutId);
 
       if (response.ok) {
-        const personalizedResult = await response.json();
+        const normalizedResult = await response.json();
         return {
           status: 200,
           data: {
-            ...personalizedResult,
+            ...normalizedResult,
             cached: true
           },
           cacheHeader: 'HIT'

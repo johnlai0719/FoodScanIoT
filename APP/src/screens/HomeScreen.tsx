@@ -25,6 +25,7 @@ import IngredientsList from '../components/IngredientsList';
 import DropdownEvent from '../components/DropdownEvent';
 import PackageImageScanner from '../components/PackageImageScanner';
 import BarcodeScanner from '../components/BarcodeScanner';
+import { analyzePersonalRisks, getProductAllergenWarnings } from '../utils/personalization';
 import {
   getScoreBreakdownList,
   getDynamicHealthPoints,
@@ -82,9 +83,10 @@ export default function HomeScreen() {
   const [customChronic, setCustomChronic] = useState('');
 
   useEffect(() => {
-    AsyncStorage.multiGet(['customGroup', 'customAllergen', 'chronicDiseases', 'customChronic', 'allergens']).then(pairs => {
+    AsyncStorage.multiGet(['targetGroup', 'customGroup', 'customAllergen', 'chronicDiseases', 'customChronic', 'allergens']).then(pairs => {
       pairs.forEach(([key, value]) => {
         if (!value) return;
+        if (key === 'targetGroup') setTargetGroup(value as UserConditions['group']);
         if (key === 'customGroup') setCustomGroup(value);
         if (key === 'customAllergen') setCustomAllergen(value);
         if (key === 'chronicDiseases') setChronicDiseases(JSON.parse(value));
@@ -93,6 +95,11 @@ export default function HomeScreen() {
       });
     });
   }, []);
+
+  const saveTargetGroup = (value: UserConditions['group']) => {
+    setTargetGroup(value);
+    AsyncStorage.setItem('targetGroup', value);
+  };
 
   const saveCustomGroup = (text: string) => {
     setCustomGroup(text);
@@ -184,17 +191,10 @@ export default function HomeScreen() {
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
+        // 個人化比對自 2026-08-04 起完全在本地進行，健康背景不再送往後端。
         body: JSON.stringify({
           barcode: barcodeInput,
           label_images: uploadedImages,
-          user_conditions: {
-            group: targetGroup,
-            allergens: [...allergens, ...(customAllergen.trim() ? [customAllergen.trim()] : [])],
-            chronic_conditions: [
-              ...chronicDiseases,
-              ...(customChronic.trim() ? [customChronic.trim()] : []),
-            ],
-          },
         }),
       });
       if (!response.ok) throw new Error(`伺服器代碼: ${response.status}`);
@@ -236,7 +236,6 @@ export default function HomeScreen() {
 
   // ── Derived stats ──────────────────────────────────────────────────────────
   const allIngredients = analysisResult?.ingredients_detail ?? [];
-  const safeAllergenWarnings = analysisResult?.allergen_warnings ?? [];
   const safeFoodSafetyEvents = analysisResult?.food_safety_events ?? [];
   const totalAdditivesCount = allIngredients.filter(i => i.isAdditive === true || i.isAdditive === 'true').length;
   const highRiskCount = allIngredients.filter(i => {
@@ -246,42 +245,29 @@ export default function HomeScreen() {
 
   const scoreBreakdownList = getScoreBreakdownList(analysisResult);
 
-  // 後端個人化命中（格式：偵測到過敏原：XXX）
-  const backendMatchedAllergens = (analysisResult?.allergen_warnings ?? [])
-    .filter(w => /偵測到過敏原[：:]/.test(w))
-    .map(w => w.replace(/.*偵測到過敏原[：:]\s*/, '').trim())
-    .filter(Boolean)
-    .filter(a => allergens.length === 0 || allergens.some(sel => a.includes(sel) || sel.includes(a)));
+  // ── 本地個人化比對（健康背景不離開裝置）──────────────────────────────────
+  // 通用警告＝產品標示本身；舊快取中 Fog 寫入的「偵測到過敏原：X」屬於前一位
+  // 使用者的比對結果，一律濾除不顯示。
+  const generalAllergenWarnings = getProductAllergenWarnings(analysisResult);
 
-  // 通用警告（產品本身標示，非個人化命中）
-  const generalAllergenWarnings = safeAllergenWarnings
-    .filter(w => !/偵測到過敏原[：:]/.test(w));
+  const {
+    matchedAllergens,
+    additiveRisks: personalAdditiveRisks,
+    nutritionWarnings,
+  } = analyzePersonalRisks(analysisResult, {
+    group: targetGroup,
+    allergens: [...allergens, ...(customAllergen.trim() ? [customAllergen.trim()] : [])],
+    chronicConditions: [
+      ...chronicDiseases,
+      ...(customChronic.trim() ? [customChronic.trim()] : []),
+    ],
+    customGroup,
+  });
 
-  // Fallback：後端未做個人化比對時，APP 自行掃描警語文字是否含用戶選取的過敏原關鍵字
-  const fallbackMatchedAllergens = backendMatchedAllergens.length === 0 && allergens.length > 0
-    ? allergens.filter(sel => generalAllergenWarnings.some(w => w.includes(sel)))
-    : [];
-
-  const matchedAllergens = backendMatchedAllergens.length > 0
-    ? backendMatchedAllergens
-    : fallbackMatchedAllergens;
   const { pos: dynamicPos, neg: dynamicNeg } = getDynamicHealthPoints(analysisResult, scoreBreakdownList);
   const healthSegments = getDynamicHealthSegments(analysisResult, scoreBreakdownList);
   const healthLegend = getDynamicHealthLegend(scoreBreakdownList);
   const scoreValue = analysisResult?.health_score ?? 100;
-
-  // 根據使用者個人資料（群體＋慢性病）篩選有風險的添加物
-  const userGroupKeys = [
-    ...(targetGroup !== 'adult' ? [targetGroup] : []),
-    ...chronicDiseases,
-  ];
-  const personalAdditiveRisks = allIngredients
-    .filter(i => i.isAdditive === true || i.isAdditive === 'true')
-    .flatMap(ing =>
-      (ing.groupRisks ?? [])
-        .filter(r => userGroupKeys.includes(r.group))
-        .map(r => ({ name: ing.name, reason: r.reason, group: r.group }))
-    );
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -307,7 +293,7 @@ export default function HomeScreen() {
                 {GROUPS.map(g => (
                   <Pressable
                     key={g.value}
-                    onPress={() => setTargetGroup(g.value)}
+                    onPress={() => saveTargetGroup(g.value)}
                     style={[s.groupBtn, targetGroup === g.value && s.groupBtnActive]}
                   >
                     <Text style={[s.groupBtnText, targetGroup === g.value && s.groupBtnTextActive]}>
@@ -651,6 +637,22 @@ export default function HomeScreen() {
                             <View key={i} style={s.personalRiskRow}>
                               <Text style={s.personalRiskName}>{r.name}</Text>
                               <Text style={s.personalRiskReason}>{r.reason}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+
+                      {/* Chronic-condition nutrition thresholds — sodium / sugar */}
+                      {nutritionWarnings.length > 0 && (
+                        <View style={s.personalRiskCard}>
+                          <View style={s.row}>
+                            <Activity size={15} color="#b45309" />
+                            <Text style={s.personalRiskTitle}>個人化營養警示</Text>
+                          </View>
+                          {nutritionWarnings.map((w, i) => (
+                            <View key={i} style={s.personalRiskRow}>
+                              <Text style={s.personalRiskName}>{w.condition}族群{w.title}</Text>
+                              <Text style={s.personalRiskReason}>{w.detail}</Text>
                             </View>
                           ))}
                         </View>

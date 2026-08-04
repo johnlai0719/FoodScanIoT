@@ -28,28 +28,23 @@ morgan.token('barcode', (req: Request) => {
  * 請求驗證 Middleware
  */
 const validateQuery = (req: Request, res: Response, next: NextFunction) => {
-  const { barcode, user_conditions } = req.body as FogQueryRequest;
+  const { barcode } = req.body as FogQueryRequest;
 
   // 驗證條碼：允許 8-13 位數字，或者特殊字串 "TEST"
   if (!barcode || (!/^\d{8,13}$/.test(barcode) && barcode !== "TEST")) {
-    return res.status(400).json({ 
-      error: "無效的條碼格式，須為 8-13 位數字或測試字串", 
-      code: 400 
+    return res.status(400).json({
+      error: "無效的條碼格式，須為 8-13 位數字或測試字串",
+      code: 400
     });
   }
 
-  if (!user_conditions || !user_conditions.group) {
-    return res.status(400).json({ 
-      error: "遺失使用者條件 (user_conditions.group)", 
-      code: 400 
-    });
-  }
-
+  // 註：原本此處要求 user_conditions.group 必填。個人化已於 2026-08-04 移至 App 端，
+  //     健康背景不再離開裝置，故移除該項驗證。
   next();
 };
 
 // 路由: POST /query
-app.post('/query', validateQuery, async (req: Request, res: Response) => {
+app.post('/query', validateQuery, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await handleQuery(req.body as FogQueryRequest);
     res.header('X-Cache', result.cacheHeader);
