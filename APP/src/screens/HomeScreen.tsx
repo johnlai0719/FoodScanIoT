@@ -242,6 +242,21 @@ export default function HomeScreen() {
   // ── Derived stats ──────────────────────────────────────────────────────────
   const allIngredients = analysisResult?.ingredients_detail ?? [];
   const safeFoodSafetyEvents = analysisResult?.food_safety_events ?? [];
+
+  /**
+   * 是否顯示「製造廠商食安事件」。
+   *
+   * Cloud 端的 SAFETY_EVENTS_ENABLED 目前為 false（server/main.py），該處註解寫明
+   * 「整條路徑（背景蒐集與前端呈現）一併停用」，但前端其實一直還顯示著，而且是以
+   * 綠色「安全」徽章 ＋「查無重大不合格通報」呈現——那是在宣稱查過了沒問題，
+   * 實際上系統根本沒查。對食安 App 而言把「未查詢」呈現成「安全」是有風險的，
+   * 故 2026-08-05 起改為只在真的有事件時才顯示，補上原本沒停到的那一半。
+   *
+   * 功能恢復時要注意：Cloud 目前無法區分「未查詢」與「查過但無事」，兩者都回空
+   * 陣列（見 module_d/response_builder.py 的 safety_events_summary 分支）。若要讓
+   * 「查過無事」也顯示為正面資訊，需先讓 Cloud 明確回報這兩種狀態的差別。
+   */
+  const hasSafetyEvents = safeFoodSafetyEvents.length > 0;
   const totalAdditivesCount = allIngredients.filter(i => i.isAdditive === true || i.isAdditive === 'true').length;
   const highRiskCount = allIngredients.filter(i => {
     if (!(i.isAdditive === true || i.isAdditive === 'true')) return false;
@@ -674,27 +689,25 @@ export default function HomeScreen() {
                           <ChevronRight size={15} color={TEXT_MID} />
                         </Pressable>
 
-                        <View style={s.entryDivider} />
-
-                        {/* History */}
-                        <Pressable style={s.entryRow} onPress={() => setActiveDetailView('history')}>
-                          <View style={s.gatewayIcon}>
-                            <ShieldCheck size={16} color="#757575" />
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={s.entryRowTitle}>製造廠商食安事件</Text>
-                            <Text style={s.entryRowSub}>
-                              {safeFoodSafetyEvents.length > 0
-                                ? `發現 ${safeFoodSafetyEvents.length} 件稽查記錄`
-                                : '查無重大不合格通報'}
-                            </Text>
-                          </View>
-                          {safeFoodSafetyEvents.length > 0
-                            ? <View style={s.entryBadgeWarn}><Text style={s.entryBadgeWarnText}>查看</Text></View>
-                            : <View style={s.entryBadgeSafe}><Text style={s.entryBadgeSafeText}>安全</Text></View>
-                          }
-                          <ChevronRight size={15} color={TEXT_MID} />
-                        </Pressable>
+                        {/* History — 僅在真的有事件時顯示，見 hasSafetyEvents 的說明 */}
+                        {hasSafetyEvents && (
+                          <>
+                            <View style={s.entryDivider} />
+                            <Pressable style={s.entryRow} onPress={() => setActiveDetailView('history')}>
+                              <View style={s.gatewayIcon}>
+                                <ShieldCheck size={16} color="#757575" />
+                              </View>
+                              <View style={{ flex: 1 }}>
+                                <Text style={s.entryRowTitle}>製造廠商食安事件</Text>
+                                <Text style={s.entryRowSub}>
+                                  發現 {safeFoodSafetyEvents.length} 件稽查記錄
+                                </Text>
+                              </View>
+                              <View style={s.entryBadgeWarn}><Text style={s.entryBadgeWarnText}>查看</Text></View>
+                              <ChevronRight size={15} color={TEXT_MID} />
+                            </Pressable>
+                          </>
+                        )}
                       </View>
                     </>
                   ) : activeDetailView === 'breakdown' ? (
@@ -785,6 +798,10 @@ export default function HomeScreen() {
                     </View>
                   ) : (
                     // ── History detail view ──
+                    // 目前進不來：唯一的入口列已隨 hasSafetyEvents 隱藏（Cloud 端功能停用中）。
+                    // 刻意保留整段而非刪除——功能恢復時只要 Cloud 開始回傳事件，入口列會自動
+                    // 出現，這裡不必重寫。下方的空狀態文案僅在「有入口但事件為空」時才會被看到，
+                    // 那是功能恢復後才可能出現的情境。
                     <View style={{ gap: 12 }}>
                       <Pressable style={[s.backNav, s.row]} onPress={() => setActiveDetailView(null)}>
                         <ArrowLeft size={15} color={TEXT_DARK} />
