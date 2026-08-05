@@ -2,7 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
-import { FogQueryRequest } from '../shared/types';
+import { FogQueryRequest } from './types';
 import { initDB } from './cache';
 import { handleQuery } from './queryHandler';
 

@@ -1149,7 +1149,9 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
         ai_data = _diag_result["ai_data"]
         raw_allergens = _diag_result["raw_allergens"]
 
-        # --- 6. 依照 Fog 端標準化格式建構回傳(對齊 shared/types.ts) ---
+        # --- 6. 建構回傳格式 ---
+        # 形狀的權威來源是 module_d/response_builder.py，並由 tests/contract/ 凍結；
+        # 原註解指向的 shared/types.ts 已於 2026-08-05 移除（只有 fog 在用，已搬入 fog/types.ts）。
         # 回應組裝邏輯已抽出至 module_d/response_builder.py(2026-07-24),邏輯逐字未改動。
         return build_response(
             product, ai_data, calc_result, deterministic_score,

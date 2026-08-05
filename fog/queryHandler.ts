@@ -1,5 +1,5 @@
 import fetch from 'node-fetch';
-import { FogQueryRequest } from '../shared/types';
+import { AnalysisResultLike, FogQueryRequest } from './types';
 import { getCache, setCache, getStaleCache } from './cache';
 
 // 使用 127.0.0.1 代替 localhost 以提高穩定性
@@ -31,7 +31,7 @@ export async function handleQuery(reqData: FogQueryRequest): Promise<{ status: n
       clearTimeout(timeoutId);
 
       if (response.ok) {
-        const normalizedResult = await response.json();
+        const normalizedResult = await response.json() as AnalysisResultLike;
         return {
           status: 200,
           data: {
@@ -73,7 +73,7 @@ export async function handleQuery(reqData: FogQueryRequest): Promise<{ status: n
     clearTimeout(timeoutId);
 
     if (response.ok) {
-      const cloudResult = await response.json();
+      const cloudResult = await response.json() as AnalysisResultLike;
       
       // 🛠️ 修正：只有當結果狀態為成功時，才寫入快取
       const isDegraded = cloudResult.overall_summary === '診斷引擎暫時降級運作。';

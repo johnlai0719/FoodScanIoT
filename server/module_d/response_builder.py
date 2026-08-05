@@ -22,7 +22,9 @@ def build_response(product, ai_data, calc_result, deterministic_score,
     if isinstance(raw_certs, str): cert_marks = json.loads(raw_certs)
     else: cert_marks = raw_certs
 
-    # --- 6. 依照 Fog 端標準化格式建構回傳 (對齊 shared/types.ts) ---
+    # --- 6. 建構回傳格式 ---
+    # 本函式即為回應形狀的權威來源，由 tests/contract/test_cloud_response_contract.py
+    # 凍結欄位集合。原註解指向的 shared/types.ts 已於 2026-08-05 移除。
     # 映射等級到風險程度
     grade_to_risk = {"A": "low", "B": "low", "C": "medium", "D": "high", "E": "high"}
     risk_level = grade_to_risk.get(ai_data.get("grade", "C"), "medium")
