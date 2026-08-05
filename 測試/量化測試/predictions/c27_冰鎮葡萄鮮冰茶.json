@@ -1,0 +1,52 @@
+{
+  "case_id": "c27_冰鎮葡萄鮮冰茶",
+  "prediction": {
+    "is_food_label": true,
+    "reject_reason": "",
+    "name": "泰山冰鎮葡萄鮮冰茶",
+    "brand": "泰山",
+    "ingredients_raw": "●品名:冰鎮葡萄鮮冰茶 ●成分:水、蔗糖、綠茶、檸檬酸、香料、白葡萄濃縮汁、紅葡萄濃縮汁、羧甲基纖維素鈉 ●本品含咖啡因20mg/100ml以下 ●內容量:650毫升 ●有效期限:包裝上標示(西元年/月/日) ●保存條件:請置於陰涼乾燥處,開瓶後請冷藏(7°C以下),並請儘速飲用 ●過敏原資訊:本產品生產製程廠房,其設備或生產管線有處理芒果、大豆、牛奶類、花生與穀物及其製品,對其過敏體質者請避免飲用 ●保存條件:開封後請儘快飲用,以確保產品風味與品質",
+    "ingredients_list": [
+      "水",
+      "蔗糖",
+      "綠茶",
+      "檸檬酸",
+      "香料",
+      "白葡萄濃縮汁",
+      "紅葡萄濃縮汁",
+      "羧甲基纖維素鈉"
+    ],
+    "nutrition": {
+      "calories": 42.0,
+      "protein": 0.0,
+      "fat": 0.0,
+      "saturated_fat": 0.0,
+      "trans_fat": 0.0,
+      "carbohydrates": 10.4,
+      "sugar": 9.5,
+      "fiber": null,
+      "sodium": 15.0
+    },
+    "serving_size": null,
+    "servings_per_container": 2,
+    "serving_description": null,
+    "nutrition_raw": "營養標示\n每一份量\n本包裝含2份\n每份\n每100毫升\n熱量\n137大卡\n42大卡\n蛋白質\n0公克\n0公克\n脂肪\n0公克\n0公克\n飽和脂肪\n0公克\n0公克\n反式脂肪\n0公克\n0公克\n碳水化合物\n33.8公克\n10.4公克\n糖\n30.9公克\n9.5公克\n鈉\n49.0毫克\n15.0毫克",
+    "nutrition_other": {},
+    "nutrition_per_serving": {
+      "calories": 137.0,
+      "protein": 0.0,
+      "fat": 0.0,
+      "saturated_fat": 0.0,
+      "trans_fat": 0.0,
+      "carbohydrates": 33.8,
+      "sugar": 30.9,
+      "fiber": null,
+      "sodium": 49.0
+    },
+    "manufacturer": "泰山企業股份有限公司",
+    "allergy_warning": "本產品生產製程廠房,其設備或生產管線有處理芒果、大豆、牛奶類、花生與穀物及其製品,對其過敏體質者請避免飲用",
+    "certification_marks": [
+      "TQF"
+    ]
+  }
+}

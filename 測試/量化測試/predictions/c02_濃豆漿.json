@@ -1,0 +1,51 @@
+{
+  "case_id": "c02_濃豆漿",
+  "prediction": {
+    "is_food_label": true,
+    "reject_reason": "",
+    "name": "無加糖黃豆漿",
+    "brand": "光泉",
+    "ingredients_raw": "水、非基因改造黃豆。",
+    "ingredients_list": [
+      "水",
+      "非基因改造黃豆"
+    ],
+    "nutrition": {
+      "calories": 50.6,
+      "protein": 5.1,
+      "fat": 2.6,
+      "saturated_fat": 0.5,
+      "trans_fat": 0,
+      "carbohydrates": 2.1,
+      "sugar": 0.7,
+      "fiber": 0.8,
+      "sodium": 16
+    },
+    "serving_size": 375,
+    "servings_per_container": 1,
+    "serving_description": "每一份量375毫升",
+    "nutrition_raw": "營養標示\n每一份量375毫升\n本包裝含1份\n\n每份\t每100毫升\n熱量\t190.2大卡\t50.6大卡\n蛋白質\t19.1公克\t5.1公克\n脂肪\t9.8公克\t2.6公克\n飽和脂肪\t1.9公克\t0.5公克\n反式脂肪\t0公克\t0公克\n碳水化合物\t7.9公克\t2.1公克\n糖\t2.6公克\t0.7公克\n膳食纖維\t3.0公克\t0.8公克\n鈉\t60毫克\t16毫克\n\n本產品膳食纖維含量為1.6公克/100大卡\n\n其他成分\n\n每100毫升\n大豆異黃酮\t32毫克\n本產品糖來源為黃豆中天然存在",
+    "nutrition_other": {
+      "大豆異黃酮": {
+        "per_100": 32,
+        "per_serving": null
+      }
+    },
+    "nutrition_per_serving": {
+      "calories": 190.2,
+      "protein": 19.1,
+      "fat": 9.8,
+      "saturated_fat": 1.9,
+      "trans_fat": 0,
+      "carbohydrates": 7.9,
+      "sugar": 2.6,
+      "fiber": 3,
+      "sodium": 60
+    },
+    "manufacturer": "光泉牧場股份有限公司",
+    "allergy_warning": "本產品含大豆，對其過敏者不宜飲用。該產線亦生產含芒果、花生、芝麻、牛奶、蛋、堅果類、含麩質之穀物及大豆製品。",
+    "certification_marks": [
+      "TQF"
+    ]
+  }
+}

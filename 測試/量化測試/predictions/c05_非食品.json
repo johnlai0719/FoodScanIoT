@@ -1,0 +1,41 @@
+{
+  "case_id": "c05_非食品",
+  "prediction": {
+    "is_food_label": false,
+    "reject_reason": "非食品照片",
+    "name": null,
+    "brand": null,
+    "ingredients_raw": "",
+    "ingredients_list": [],
+    "nutrition": {
+      "calories": null,
+      "protein": null,
+      "fat": null,
+      "saturated_fat": null,
+      "trans_fat": null,
+      "carbohydrates": null,
+      "sugar": null,
+      "fiber": null,
+      "sodium": null
+    },
+    "serving_size": null,
+    "servings_per_container": null,
+    "serving_description": null,
+    "nutrition_raw": null,
+    "nutrition_other": {},
+    "nutrition_per_serving": {
+      "calories": null,
+      "protein": null,
+      "fat": null,
+      "saturated_fat": null,
+      "trans_fat": null,
+      "carbohydrates": null,
+      "sugar": null,
+      "fiber": null,
+      "sodium": null
+    },
+    "manufacturer": null,
+    "allergy_warning": null,
+    "certification_marks": []
+  }
+}

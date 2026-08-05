@@ -5,6 +5,14 @@
 # 成分是否為添加物**不在此評估**：我國食品添加物採正面表列制，歸屬為查表問題，
 # 正解應取自官方清單而非人工判定（詳見 ingredient_types 區塊的說明）。
 #
+# 除了整體數字，另依 cases.json 的 set_version / category / difficulty 切片
+# （2026-08-05 起，因應 07-30 回饋）。切片的用意各不相同：
+#   set_version —— core48 是凍結子集，只有它的數字能跨期直接比。整體數字會隨
+#     測試集擴充而變動，把兩者混為一談，就會把「案例變難」誤讀成「模型變差」。
+#   category —— 報告已知成分 F1 掉分集中在便當與複合調理食品，但那是逐案看出來的；
+#     切片後這件事變成一個數字，下次改動有沒有改善該類別，一眼可見。
+#   difficulty —— 回饋明確要求評估「difficult images」的表現，需要有標籤才切得出來。
+#
 # 用法：cd 測試/量化測試 && ../../server/venv/bin/python score_eval.py
 import os, json, glob, re, csv
 from statistics import mean
@@ -13,6 +21,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 GT = os.path.join(HERE, 'ground_truth')
 PRED = os.path.join(HERE, 'predictions')
 RES = os.path.join(HERE, 'results')
+CASES = os.path.join(HERE, 'cases.json')
 
 NUM_ABS_TOL = 0.5      # 數值容差：絕對誤差 ≤0.5
 NUM_REL_TOL = 0.05     # 或相對誤差 ≤5%
@@ -21,7 +30,17 @@ NUT_KEYS = ['calories', 'protein', 'fat', 'saturated_fat', 'trans_fat',
 
 
 def norm(s):
-    """正規化：全形轉半形、去括號內容、去空白標點、轉小寫。降低『同義不同寫』誤判。"""
+    """正規化：全形轉半形、去括號內容、去空白標點、轉小寫。降低『同義不同寫』誤判。
+
+    **刻意不共用 module_a.ingredient_parser.normalize_text**（兩者看似重複，實際不同）：
+    - 行為本就不同：本函式會轉小寫並直接刪除標點；正式函式不轉小寫，且是把標點
+      正規化而非刪除。
+    - 更關鍵的是角色不同：本檔是量測工具，比的是「照片上看得到什麼」的萃取正確率。
+      若改成依賴正式函式，正式函式一調整，歷次評分結果就會跟著變動，跨版本的
+      分數不再可比——量測基準必須獨立於被量測的對象。
+    比對邏輯本身的評估（eval_ingredient_parse.py）則相反：它量的就是正式比對流程，
+    所以直接 import 正式的 normalize_text 才對。
+    """
     if s is None:
         return ''
     s = str(s)
@@ -106,8 +125,51 @@ def set_prf(gt_list, pred_list):
     return prec, rec, f1, tp, len(p - g), len(g - p)
 
 
+def load_case_meta():
+    """case_id → {set_version, category, difficulty}。cases.json 不在時切片自動關閉。"""
+    if not os.path.exists(CASES):
+        return {}
+    return {c['case_id']: {'set_version': c.get('set_version') or 'unknown',
+                           'category': c.get('category') or 'unknown',
+                           'difficulty': c.get('difficulty') or []}
+            for c in json.load(open(CASES, encoding='utf-8'))['cases']}
+
+
+def slice_metrics(recs):
+    """一組案例的精簡指標。切片與整體共用同一支，避免兩處算法漂移。
+
+    刻意只放能跨切片比較的少數指標：相關性閘門、成分（原樣與攤平）、營養命中率。
+    切片本來就樣本少，指標鋪太細只會得到一堆 n=1 的數字，看似豐富實則不可解讀。
+    """
+    if not recs:
+        return None
+    gate = {'TP': 0, 'FP': 0, 'TN': 0, 'FN': 0}
+    for r in recs:
+        if r['gate']:
+            gate[r['gate']] += 1
+    tot = sum(gate.values())
+    tp, fp, fn = gate['TP'], gate['FP'], gate['FN']
+    nut_ok = sum(r['nut_ok'] for r in recs)
+    nut_n = sum(r['nut_n'] for r in recs)
+    f1s = [r['ing_f1'] for r in recs if r['ing_f1'] is not None]
+    flats = [r['ing_flat_f1'] for r in recs if r['ing_flat_f1'] is not None]
+    return {
+        'n_cases': len(recs),
+        'is_food_label': {**gate,
+                          'accuracy': round((gate['TP'] + gate['TN']) / tot, 3) if tot else None,
+                          'precision': round(tp / (tp + fp), 3) if tp + fp else None,
+                          'recall': round(tp / (tp + fn), 3) if tp + fn else None},
+        'ingredients_list_f1': round(mean(f1s), 3) if f1s else None,
+        'ingredients_flat_f1': round(mean(flats), 3) if flats else None,
+        'nutrition_accuracy': round(nut_ok / nut_n, 3) if nut_n else None,
+        'nutrition_n_fields': nut_n,
+    }
+
+
 def main():
     os.makedirs(RES, exist_ok=True)
+    meta = load_case_meta()
+    case_recs = []
     rows, mism = [], []
     gate = {'TP': 0, 'FP': 0, 'TN': 0, 'FN': 0}
     str_fields = {k: [] for k in ('name', 'brand', 'manufacturer', 'allergy_warning')}
@@ -130,6 +192,15 @@ def main():
         if pred is None:
             pred = {}
         n_cases += 1
+        m = meta.get(cid, {})
+        # 命名為 rec_case 而非 rec：底下成分區塊的 `prec, rec, f1` 會佔用 rec
+        rec_case = {'case_id': cid,
+                    'set_version': m.get('set_version', 'unknown'),
+                    'category': m.get('category', 'unknown'),
+                    'difficulty': m.get('difficulty', []),
+                    'gate': None, 'ing_f1': None, 'ing_flat_f1': None,
+                    'nut_ok': 0, 'nut_n': 0}
+        case_recs.append(rec_case)
 
         def add(field, metric, value, detail=''):
             rows.append({'case_id': cid, 'field': field, 'metric': metric,
@@ -141,6 +212,7 @@ def main():
             key = ('TP' if (g_food and p_food) else 'TN' if (not g_food and not p_food)
                    else 'FP' if (not g_food and p_food) else 'FN')
             gate[key] += 1
+            rec_case['gate'] = key
             add('is_food_label', 'correct', int(g_food == p_food))
 
         # 字串欄位
@@ -161,6 +233,7 @@ def main():
         if r:
             prec, rec, f1, tp, fp, fn = r
             ing_prf.append((prec, rec, f1))
+            rec_case['ing_f1'] = f1
             add('ingredients_list', 'f1', round(f1, 3), f'tp={tp} fp={fp} fn={fn}')
             if fp or fn:
                 mism.append({'case_id': cid, 'field': 'ingredients_list',
@@ -170,6 +243,7 @@ def main():
         rf = flat_prf(gt.get('ingredients_list'), pred.get('ingredients_list'))
         if rf:
             ing_flat.append((rf[0], rf[1], rf[2]))
+            rec_case['ing_flat_f1'] = rf[2]
             add('ingredients_flat', 'f1', round(rf[2], 3),
                 f'tp={rf[3]} fp={rf[4]} fn={rf[5]}')
 
@@ -200,6 +274,8 @@ def main():
                 continue
             nut_hits[k][1] += 1
             nut_hits[k][0] += int(ok)
+            rec_case['nut_n'] += 1
+            rec_case['nut_ok'] += int(ok)
             nut_err[k].append(abs(float(gnut[k]) - float(pnut[k])))
             add(f'nutrition.{k}', 'within_tol', int(ok))
             if not ok:
@@ -271,6 +347,27 @@ def main():
                                 'n_cases': len(cert_prf)} if cert_prf else None,
         'config': {'NUM_ABS_TOL': NUM_ABS_TOL, 'NUM_REL_TOL': NUM_REL_TOL},
     }
+
+    # ── 切片 ──────────────────────────────────────────────────────────────
+    if meta:
+        by_ver, by_cat, by_diff = {}, {}, {}
+        for r in case_recs:
+            by_ver.setdefault(r['set_version'], []).append(r)
+            by_cat.setdefault(r['category'], []).append(r)
+            for d in r['difficulty']:
+                by_diff.setdefault(d, []).append(r)   # 一案可帶多個標籤，故可重複計入
+
+        summary['slices'] = {
+            'by_set_version': {k: slice_metrics(v) for k, v in sorted(by_ver.items())},
+            'by_category': {k: slice_metrics(v) for k, v in sorted(by_cat.items())},
+            'by_difficulty': ({k: slice_metrics(v) for k, v in sorted(by_diff.items())}
+                              or {'_說明': '尚無案例標註 difficulty，見 cases.json 的說明'}),
+            '_說明': ('跨期比較請只引用 by_set_version.core48 —— 它是凍結子集，'
+                      '整體數字會隨測試集擴充而變動。by_difficulty 一案可屬多個標籤，'
+                      '各組 n 相加會大於案例總數。'),
+        }
+    else:
+        summary['slices'] = {'_說明': f'找不到 {CASES}，未計算切片'}
 
     json.dump(summary, open(os.path.join(RES, 'summary.json'), 'w', encoding='utf-8'),
               ensure_ascii=False, indent=2)

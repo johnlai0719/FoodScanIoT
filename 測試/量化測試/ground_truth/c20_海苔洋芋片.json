@@ -1,0 +1,40 @@
+{
+  "is_food_label": true,
+  "reject_reason": "",
+  "name": "樂事九州岩燒海苔風味洋芋片",
+  "brand": "樂事",
+  "ingredients_raw": "馬鈴薯、棕櫚油、海苔粉[麥芽糊精、食鹽、味精、海苔細片、蒜粉、辣椒粉、二氧化矽、乳化劑(脂肪酸甘油酯)、調味劑(5'-次黃嘌呤核苷磷酸二鈉、5'-鳥嘌呤核苷磷酸二鈉)]、香料(香料、醋酸、胺基乙酸、糖、二氧化矽、全脂奶粉)。",
+  "ingredients_list": [
+    "馬鈴薯",
+    "棕櫚油",
+    "海苔粉[麥芽糊精、食鹽、味精、海苔細片、蒜粉、辣椒粉、二氧化矽、乳化劑(脂肪酸甘油酯)、調味劑(5'-次黃嘌呤核苷磷酸二鈉、5'-鳥嘌呤核苷磷酸二鈉)]",
+    "香料(香料、醋酸、胺基乙酸、糖、二氧化矽、全脂奶粉)"
+  ],
+  "nutrition": {
+    "calories": 564,
+    "protein": 7.2,
+    "fat": 35.0,
+    "saturated_fat": 17.5,
+    "trans_fat": 0,
+    "carbohydrates": 55.0,
+    "sugar": 3.6,
+    "fiber": null,
+    "sodium": 585
+  },
+  "serving_size": 34,
+  "servings_per_container": 1,
+  "nutrition_per_serving": {
+    "calories": 192,
+    "protein": 2.4,
+    "fat": 11.9,
+    "saturated_fat": 6.0,
+    "trans_fat": 0,
+    "carbohydrates": 18.7,
+    "sugar": 1.2,
+    "fiber": null,
+    "sodium": 199
+  },
+  "manufacturer": "台灣百事食品股份有限公司",
+  "allergy_warning": "本產品含有奶類、含麩質之穀物、大豆、魚類及其製品",
+  "certification_marks": []
+}

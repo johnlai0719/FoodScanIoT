@@ -1,0 +1,56 @@
+{
+  "case_id": "c21_Pockey百奇草莓棒",
+  "prediction": {
+    "is_food_label": true,
+    "reject_reason": "",
+    "name": "Pocky 百奇 草莓棒",
+    "brand": "Glico",
+    "ingredients_raw": "成分:小麥麵粉、砂糖、植物油(葵花籽油、棕櫚油)、乳糖、全脂奶粉、酥油(棕櫚油、完全氫化棕櫚油)、紅甜菜色素、香料、食鹽、酵母、大豆卵磷脂、草莓粉、脂肪酸甘油酯、碳酸氫鈉。",
+    "ingredients_list": [
+      "小麥麵粉",
+      "砂糖",
+      "植物油(葵花籽油、棕櫚油)",
+      "乳糖",
+      "全脂奶粉",
+      "酥油(棕櫚油、完全氫化棕櫚油)",
+      "紅甜菜色素",
+      "香料",
+      "食鹽",
+      "酵母",
+      "大豆卵磷脂",
+      "草莓粉",
+      "脂肪酸甘油酯",
+      "碳酸氫鈉"
+    ],
+    "nutrition": {
+      "calories": 505.3,
+      "protein": 7.6,
+      "fat": 22.9,
+      "saturated_fat": 13.2,
+      "trans_fat": 0.0,
+      "carbohydrates": 67.2,
+      "sugar": 31.6,
+      "fiber": null,
+      "sodium": 201.0
+    },
+    "serving_size": 24,
+    "servings_per_container": 1,
+    "serving_description": "每一份量 24公克",
+    "nutrition_raw": "營養標示 Nutrition Facts\n每一份量 24公克\n本包裝含 1份\n每份 每100公克\n熱量 121.3大卡 505.3大卡\n蛋白質 1.8公克 7.6公克\n脂肪 5.5公克 22.9公克\n飽和脂肪 3.2公克 13.2公克\n反式脂肪 0.0公克 0.0公克\n碳水化合物 16.1公克 67.2公克\n糖 7.6公克 31.6公克\n鈉 48.2毫克 201.0毫克",
+    "nutrition_other": {},
+    "nutrition_per_serving": {
+      "calories": 121.3,
+      "protein": 1.8,
+      "fat": 5.5,
+      "saturated_fat": 3.2,
+      "trans_fat": 0.0,
+      "carbohydrates": 16.1,
+      "sugar": 7.6,
+      "fiber": null,
+      "sodium": 48.2
+    },
+    "manufacturer": "泰國Glico Co., Ltd. (Bangkhadi)",
+    "allergy_warning": "過敏原標示:本產品含有麩質之穀物、牛奶、大豆及其製品，不適合對其過敏體質者食用。本產品生產製程廠房，其設備或生產管線有處理芒果、堅果類及其製品。",
+    "certification_marks": []
+  }
+}

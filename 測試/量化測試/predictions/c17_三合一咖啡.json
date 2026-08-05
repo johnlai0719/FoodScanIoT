@@ -1,0 +1,53 @@
+{
+  "case_id": "c17_三合一咖啡",
+  "prediction": {
+    "is_food_label": true,
+    "reject_reason": "",
+    "name": "貝納頌三合一咖啡(經典拿鐵)",
+    "brand": "Bernachon",
+    "ingredients_raw": "奶精(葡萄糖漿、氫化棕櫚仁油、乾酪素鈉、檸檬酸鉀、脂肪酸甘油酯、二氧化矽)、砂糖、咖啡粉、香料、小蘇打",
+    "ingredients_list": [
+      "奶精",
+      "葡萄糖漿",
+      "氫化棕櫚仁油",
+      "乾酪素鈉",
+      "檸檬酸鉀",
+      "脂肪酸甘油酯",
+      "二氧化矽",
+      "砂糖",
+      "咖啡粉",
+      "香料",
+      "小蘇打"
+    ],
+    "nutrition": {
+      "calories": 66.0,
+      "protein": 0.6,
+      "fat": 2.2,
+      "saturated_fat": 1.4,
+      "trans_fat": 0.0,
+      "carbohydrates": 10.9,
+      "sugar": 4.5,
+      "fiber": null,
+      "sodium": 31.0
+    },
+    "serving_size": 150.0,
+    "servings_per_container": 25.0,
+    "serving_description": "每一份量 150 毫升",
+    "nutrition_raw": "營 養 標 示\n每一份量 150 毫升\n本包裝含 25 份\n每份 每100 毫升\n熱量 99大卡 66大卡\n蛋白質 0.9公克 0.6公克\n脂肪 3.3公克 2.2公克\n飽和脂肪 2.1公克 1.4公克\n反式脂肪 0公克 0公克\n碳水化合物 16.4公克 10.9公克\n糖 6.8公克 4.5公克\n鈉 47毫克 31毫克\n*依沖調方法調製後,每100毫升之\n營養標示值",
+    "nutrition_other": {},
+    "nutrition_per_serving": {
+      "calories": 99.0,
+      "protein": 0.9,
+      "fat": 3.3,
+      "saturated_fat": 2.1,
+      "trans_fat": 0.0,
+      "carbohydrates": 16.4,
+      "sugar": 6.8,
+      "fiber": null,
+      "sodium": 47.0
+    },
+    "manufacturer": "味全食品工業股份有限公司",
+    "allergy_warning": "本產品含牛奶及其製品",
+    "certification_marks": []
+  }
+}

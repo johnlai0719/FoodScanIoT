@@ -1,0 +1,48 @@
+{
+  "case_id": "c06_奶茶",
+  "prediction": {
+    "is_food_label": true,
+    "reject_reason": "",
+    "name": "義美奶茶",
+    "brand": "義美 I-MEI",
+    "ingredients_raw": "水、生奶、奶粉、蔗糖、紅茶、脂肪酸甘油酯。",
+    "ingredients_list": [
+      "水",
+      "生奶",
+      "奶粉",
+      "蔗糖",
+      "紅茶",
+      "脂肪酸甘油酯"
+    ],
+    "nutrition": {
+      "calories": 55.3,
+      "protein": 1.5,
+      "fat": 1.8,
+      "saturated_fat": 1.5,
+      "trans_fat": 0.0,
+      "carbohydrates": 8.2,
+      "sugar": 8.1,
+      "fiber": null,
+      "sodium": 24
+    },
+    "serving_size": 236.5,
+    "servings_per_container": 4,
+    "serving_description": "每一份量 236.5毫升",
+    "nutrition_raw": "營養標示\n每一份量 236.5毫升\n本包裝含 4份\n\n             每份    每100毫升\n熱量      131大卡 55.3大卡\n蛋白質     3.6公克  1.5公克\n脂肪       4.3公克  1.8公克\n飽和脂肪   3.5公克  1.5公克\n反式脂肪   0公克    0公克\n碳水化合物 19.4公克 8.2公克\n糖         19.2公克 8.1公克\n鈉         57毫克   24毫克",
+    "nutrition_other": {},
+    "nutrition_per_serving": {
+      "calories": 131,
+      "protein": 3.6,
+      "fat": 4.3,
+      "saturated_fat": 3.5,
+      "trans_fat": 0.0,
+      "carbohydrates": 19.4,
+      "sugar": 19.2,
+      "fiber": null,
+      "sodium": 57
+    },
+    "manufacturer": "義美食品股份有限公司",
+    "allergy_warning": "本產品含有過敏原：奶類成分",
+    "certification_marks": []
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "case_id": "c39_米香-三杯雞燴飯",
+  "prediction": {
+    "is_food_label": true,
+    "reject_reason": "",
+    "name": "星級饗宴 三杯雞燴飯",
+    "brand": "GRAND MAYFULL",
+    "ingredients_raw": "成份：水、米、雞肉、杏鮑菇、玉米筍、醬油、糖、大蒜、米酒、薑、辣椒、香油、九層塔、大豆油、乙醯化己二酸二澱粉、鹽、麩酸鈉、檸檬酸、蒜粉、洋蔥粉、關華豆膠。",
+    "ingredients_list": [
+      "水",
+      "米",
+      "雞肉",
+      "杏鮑菇",
+      "玉米筍",
+      "醬油",
+      "糖",
+      "大蒜",
+      "米酒",
+      "薑",
+      "辣椒",
+      "香油",
+      "九層塔",
+      "大豆油",
+      "乙醯化己二酸二澱粉",
+      "鹽",
+      "麩酸鈉",
+      "檸檬酸",
+      "蒜粉",
+      "洋蔥粉",
+      "關華豆膠"
+    ],
+    "nutrition": {
+      "calories": 316,
+      "protein": 17.2,
+      "fat": 5.8,
+      "saturated_fat": 1.0,
+      "trans_fat": 0.0,
+      "carbohydrates": 48.0,
+      "sugar": 4.4,
+      "fiber": null,
+      "sodium": 1277
+    },
+    "serving_size": 404,
+    "servings_per_container": 1,
+    "serving_description": "每一份量 404公克",
+    "nutrition_raw": "營養標示\n每一份量 404公克\n本包裝含 1份\n每份\n每100公克\n熱量\n695大卡\n316大卡\n蛋白質\n23.4公克\n17.2公克\n脂肪\n26.2公克\n5.8公克\n飽和脂肪\n4.0公克\n1.0公克\n反式脂肪\n0.0公克\n0.0公克\n碳水化合物 106.7公克\n48.0公克\n糖\n4.4公克\n1.1公克\n鈉\n1277毫克\n316毫克",
+    "nutrition_other": {},
+    "nutrition_per_serving": {
+      "calories": 695,
+      "protein": 23.4,
+      "fat": 26.2,
+      "saturated_fat": 4.0,
+      "trans_fat": 0.0,
+      "carbohydrates": 106.7,
+      "sugar": 4.4,
+      "fiber": null,
+      "sodium": 1277
+    },
+    "manufacturer": null,
+    "allergy_warning": "本產品含有麩質之穀物、奶類(來自起司類)、大豆、芝麻及其製品。本產品生產製程廠房，其設備或生產管線有處理甲殼類動物(蝦)(蟹)製造",
+    "certification_marks": []
+  }
+}

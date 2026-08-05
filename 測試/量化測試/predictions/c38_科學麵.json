@@ -1,0 +1,58 @@
+{
+  "case_id": "c38_科學麵",
+  "prediction": {
+    "is_food_label": true,
+    "reject_reason": "",
+    "name": "統一科學麵",
+    "brand": "統一",
+    "ingredients_raw": "麵粉、精製棕櫚油(棕櫚油、抗氧化劑混合濃縮生育醇)、食鹽、水、味精、蔗糖、醬油、麻油、關華豆膠、多磷酸鈉、碳酸鈉、碳酸鉀、調味劑(蒜粉、辣椒粉、香蔥粉、蔗糖、味精、醋酸鈉、油性辣椒紅、脫水青蔥、胡椒粉、麥芽糊精、5’-次黃嘌呤核苷磷酸二鈉、5’-鳥嘌呤核苷磷酸二鈉)、著色劑焦糖色素。",
+    "ingredients_list": [
+      "麵粉",
+      "精製棕櫚油(棕櫚油、抗氧化劑混合濃縮生育醇)",
+      "食鹽",
+      "水",
+      "味精",
+      "蔗糖",
+      "醬油",
+      "麻油",
+      "關華豆膠",
+      "多磷酸鈉",
+      "碳酸鈉",
+      "碳酸鉀",
+      "調味劑(蒜粉、辣椒粉、香蔥粉、蔗糖、味精、醋酸鈉、油性辣椒紅、脫水青蔥、胡椒粉、麥芽糊精、5’-次黃嘌呤核苷磷酸二鈉、5’-鳥嘌呤核苷磷酸二鈉)",
+      "著色劑焦糖色素"
+    ],
+    "nutrition": {
+      "calories": 487.5,
+      "protein": 10.5,
+      "fat": 22.3,
+      "saturated_fat": 10.2,
+      "trans_fat": 0,
+      "carbohydrates": 61.3,
+      "sugar": 2.5,
+      "fiber": null,
+      "sodium": 1250
+    },
+    "serving_size": 40,
+    "servings_per_container": 1,
+    "serving_description": "每一份量 40 公克",
+    "nutrition_raw": "營養標示\n每一份量 40 公克\n本包裝含 1 份\n每份\n每100公克\n熱量\n195 大卡\n487.5 大卡\n蛋白質\n4.2 公克\n10.5 公克\n脂肪\n8.9 公克\n22.3 公克\n飽和脂肪\n4.1 公克\n10.2 公克\n反式脂肪\n0 公克\n0 公克\n碳水化合物\n24.5 公克\n61.3 公克\n糖\n1.0 公克\n2.5 公克\n鈉\n500 毫克\n1250 毫克",
+    "nutrition_other": {},
+    "nutrition_per_serving": {
+      "calories": 195,
+      "protein": 4.2,
+      "fat": 8.9,
+      "saturated_fat": 4.1,
+      "trans_fat": 0,
+      "carbohydrates": 24.5,
+      "sugar": 1.0,
+      "fiber": null,
+      "sodium": 500
+    },
+    "manufacturer": "統一企業(股)公司",
+    "allergy_warning": "本產品部分脫水蔬菜，香辛料採食品輻射照射處理\n過敏原資訊：本產品含有麩質之穀物及大豆類，且生產線設備亦處理含甲殼類、牛奶、蛋、花生及螺貝類產品。",
+    "certification_marks": [
+      "TQF"
+    ]
+  }
+}

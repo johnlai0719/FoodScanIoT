@@ -1,0 +1,49 @@
+{
+  "is_food_label": true,
+  "reject_reason": "",
+  "name": "麥香奶茶",
+  "brand": "麥香",
+  "ingredients_raw": "水、蔗糖、紅茶、全脂乳粉、脫脂乳粉、脂肪酸蔗糖酯、維生素C(抗氧化劑)、小蘇打、香料、大麥",
+  "ingredients_list": [
+    "水",
+    "蔗糖",
+    "紅茶",
+    "全脂乳粉",
+    "脫脂乳粉",
+    "脂肪酸蔗糖酯",
+    "維生素C(抗氧化劑)",
+    "小蘇打",
+    "香料",
+    "大麥"
+  ],
+  "nutrition": {
+    "calories": 39.4,
+    "protein": 0.3,
+    "fat": 0.2,
+    "saturated_fat": 0.2,
+    "trans_fat": 0.0,
+    "carbohydrates": 9.1,
+    "sugar": 8.7,
+    "fiber": null,
+    "sodium": 17.0
+  },
+  "serving_size": 375,
+  "servings_per_container": 1,
+  "nutrition_per_serving": {
+    "calories": 148.0,
+    "protein": 1.1,
+    "fat": 0.8,
+    "saturated_fat": 0.8,
+    "trans_fat": 0.0,
+    "carbohydrates": 34.1,
+    "sugar": 32.6,
+    "fiber": null,
+    "sodium": 64.0
+  },
+  "manufacturer": "統一企業(股)公司",
+  "allergy_warning": "本產品含麩質之穀物及牛奶製品。",
+  "certification_marks": [
+    "FSC",
+    "TQF"
+  ]
+}

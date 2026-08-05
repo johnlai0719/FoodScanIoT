@@ -1,0 +1,74 @@
+{
+  "case_id": "c25_優質蛋白奶-無加糖燕麥",
+  "prediction": {
+    "is_food_label": true,
+    "reject_reason": "",
+    "name": "優質蛋白奶",
+    "brand": "光泉",
+    "ingredients_raw": "水、非基因改造黃豆、燕麥粉、大豆蛋白(含大豆卵磷脂)、水、蛋白、豌豆蛋白、香料。",
+    "ingredients_list": [
+      "水",
+      "非基因改造黃豆",
+      "燕麥粉",
+      "大豆蛋白(含大豆卵磷脂)",
+      "蛋白",
+      "豌豆蛋白",
+      "香料"
+    ],
+    "nutrition": {
+      "calories": 39.2,
+      "protein": 3.9,
+      "fat": 1.5,
+      "saturated_fat": 0.3,
+      "trans_fat": 0.0,
+      "carbohydrates": 2.6,
+      "sugar": 0.5,
+      "fiber": null,
+      "sodium": 40.0
+    },
+    "serving_size": 375,
+    "servings_per_container": 1,
+    "serving_description": "每一份量 375 毫升",
+    "nutrition_raw": "營養標示\n每一份量 375 毫升\n本包裝含 1 份\n\n每份\t每100毫升\n熱量\t149.6大卡\t39.9大卡\n蛋白質\t15.0公克\t3.9公克\n脂肪\t5.6公克\t1.5公克\n飽和脂肪\t1.1公克\t0.3公克\n反式脂肪\t0.0公克\t0.0公克\n膽固醇\t0毫克\t0毫克\n碳水化合物\t9.8公克\t2.6公克\n糖\t1.9公克\t0.5公克\n乳糖\t0公克\t0公克\n鈉\t150毫克\t40毫克\n支鏈胺基酸(BCAA)\t2693毫克\t718毫克\n白胺酸\t1215毫克\t324毫克\n異白胺酸\t735毫克\t196毫克\n纈胺酸\t742毫克\t198毫克",
+    "nutrition_other": {
+      "膽固醇": {
+        "per_100": 0.0,
+        "per_serving": 0.0
+      },
+      "乳糖": {
+        "per_100": 0.0,
+        "per_serving": 0.0
+      },
+      "支鏈胺基酸(BCAA)": {
+        "per_100": 718.0,
+        "per_serving": 2693.0
+      },
+      "白胺酸": {
+        "per_100": 324.0,
+        "per_serving": 1215.0
+      },
+      "異白胺酸": {
+        "per_100": 196.0,
+        "per_serving": 735.0
+      },
+      "纈胺酸": {
+        "per_100": 198.0,
+        "per_serving": 742.0
+      }
+    },
+    "nutrition_per_serving": {
+      "calories": 149.6,
+      "protein": 15.0,
+      "fat": 5.6,
+      "saturated_fat": 1.1,
+      "trans_fat": 0.0,
+      "carbohydrates": 9.8,
+      "sugar": 1.9,
+      "fiber": null,
+      "sodium": 150.0
+    },
+    "manufacturer": "光泉牧場股份有限公司",
+    "allergy_warning": "本產品含麩質之穀物及大豆製品。對花生、牛奶、蛋、堅果過敏者請留意。",
+    "certification_marks": []
+  }
+}

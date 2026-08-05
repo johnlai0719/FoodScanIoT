@@ -1,0 +1,42 @@
+{
+  "is_food_label": true,
+  "reject_reason": "",
+  "name": "紐奧良風味鮮蔬烤雞三明治",
+  "brand": "7-ELEVEN",
+  "ingredients_raw": "雞肉{雞肉, 糖, 辣椒, 蒜, 蔥, 胡椒, 奧勒岡葉, 百里香, 五香, 麵粉, 鹽, 卵磷脂, 甘胺酸, 5'-鳥嘌呤核苷磷酸二鈉, 5'-次黃嘌呤核苷磷酸二鈉, 紅椒色素, 甜味劑(醋磺內酯鉀), DL-丙胺酸, 蛋白粉, 芥花油, 麥芽糊精, 甘蔗多酚萃取物}, 土司, 蘿蔓, 沙拉醬{菜籽油, 醋, 雞蛋, 麥芽糖, 味精, 芥末}, 墨西哥紅醬{蕃茄糊, 墨西哥椒, 洋蔥, 蒜粉, 辣椒萃取物, 羅望子膠}, 大豆油",
+  "ingredients_list": [
+    "雞肉{雞肉, 糖, 辣椒, 蒜, 蔥, 胡椒, 奧勒岡葉, 百里香, 五香, 麵粉, 鹽, 卵磷脂, 甘胺酸, 5'-鳥嘌呤核苷磷酸二鈉, 5'-次黃嘌呤核苷磷酸二鈉, 紅椒色素, 甜味劑(醋磺內酯鉀), DL-丙胺酸, 蛋白粉, 芥花油, 麥芽糊精, 甘蔗多酚萃取物}",
+    "土司",
+    "蘿蔓",
+    "沙拉醬{菜籽油, 醋, 雞蛋, 麥芽糖, 味精, 芥末}",
+    "墨西哥紅醬{蕃茄糊, 墨西哥椒, 洋蔥, 蒜粉, 辣椒萃取物, 羅望子膠}",
+    "大豆油"
+  ],
+  "nutrition": {
+    "calories": 262,
+    "protein": 11.2,
+    "fat": 14.9,
+    "saturated_fat": 3.6,
+    "trans_fat": 0,
+    "carbohydrates": 20.8,
+    "sugar": 1.7,
+    "fiber": null,
+    "sodium": 518
+  },
+  "serving_size": 111,
+  "servings_per_container": 1,
+  "nutrition_per_serving": {
+    "calories": 291,
+    "protein": 12.4,
+    "fat": 16.5,
+    "saturated_fat": 4.0,
+    "trans_fat": 0,
+    "carbohydrates": 23.1,
+    "sugar": 1.9,
+    "fiber": null,
+    "sodium": 575
+  },
+  "manufacturer": "",
+  "allergy_warning": "",
+  "certification_marks": []
+}

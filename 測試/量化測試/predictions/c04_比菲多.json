@@ -1,0 +1,50 @@
+{
+  "case_id": "c04_比菲多",
+  "prediction": {
+    "is_food_label": true,
+    "reject_reason": "",
+    "name": "活性乳酸菌發酵乳(原味)",
+    "brand": "",
+    "ingredients_raw": "水、蔗糖、奶粉、葡萄糖、香料、菊糖、婀娜多天然紅木種子萃取)、活性乳酸菌",
+    "ingredients_list": [
+      "水",
+      "蔗糖",
+      "奶粉",
+      "葡萄糖",
+      "香料",
+      "菊糖",
+      "婀娜多天然紅木種子萃取",
+      "活性乳酸菌"
+    ],
+    "nutrition": {
+      "calories": 63.0,
+      "protein": 1.0,
+      "fat": 0.0,
+      "saturated_fat": 0.0,
+      "trans_fat": 0.0,
+      "carbohydrates": 14.8,
+      "sugar": 12.9,
+      "fiber": null,
+      "sodium": 11.0
+    },
+    "serving_size": 471.0,
+    "servings_per_container": 1.0,
+    "serving_description": "每一份量471毫升",
+    "nutrition_raw": "營養標示\n每一份量 471 毫升\n本包裝含 1份\n每份 每100毫升\n熱量 297大卡 63大卡\n蛋白質 4.7公克 1.0公克\n脂肪 0.0公克 0.0公克\n飽和脂肪 0.0公克 0.0公克\n反式脂肪 0.0公克 0.0公克\n碳水化合物69.7公克 14.8公克\n糖 60.8公克 12.9公克\n鈉 52毫克 11毫克",
+    "nutrition_other": {},
+    "nutrition_per_serving": {
+      "calories": 297.0,
+      "protein": 4.7,
+      "fat": 0.0,
+      "saturated_fat": 0.0,
+      "trans_fat": 0.0,
+      "carbohydrates": 69.7,
+      "sugar": 60.8,
+      "fiber": null,
+      "sodium": 52.0
+    },
+    "manufacturer": "",
+    "allergy_warning": "產品含牛奶及其製品",
+    "certification_marks": []
+  }
+}

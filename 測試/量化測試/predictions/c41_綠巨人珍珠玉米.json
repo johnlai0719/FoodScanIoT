@@ -1,0 +1,46 @@
+{
+  "case_id": "c41_綠巨人珍珠玉米",
+  "prediction": {
+    "is_food_label": true,
+    "reject_reason": "",
+    "name": "綠巨人珍珠玉米粒",
+    "brand": "綠巨人 Green Giant",
+    "ingredients_raw": "甜玉米粒、水、糖、鹽",
+    "ingredients_list": [
+      "甜玉米粒",
+      "水",
+      "糖",
+      "鹽"
+    ],
+    "nutrition": {
+      "calories": 100,
+      "protein": 2.5,
+      "fat": 1.1,
+      "saturated_fat": 0.2,
+      "trans_fat": 0.0,
+      "carbohydrates": 21.2,
+      "sugar": 4.0,
+      "fiber": 2.1,
+      "sodium": 160
+    },
+    "serving_size": 70,
+    "servings_per_container": 4,
+    "serving_description": "每一份量70公克",
+    "nutrition_raw": "營養標示\n每一份量70公克\n本包裝含4份\n\n每份\n熱量 71 大卡\n蛋白質 1.8 公克\n脂肪 0.8 公克\n飽和脂肪 0.1 公克\n反式脂肪 0 公克\n碳水化合物 14.8 公克\n糖 2.8 公克\n膳食纖維 1.5 公克\n鈉 112 毫克\n\n每100公克\n熱量 100 大卡\n蛋白質 2.5 公克\n脂肪 1.1 公克\n飽和脂肪 0.2 公克\n反式脂肪 0 公克\n碳水化合物 21.2 公克\n糖 4.0 公克\n膳食纖維 2.1 公克\n鈉 160 毫克",
+    "nutrition_other": {},
+    "nutrition_per_serving": {
+      "calories": 71.0,
+      "protein": 1.8,
+      "fat": 0.8,
+      "saturated_fat": 0.1,
+      "trans_fat": 0.0,
+      "carbohydrates": 14.8,
+      "sugar": 2.8,
+      "fiber": 1.5,
+      "sodium": 112.0
+    },
+    "manufacturer": "台灣通用磨坊股份有限公司",
+    "allergy_warning": null,
+    "certification_marks": []
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "is_food_label": true,
+  "reject_reason": "",
+  "name": "太和殿-藤椒風味烤雞拌麵(辣)",
+  "brand": "太和殿",
+  "ingredients_raw": "波浪麵, 藤椒風味麻辣醬, 水, 青花椒雞腿排, 青江菜, 蔥, 大豆油, 複方品質改良劑, 明膠, 鹽, 複方調味劑, 辣椒, 複方品質改良劑, 鬆麵油",
+  "ingredients_list": [
+    "波浪麵",
+    "藤椒風味麻辣醬",
+    "水",
+    "青花椒雞腿排",
+    "青江菜",
+    "蔥",
+    "大豆油",
+    "複方品質改良劑",
+    "明膠",
+    "鹽",
+    "複方調味劑",
+    "辣椒",
+    "複方品質改良劑",
+    "鬆麵油"
+  ],
+  "nutrition": {
+    "calories": 156.0,
+    "protein": 6.2,
+    "fat": 3.9,
+    "saturated_fat": 0.9,
+    "trans_fat": 0.0,
+    "carbohydrates": 23.9,
+    "sugar": 0.7,
+    "fiber": null,
+    "sodium": 419.0
+  },
+  "serving_size": 311,
+  "servings_per_container": 1,
+  "nutrition_per_serving": {
+    "calories": 483.0,
+    "protein": 19.3,
+    "fat": 12.1,
+    "saturated_fat": 2.8,
+    "trans_fat": 0.0,
+    "carbohydrates": 74.3,
+    "sugar": 2.2,
+    "fiber": null,
+    "sodium": 1303.0
+  },
+  "manufacturer": "凱亞食品股份有限公司(大溪廠)",
+  "allergy_warning": "本產品含麩質之穀物、蛋(來自藤椒風味麻辣醬)、大豆、奶類(來自藤椒風味麻辣醬)及其製品。本產品含蠶豆",
+  "certification_marks": []
+}

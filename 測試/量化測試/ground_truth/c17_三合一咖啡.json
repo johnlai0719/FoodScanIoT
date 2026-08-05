@@ -1,0 +1,41 @@
+{
+  "is_food_label": true,
+  "reject_reason": "",
+  "name": "貝納頌三合一咖啡(經典拿鐵)",
+  "brand": "貝納頌",
+  "ingredients_raw": "奶精(葡萄糖漿、氫化棕櫚仁油、乾酪素鈉、檸檬酸鉀、脂肪酸甘油酯、二氧化矽)、砂糖、咖啡粉、香料、小蘇打",
+  "ingredients_list": [
+    "奶精(葡萄糖漿、氫化棕櫚仁油、乾酪素鈉、檸檬酸鉀、脂肪酸甘油酯、二氧化矽)",
+    "砂糖",
+    "咖啡粉",
+    "香料",
+    "小蘇打"
+  ],
+  "nutrition": {
+    "calories": 66,
+    "protein": 0.6,
+    "fat": 2.2,
+    "saturated_fat": 1.4,
+    "trans_fat": 0,
+    "carbohydrates": 10.9,
+    "sugar": 4.5,
+    "fiber": null,
+    "sodium": 31
+  },
+  "serving_size": 150,
+  "servings_per_container": 25,
+  "nutrition_per_serving": {
+    "calories": 99,
+    "protein": 0.9,
+    "fat": 3.3,
+    "saturated_fat": 2.1,
+    "trans_fat": 0,
+    "carbohydrates": 16.4,
+    "sugar": 6.8,
+    "fiber": null,
+    "sodium": 47
+  },
+  "manufacturer": "味全食品工業股份有限公司",
+  "allergy_warning": "本產品含牛奶及其製品",
+  "certification_marks": []
+}

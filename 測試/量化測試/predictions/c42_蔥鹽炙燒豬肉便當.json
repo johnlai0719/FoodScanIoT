@@ -1,0 +1,48 @@
+{
+  "case_id": "c42_蔥鹽炙燒豬肉便當",
+  "prediction": {
+    "is_food_label": true,
+    "reject_reason": "",
+    "name": "御弁当 牛角蔥鹽炙燒豬肉便當",
+    "brand": "7-ELEVEN 御弁当",
+    "ingredients_raw": "本產品含麩質之穀物(來自飯體麵)、大豆(來自飯體麵)、奶類(來自雞肉風味粉)、蛋(來自雞肉風味粉)、芝麻、堅果類(來自香料) 及其製品。豬肉來源:加拿大",
+    "ingredients_list": [
+      "麩質之穀物(來自飯體麵)",
+      "大豆(來自飯體麵)",
+      "奶類(來自雞肉風味粉)",
+      "蛋(來自雞肉風味粉)",
+      "芝麻",
+      "堅果類(來自香料)"
+    ],
+    "nutrition": {
+      "calories": 201,
+      "protein": 18.7,
+      "fat": 19.3,
+      "saturated_fat": 6.8,
+      "trans_fat": 0,
+      "carbohydrates": 82.7,
+      "sugar": 7.6,
+      "fiber": null,
+      "sodium": 760
+    },
+    "serving_size": 288,
+    "servings_per_container": 1,
+    "serving_description": "每一份量 288 公克",
+    "nutrition_raw": "營養標示\n每一份量 288 公克\n本包裝含 1 份\n每份         每100公克\n熱量           580大卡      201大卡\n蛋白質        54公克      18.7公克\n脂肪           56公克      19.3公克\n飽和脂肪     19.6公克     6.8公克\n反式脂肪     0公克        0公克\n碳水化合物  238公克     82.7公克\n糖             22公克      7.6公克\n鈉             2200毫克    760毫克",
+    "nutrition_other": {},
+    "nutrition_per_serving": {
+      "calories": 580,
+      "protein": 54,
+      "fat": 56,
+      "saturated_fat": 19.6,
+      "trans_fat": 0,
+      "carbohydrates": 238,
+      "sugar": 22,
+      "fiber": null,
+      "sodium": 2200
+    },
+    "manufacturer": "統一食品工業(股)公司中壢廠",
+    "allergy_warning": "本產品含麩質之穀物(來自飯體麵)、大豆(來自飯體麵)、奶類(來自雞肉風味粉)、蛋(來自雞肉風味粉)、芝麻、堅果類(來自香料) 及其製品。",
+    "certification_marks": []
+  }
+}

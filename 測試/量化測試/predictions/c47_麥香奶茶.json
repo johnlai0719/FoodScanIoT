@@ -1,0 +1,54 @@
+{
+  "case_id": "c47_麥香奶茶",
+  "prediction": {
+    "is_food_label": true,
+    "reject_reason": "",
+    "name": "麥香奶茶",
+    "brand": "Uni-President 統一",
+    "ingredients_raw": "品名:麥香奶茶 原料:水、蔗糖、紅茶、全脂乳粉、脫脂乳粉、脂肪酸蔗糖酯、維生素C(抗氧化劑)、小蘇打、香料、大麥 咖啡因含量:20mg/100mL以下 內容量:375毫升",
+    "ingredients_list": [
+      "水",
+      "蔗糖",
+      "紅茶",
+      "全脂乳粉",
+      "脫脂乳粉",
+      "脂肪酸蔗糖酯",
+      "維生素C(抗氧化劑)",
+      "小蘇打",
+      "香料",
+      "大麥"
+    ],
+    "nutrition": {
+      "calories": 39.4,
+      "protein": 0.3,
+      "fat": 0.2,
+      "saturated_fat": 0.2,
+      "trans_fat": 0.0,
+      "carbohydrates": 9.1,
+      "sugar": 8.7,
+      "fiber": null,
+      "sodium": 17.0
+    },
+    "serving_size": 375.0,
+    "servings_per_container": 1.0,
+    "serving_description": "每一份量 375毫升",
+    "nutrition_raw": "營養標示\n每一份量 375毫升\n本包裝含 1份\n每份\n每100毫升\n熱量\n148.1大卡\n39.4大卡\n蛋白質\n1.1公克\n0.3公克\n脂肪\n0.8公克\n0.2公克\n飽和脂肪\n0.8公克\n0.2公克\n反式脂肪\n0公克\n0公克\n碳水化合物\n34.1公克\n9.1公克\n糖\n32.6公克\n8.7公克\n鈉\n64毫克\n17毫克",
+    "nutrition_other": {},
+    "nutrition_per_serving": {
+      "calories": 148.1,
+      "protein": 1.1,
+      "fat": 0.8,
+      "saturated_fat": 0.8,
+      "trans_fat": 0.0,
+      "carbohydrates": 34.1,
+      "sugar": 32.6,
+      "fiber": null,
+      "sodium": 64.0
+    },
+    "manufacturer": "統一企業(股)公司",
+    "allergy_warning": "過敏原資訊:本產品含麩質之穀物及牛奶製品。",
+    "certification_marks": [
+      "TQF"
+    ]
+  }
+}

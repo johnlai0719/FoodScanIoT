@@ -1,0 +1,856 @@
+{
+  "_說明": "影像辨識層量化測試的案例定義。\n\nset_version —— 測試集版本。core48 為 2026-07-30 報告所用的 48 案，**永久凍結**：\n  不增、不減、不換圖。跨期比較一律只看 core48 的數字，新增案例另標 v3 以後版本，\n  分開報告。理由：測試集一改，前後期數字就不再是同一把尺量的（20→48 案時已\n  發生過一次，上下期延遲數字實際上不可直接比）。\n\ncategory —— 商品類別，供評分時切片。supplement_food 指「是食品、但以保健食品\n  形態呈現」者，與 v3 將新增的硬負例（真正的保健食品外盒）僅一線之隔，\n  是相關性閘門最容易出錯的邊界。\n\ndifficulty —— 影像困難度標籤（glare 反光／curved 曲面／crease 摺痕／\n  low_light 低光／angled 斜拍／small_text 小字密集／occluded 遮擋）。\n  **core48 目前全為空陣列，這是誠實的未知而非「無困難」**：這批照片拍攝時\n  未記錄拍攝條件，事後補標需要有人逐張看過原圖才能標。標註完成前，\n  依 difficulty 切片的報告只會涵蓋 v3 之後的案例。",
+  "cases": [
+    {
+      "case_id": "c01_柳橙綠茶",
+      "desc": "純喫茶香橙綠茶",
+      "barcode": "TEST",
+      "images": [
+        "images/c01_柳橙綠茶/nutrition_en.5.400.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "beverage",
+      "difficulty": []
+    },
+    {
+      "case_id": "c02_濃豆漿",
+      "desc": "光泉無加糖濃豆漿",
+      "barcode": "TEST",
+      "images": [
+        "images/c02_濃豆漿/nutrition_zh.24.400.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "beverage",
+      "difficulty": []
+    },
+    {
+      "case_id": "c03_厚奶茶",
+      "desc": "義美厚奶茶",
+      "barcode": "TEST",
+      "images": [
+        "images/c03_厚奶茶/0_uJPfypiLOpVUvp06.webp"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "beverage",
+      "difficulty": []
+    },
+    {
+      "case_id": "c04_比菲多",
+      "desc": "活性乳酸菌發酵乳(原味)",
+      "barcode": "TEST",
+      "images": [
+        "images/c04_比菲多/ingredients_en.7.400.jpg",
+        "images/c04_比菲多/nutrition_en.5.400.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "beverage",
+      "difficulty": []
+    },
+    {
+      "case_id": "c05_非食品",
+      "desc": "c05_非食品",
+      "barcode": "TEST",
+      "images": [
+        "images/c05_非食品/Test_NotFood.jpg"
+      ],
+      "tags": {
+        "is_food": false,
+        "has_nutrition": false,
+        "has_per_serving": false,
+        "has_ingredients": false
+      },
+      "set_version": "core48",
+      "category": "non_food",
+      "difficulty": []
+    },
+    {
+      "case_id": "c06_奶茶",
+      "desc": "義美奶茶",
+      "barcode": "TEST",
+      "images": [
+        "images/c06_奶茶/0_njkPfSmPy2IdNSmt.webp"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "beverage",
+      "difficulty": []
+    },
+    {
+      "case_id": "c07_綠奶茶",
+      "desc": "飲冰室茶集綠奶茶",
+      "barcode": "TEST",
+      "images": [
+        "images/c07_綠奶茶/489867086_1956576744874697_7802472238210489182_n.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "beverage",
+      "difficulty": []
+    },
+    {
+      "case_id": "c08_椰香綠咖哩嫩雞飯",
+      "desc": "帕泰家-椰香綠咖哩嫩雞飯(辣)",
+      "barcode": "TEST",
+      "images": [
+        "images/c08_椰香綠咖哩嫩雞飯/7ulxh12.jpeg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "prepared_meal",
+      "difficulty": []
+    },
+    {
+      "case_id": "c09_麻婆豆腐燴飯",
+      "desc": "麻婆豆腐燴飯",
+      "barcode": "TEST",
+      "images": [
+        "images/c09_麻婆豆腐燴飯/麻婆豆腐燴飯.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "prepared_meal",
+      "difficulty": []
+    },
+    {
+      "case_id": "c10_鮮蔬烤雞三明治",
+      "desc": "紐奧良風味鮮蔬烤雞三明治",
+      "barcode": "TEST",
+      "images": [
+        "images/c10_鮮蔬烤雞三明治/P9680325.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "prepared_meal",
+      "difficulty": []
+    },
+    {
+      "case_id": "c11_大飯糰椒香鮪魚",
+      "desc": "大飯糰椒香鮪魚",
+      "barcode": "TEST",
+      "images": [
+        "images/c11_大飯糰椒香鮪魚/fqxo8Iv.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": false,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "prepared_meal",
+      "difficulty": []
+    },
+    {
+      "case_id": "c12_肉鬆御飯糰",
+      "desc": "肉鬆飯糰",
+      "barcode": "TEST",
+      "images": [
+        "images/c12_肉鬆御飯糰/hSpNZr9.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": false,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "prepared_meal",
+      "difficulty": []
+    },
+    {
+      "case_id": "c13_紅茶",
+      "desc": "純喫茶紅茶",
+      "barcode": "TEST",
+      "images": [
+        "images/c13_紅茶/RWHWWaJ.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "beverage",
+      "difficulty": []
+    },
+    {
+      "case_id": "c14_鮮乳",
+      "desc": "瑞穗極制低溫殺菌鮮乳",
+      "barcode": "TEST",
+      "images": [
+        "images/c14_鮮乳/zofz2rw.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "beverage",
+      "difficulty": []
+    },
+    {
+      "case_id": "c15_木瓜牛乳",
+      "desc": "統一木瓜牛乳",
+      "barcode": "TEST",
+      "images": [
+        "images/c15_木瓜牛乳/639180001445230000.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "beverage",
+      "difficulty": []
+    },
+    {
+      "case_id": "c17_三合一咖啡",
+      "desc": "貝納頌三合一咖啡(經典拿鐵)",
+      "barcode": "TEST",
+      "images": [
+        "images/c17_三合一咖啡/11fbee8a640242ac110005.webp"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "beverage",
+      "difficulty": []
+    },
+    {
+      "case_id": "c18_蝦味先原味",
+      "desc": "蝦味先原味",
+      "barcode": "TEST",
+      "images": [
+        "images/c18_蝦味先原味/bbdf1274-03af-42e3-b32a-f8cacf51212c.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": false,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "snack",
+      "difficulty": []
+    },
+    {
+      "case_id": "c19_經典原味洋芋片",
+      "desc": "樂事美國經典原味洋芋片",
+      "barcode": "TEST",
+      "images": [
+        "images/c19_經典原味洋芋片/25003_126639_2ujudkkh.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "snack",
+      "difficulty": []
+    },
+    {
+      "case_id": "c20_海苔洋芋片",
+      "desc": "樂事九州岩燒海苔風味洋芋片",
+      "barcode": "TEST",
+      "images": [
+        "images/c20_海苔洋芋片/25003_126633_m302pks3.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "snack",
+      "difficulty": []
+    },
+    {
+      "case_id": "c21_Pockey百奇草莓棒",
+      "desc": "Pocky百奇 草莓棒",
+      "barcode": "TEST",
+      "images": [
+        "images/c21_Pockey百奇草莓棒/IMG_7782.jpg",
+        "images/c21_Pockey百奇草莓棒/IMG_7783.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "snack",
+      "difficulty": []
+    },
+    {
+      "case_id": "c22_UNCLELEMON蜂蜜檸檬風味膠囊",
+      "desc": "UNCLE LEMON蜂蜜檸檬風味膠囊",
+      "barcode": "TEST",
+      "images": [
+        "images/c22_UNCLELEMON蜂蜜檸檬風味膠囊/IMG_7790.jpg",
+        "images/c22_UNCLELEMON蜂蜜檸檬風味膠囊/IMG_7791.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "supplement_food",
+      "difficulty": []
+    },
+    {
+      "case_id": "c23_in果凍",
+      "desc": "in果凍(綜合礦物質)",
+      "barcode": "TEST",
+      "images": [
+        "images/c23_in果凍/IMG_7792.jpg",
+        "images/c23_in果凍/IMG_7793.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "supplement_food",
+      "difficulty": []
+    },
+    {
+      "case_id": "c24_優質蛋白奶-堅果杏仁",
+      "desc": "in果凍(綜合礦物質)",
+      "barcode": "TEST",
+      "images": [
+        "images/c24_優質蛋白奶-堅果杏仁/IMG_4734.jpg",
+        "images/c24_優質蛋白奶-堅果杏仁/IMG_4735.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "beverage",
+      "difficulty": []
+    },
+    {
+      "case_id": "c25_優質蛋白奶-無加糖燕麥",
+      "desc": "優質蛋白奶-無加糖燕麥",
+      "barcode": "TEST",
+      "images": [
+        "images/c25_優質蛋白奶-無加糖燕麥/IMG_4732.jpg",
+        "images/c25_優質蛋白奶-無加糖燕麥/IMG_4733.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "beverage",
+      "difficulty": []
+    },
+    {
+      "case_id": "c26_冰鎮芭樂綠茶",
+      "desc": "冰鎮芭樂綠茶",
+      "barcode": "TEST",
+      "images": [
+        "images/c26_冰鎮芭樂綠茶/IMG_4751.jpg",
+        "images/c26_冰鎮芭樂綠茶/IMG_4752.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "beverage",
+      "difficulty": []
+    },
+    {
+      "case_id": "c27_冰鎮葡萄鮮冰茶",
+      "desc": "冰鎮葡萄鮮冰茶",
+      "barcode": "TEST",
+      "images": [
+        "images/c27_冰鎮葡萄鮮冰茶/IMG_4749.jpg",
+        "images/c27_冰鎮葡萄鮮冰茶/IMG_4750.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "beverage",
+      "difficulty": []
+    },
+    {
+      "case_id": "c28_北海鱈魚香絲",
+      "desc": "北海鱈魚香絲",
+      "barcode": "TEST",
+      "images": [
+        "images/c28_北海鱈魚香絲/IMG_7786.jpg",
+        "images/c28_北海鱈魚香絲/IMG_7787.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "snack",
+      "difficulty": []
+    },
+    {
+      "case_id": "c29_可口可樂",
+      "desc": "可口可樂汽水",
+      "barcode": "TEST",
+      "images": [
+        "images/c29_可口可樂/IMG_4759.jpg",
+        "images/c29_可口可樂/IMG_4760.jpg",
+        "images/c29_可口可樂/IMG_4761.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": false,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "beverage",
+      "difficulty": []
+    },
+    {
+      "case_id": "c30_吉士豬肉堡加蛋",
+      "desc": "吉士豬肉堡加蛋",
+      "barcode": "TEST",
+      "images": [
+        "images/c30_吉士豬肉堡加蛋/IMG_4736.jpg",
+        "images/c30_吉士豬肉堡加蛋/IMG_4737.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "prepared_meal",
+      "difficulty": []
+    },
+    {
+      "case_id": "c31_增雞蛋白餐",
+      "desc": "增雞蛋白質餐",
+      "barcode": "TEST",
+      "images": [
+        "images/c31_增雞蛋白餐/IMG_7800.jpg",
+        "images/c31_增雞蛋白餐/IMG_7801.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "prepared_meal",
+      "difficulty": []
+    },
+    {
+      "case_id": "c32_奧利奧捲心酥-巧克力口味",
+      "desc": "奧利奧捲心酥-巧克力口味",
+      "barcode": "TEST",
+      "images": [
+        "images/c32_奧利奧捲心酥-巧克力口味/IMG_7784.jpg",
+        "images/c32_奧利奧捲心酥-巧克力口味/IMG_7785.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "snack",
+      "difficulty": []
+    },
+    {
+      "case_id": "c33_手摘果物-無籽梅肉",
+      "desc": "手摘果物 無籽梅肉",
+      "barcode": "TEST",
+      "images": [
+        "images/c33_手摘果物-無籽梅肉/IMG_7788.jpg",
+        "images/c33_手摘果物-無籽梅肉/IMG_7789.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "snack",
+      "difficulty": []
+    },
+    {
+      "case_id": "c34_日式佛蒙特咖哩雞肉飯",
+      "desc": "日式佛蒙特咖哩雞肉飯",
+      "barcode": "TEST",
+      "images": [
+        "images/c34_日式佛蒙特咖哩雞肉飯/IMG_4747.jpg",
+        "images/c34_日式佛蒙特咖哩雞肉飯/IMG_4748.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "prepared_meal",
+      "difficulty": []
+    },
+    {
+      "case_id": "c35_極饕-真飽經典麻醬涼麵",
+      "desc": "極饗-真飽經典麻醬涼麵",
+      "barcode": "TEST",
+      "images": [
+        "images/c35_極饕-真飽經典麻醬涼麵/IMG_4740.jpg",
+        "images/c35_極饕-真飽經典麻醬涼麵/IMG_4741.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "prepared_meal",
+      "difficulty": []
+    },
+    {
+      "case_id": "c36_滿漢大餐酸菜白肉拌麵",
+      "desc": "滿漢大餐酸菜牛肉拌麵",
+      "barcode": "TEST",
+      "images": [
+        "images/c36_滿漢大餐酸菜白肉拌麵/IMG_4730.jpg",
+        "images/c36_滿漢大餐酸菜白肉拌麵/IMG_4731.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "instant_noodle",
+      "difficulty": []
+    },
+    {
+      "case_id": "c37_爆蛋流心豬肉堡",
+      "desc": "爆蛋流心豬肉堡",
+      "barcode": "TEST",
+      "images": [
+        "images/c37_爆蛋流心豬肉堡/IMG_4738.jpg",
+        "images/c37_爆蛋流心豬肉堡/IMG_4739.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "prepared_meal",
+      "difficulty": []
+    },
+    {
+      "case_id": "c38_科學麵",
+      "desc": "c38_科學麵",
+      "barcode": "TEST",
+      "images": [
+        "images/c38_科學麵/IMG_7794.jpg",
+        "images/c38_科學麵/IMG_7795.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "snack",
+      "difficulty": []
+    },
+    {
+      "case_id": "c39_米香-三杯雞燴飯",
+      "desc": "米香-三杯雞燴飯",
+      "barcode": "TEST",
+      "images": [
+        "images/c39_米香-三杯雞燴飯/IMG_4745.jpg",
+        "images/c39_米香-三杯雞燴飯/IMG_4746.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "prepared_meal",
+      "difficulty": []
+    },
+    {
+      "case_id": "c40_米香-催淚蛋親子丼飯",
+      "desc": "米香-催淚蛋親子丼飯",
+      "barcode": "TEST",
+      "images": [
+        "images/c40_米香-催淚蛋親子丼飯/IMG_4743.jpg",
+        "images/c40_米香-催淚蛋親子丼飯/IMG_4744.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "prepared_meal",
+      "difficulty": []
+    },
+    {
+      "case_id": "c41_綠巨人珍珠玉米",
+      "desc": "綠巨人珍珠玉米粒",
+      "barcode": "TEST",
+      "images": [
+        "images/c41_綠巨人珍珠玉米/IMG_7804.jpg",
+        "images/c41_綠巨人珍珠玉米/IMG_7805.jpg",
+        "images/c41_綠巨人珍珠玉米/IMG_7806.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "canned_food",
+      "difficulty": []
+    },
+    {
+      "case_id": "c42_蔥鹽炙燒豬肉便當",
+      "desc": "(區)牛角-蔥鹽炙燒豬肉便當",
+      "barcode": "TEST",
+      "images": [
+        "images/c42_蔥鹽炙燒豬肉便當/IMG_4725.jpg",
+        "images/c42_蔥鹽炙燒豬肉便當/IMG_4726.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "prepared_meal",
+      "difficulty": []
+    },
+    {
+      "case_id": "c43_藤椒風味烤雞便當",
+      "desc": "太和殿-藤椒風味烤雞拌麵(辣)",
+      "barcode": "TEST",
+      "images": [
+        "images/c43_藤椒風味烤雞便當/IMG_4727.jpg",
+        "images/c43_藤椒風味烤雞便當/IMG_4728.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "prepared_meal",
+      "difficulty": []
+    },
+    {
+      "case_id": "c44_酸菜白肉個人鍋",
+      "desc": "(專)新台味-酸菜白肉個人鍋",
+      "barcode": "TEST",
+      "images": [
+        "images/c44_酸菜白肉個人鍋/IMG_7802.jpg",
+        "images/c44_酸菜白肉個人鍋/IMG_7803.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "prepared_meal",
+      "difficulty": []
+    },
+    {
+      "case_id": "c45_金沙烤豆腐義大利麵",
+      "desc": "(蔬)金沙烤豆腐義大利麵",
+      "barcode": "TEST",
+      "images": [
+        "images/c45_金沙烤豆腐義大利麵/IMG_7798.jpg",
+        "images/c45_金沙烤豆腐義大利麵/IMG_7799.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "prepared_meal",
+      "difficulty": []
+    },
+    {
+      "case_id": "c46_雙拼起司紅醬焗飯",
+      "desc": "雙拼起司紅醬焗飯",
+      "barcode": "TEST",
+      "images": [
+        "images/c46_雙拼起司紅醬焗飯/IMG_7796.jpg",
+        "images/c46_雙拼起司紅醬焗飯/IMG_7797.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "prepared_meal",
+      "difficulty": []
+    },
+    {
+      "case_id": "c47_麥香奶茶",
+      "desc": "麥香奶茶",
+      "barcode": "TEST",
+      "images": [
+        "images/c47_麥香奶茶/IMG_4757.jpg",
+        "images/c47_麥香奶茶/IMG_4758.jpg",
+        "images/c47_麥香奶茶/IMG_4764.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "beverage",
+      "difficulty": []
+    },
+    {
+      "case_id": "c48_麥香紅茶",
+      "desc": "麥香紅茶",
+      "barcode": "TEST",
+      "images": [
+        "images/c48_麥香紅茶/IMG_4753.jpg",
+        "images/c48_麥香紅茶/IMG_4754.jpg",
+        "images/c48_麥香紅茶/IMG_4763.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "beverage",
+      "difficulty": []
+    },
+    {
+      "case_id": "c49_麥香綠茶",
+      "desc": "麥香綠茶",
+      "barcode": "TEST",
+      "images": [
+        "images/c49_麥香綠茶/IMG_4755.jpg",
+        "images/c49_麥香綠茶/IMG_4756.jpg",
+        "images/c49_麥香綠茶/IMG_4762.jpg"
+      ],
+      "tags": {
+        "is_food": true,
+        "has_nutrition": true,
+        "has_per_serving": true,
+        "has_ingredients": true
+      },
+      "set_version": "core48",
+      "category": "beverage",
+      "difficulty": []
+    }
+  ]
+}

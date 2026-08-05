@@ -1,0 +1,49 @@
+{
+  "case_id": "c19_經典原味洋芋片",
+  "prediction": {
+    "is_food_label": true,
+    "reject_reason": "",
+    "name": "樂事美國經典原味洋芋片",
+    "brand": "Lay's 樂事",
+    "ingredients_raw": "馬鈴薯、棕櫚油、食鹽、調味劑(味精、5'-次黃嘌呤核苷磷酸二鈉、5'-鳥嘌呤核苷磷酸二鈉)、二氧化矽。",
+    "ingredients_list": [
+      "馬鈴薯",
+      "棕櫚油",
+      "食鹽",
+      "味精",
+      "5'-次黃嘌呤核苷磷酸二鈉",
+      "5'-鳥嘌呤核苷磷酸二鈉",
+      "二氧化矽"
+    ],
+    "nutrition": {
+      "calories": 571,
+      "protein": 7.2,
+      "fat": 36.1,
+      "saturated_fat": 18.1,
+      "trans_fat": 0,
+      "carbohydrates": 54.3,
+      "sugar": 0,
+      "fiber": null,
+      "sodium": 587
+    },
+    "serving_size": 34,
+    "servings_per_container": 1,
+    "serving_description": "每一份量 34公克",
+    "nutrition_raw": "營養標示\n每一份量 34公克\n本包裝含 1份\n\n每份 每100公克\n熱量 194大卡 571大卡\n蛋白質 2.5公克 7.2公克\n脂肪 12.3公克 36.1公克\n飽和脂肪 6.2公克 18.1公克\n反式脂肪 0公克 0公克\n碳水化合物 18.5公克 54.3公克\n糖 0公克 0公克\n鈉 200毫克 587毫克",
+    "nutrition_other": {},
+    "nutrition_per_serving": {
+      "calories": 194,
+      "protein": 2.5,
+      "fat": 12.3,
+      "saturated_fat": 6.2,
+      "trans_fat": 0,
+      "carbohydrates": 18.5,
+      "sugar": 0,
+      "fiber": null,
+      "sodium": 200
+    },
+    "manufacturer": "台灣百事食品股份有限公司",
+    "allergy_warning": null,
+    "certification_marks": []
+  }
+}

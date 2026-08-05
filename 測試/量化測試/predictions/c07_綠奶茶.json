@@ -1,0 +1,52 @@
+{
+  "case_id": "c07_綠奶茶",
+  "prediction": {
+    "is_food_label": true,
+    "reject_reason": "",
+    "name": "飲冰室茶集 醇奶茶",
+    "brand": "飲冰室茶集",
+    "ingredients_raw": "水、蔗糖、奶粉(葡萄糖漿、氫化椰子油、乾酪素鈉、磷酸氫二鉀、脂肪酸甘油酯、二氧化矽、β-胡蘿蔔素)、菊苣纖維、奶精(葡萄糖漿、氫化棕櫚仁油、磷酸氫二鉀、乾酪素鈉、碳酸鈣、脂肪酸甘油酯、多磷酸鈉、單及雙脂肪酸甘油二乙醯酒石酸酯、乳酸硬脂酸鈉、香料、維生素C(抗氧化劑))、綠茶萃取液(即製綠茶粉)、麥芽糊精。",
+    "ingredients_list": [
+      "水",
+      "蔗糖",
+      "奶粉(葡萄糖漿、氫化椰子油、乾酪素鈉、磷酸氫二鉀、脂肪酸甘油酯、二氧化矽、β-胡蘿蔔素)",
+      "菊苣纖維",
+      "奶精(葡萄糖漿、氫化棕櫚仁油、磷酸氫二鉀、乾酪素鈉、碳酸鈣、脂肪酸甘油酯、多磷酸鈉、單及雙脂肪酸甘油二乙醯酒石酸酯、乳酸硬脂酸鈉、香料、維生素C(抗氧化劑))",
+      "綠茶萃取液(即製綠茶粉)",
+      "麥芽糊精"
+    ],
+    "nutrition": {
+      "calories": 60.1,
+      "protein": 0.3,
+      "fat": 1.7,
+      "saturated_fat": 1.7,
+      "trans_fat": 0.0,
+      "carbohydrates": 11.0,
+      "sugar": 7.8,
+      "fiber": null,
+      "sodium": 13.0
+    },
+    "serving_size": 400,
+    "servings_per_container": 1,
+    "serving_description": "每一份量400毫升",
+    "nutrition_raw": "營養標示\n每一份量 400毫升\n本包裝含1份\n每份 每100毫升\n熱量 240大卡 60.1大卡\n蛋白質 1.2公克 0.3公克\n脂肪 6.8公克 1.7公克\n飽和脂肪 6.8公克 1.7公克\n反式脂肪 0公克 0公克\n碳水化合物 44公克 11公克\n糖 31.2公克 7.8公克\n鈉 52毫克 13毫克",
+    "nutrition_other": {},
+    "nutrition_per_serving": {
+      "calories": 240.0,
+      "protein": 1.2,
+      "fat": 6.8,
+      "saturated_fat": 6.8,
+      "trans_fat": 0.0,
+      "carbohydrates": 44.0,
+      "sugar": 31.2,
+      "fiber": null,
+      "sodium": 52.0
+    },
+    "manufacturer": "統一企業(股)公司",
+    "allergy_warning": "本產品含咖啡因28mg/100ml\n過敏原資訊: 本產品含乾酪素鈉(牛奶來源),該生產線亦生產含麩質之穀物及大豆製品的產品。",
+    "certification_marks": [
+      "TQF",
+      "FSC"
+    ]
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "is_food_label": true,
+  "reject_reason": "",
+  "name": "瑞穗極制低溫殺菌鮮乳",
+  "brand": "瑞穗",
+  "ingredients_raw": "生乳(符合CNS 3055生乳標準)",
+  "ingredients_list": [
+    "生乳"
+  ],
+  "nutrition": {
+    "calories": 65.3,
+    "protein": 3.2,
+    "fat": 3.7,
+    "saturated_fat": 2.6,
+    "trans_fat": 0,
+    "carbohydrates": 4.8,
+    "sugar": 4.8,
+    "fiber": null,
+    "sodium": 42
+  },
+  "serving_size": 290,
+  "servings_per_container": 1,
+  "nutrition_per_serving": {
+    "calories": 189,
+    "protein": 9.3,
+    "fat": 10.7,
+    "saturated_fat": 7.5,
+    "trans_fat": 0,
+    "carbohydrates": 13.9,
+    "sugar": 13.9,
+    "fiber": null,
+    "sodium": 122
+  },
+  "manufacturer": "統一企業(股)公司",
+  "allergy_warning": "本產品含有牛奶",
+  "certification_marks": [
+    "TQF",
+    "CAS"
+  ]
+}

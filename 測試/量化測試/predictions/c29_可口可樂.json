@@ -1,0 +1,56 @@
+{
+  "case_id": "c29_可口可樂",
+  "prediction": {
+    "is_food_label": true,
+    "reject_reason": null,
+    "name": "可口可樂 Coca-Cola Original Taste",
+    "brand": "Coca-Cola",
+    "ingredients_raw": "碳酸水、高果糖糖漿、蔗糖、焦糖色素、磷酸、香料、咖啡因。",
+    "ingredients_list": [
+      "碳酸水",
+      "高果糖糖漿",
+      "蔗糖",
+      "焦糖色素",
+      "磷酸",
+      "香料",
+      "咖啡因"
+    ],
+    "nutrition": {
+      "calories": 42.0,
+      "protein": 0.0,
+      "fat": 0.0,
+      "saturated_fat": 0.0,
+      "trans_fat": 0.0,
+      "carbohydrates": 10.4,
+      "sugar": 10.4,
+      "fiber": null,
+      "sodium": null
+    },
+    "serving_size": 300.0,
+    "servings_per_container": 2.0,
+    "serving_description": "每一份 300 毫升",
+    "nutrition_raw": "營養標示\n每一份 300 毫升\n本包裝含 2 份\n每份\n每日參考值\n百分比\n熱量\n126 大卡\n6%\n蛋白質\n0 公克\n0%\n脂肪\n0 公克\n0%\n飽和脂肪\n0 公克\n0%\n反式脂肪\n0 公克\n*\n碳水化合物\n31.2 公克\n11%\n糖\n31.8 公克\n*\n鈉\n18 毫克\n1%\n**每日參考值未訂定\n參考值:熱量 2000 大卡、蛋白質 60 公克、脂肪 60 公克、飽和脂肪 18 公克、碳水化合物 300 公克、鈉 2000 毫克。",
+    "nutrition_other": {
+      "反式脂肪": {
+        "per_100": 0.0,
+        "per_serving": 0.0
+      }
+    },
+    "nutrition_per_serving": {
+      "calories": 126.0,
+      "protein": 0.0,
+      "fat": 0.0,
+      "saturated_fat": 0.0,
+      "trans_fat": 0.0,
+      "carbohydrates": 31.2,
+      "sugar": 31.8,
+      "fiber": null,
+      "sodium": 18.0
+    },
+    "manufacturer": "可口可樂股份有限公司",
+    "allergy_warning": null,
+    "certification_marks": [
+      "TQF"
+    ]
+  }
+}

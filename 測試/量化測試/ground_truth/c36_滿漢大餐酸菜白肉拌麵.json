@@ -1,0 +1,52 @@
+{
+  "is_food_label": true,
+  "reject_reason": "",
+  "name": "滿漢大餐酸菜牛肉拌麵",
+  "brand": "滿漢大餐",
+  "ingredients_raw": "寬麵, 水, 牛肉調味醬, 調味牛肉, 酸菜, 蔥, 調味牛油, 大豆油, 酸菜風味粉, 蒜, 料理米酒, 豆瓣醬, 鬆麵油, 複方品質改良劑, 芝麻油, 辣椒",
+  "ingredients_list": [
+    "寬麵",
+    "水",
+    "牛肉調味醬",
+    "調味牛肉",
+    "酸菜",
+    "蔥",
+    "調味牛油",
+    "大豆油",
+    "酸菜風味粉",
+    "蒜",
+    "料理米酒",
+    "豆瓣醬",
+    "鬆麵油",
+    "複方品質改良劑",
+    "芝麻油",
+    "辣椒"
+  ],
+  "nutrition": {
+    "calories": 150.0,
+    "protein": 9.2,
+    "fat": 3.7,
+    "saturated_fat": 1.1,
+    "trans_fat": 0.0,
+    "carbohydrates": 20.0,
+    "sugar": 0.6,
+    "fiber": null,
+    "sodium": 431.0
+  },
+  "serving_size": 356,
+  "servings_per_container": 1,
+  "nutrition_per_serving": {
+    "calories": 535.0,
+    "protein": 32.8,
+    "fat": 13.2,
+    "saturated_fat": 3.9,
+    "trans_fat": 0.0,
+    "carbohydrates": 71.2,
+    "sugar": 2.1,
+    "fiber": null,
+    "sodium": 1534.0
+  },
+  "manufacturer": "凱亞食品(股)公司",
+  "allergy_warning": "本產品含麩質之穀物、蛋(來自寬麵)、奶類(來自牛肉調味醬)、芝麻、大豆及其製品。",
+  "certification_marks": []
+}

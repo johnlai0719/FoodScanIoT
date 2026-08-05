@@ -1,0 +1,46 @@
+{
+  "is_food_label": true,
+  "reject_reason": "",
+  "name": "冰鎮芭樂綠茶",
+  "brand": "冰鎮",
+  "ingredients_raw": "水、蔗糖、芭樂汁、綠茶、檸檬酸、香料、羧甲基纖維素鈉、維他命C(抗氧化劑)",
+  "ingredients_list": [
+    "水",
+    "蔗糖",
+    "芭樂汁",
+    "綠茶",
+    "檸檬酸",
+    "香料",
+    "羧甲基纖維素鈉",
+    "維他命C(抗氧化劑)"
+  ],
+  "nutrition": {
+    "calories": 45,
+    "protein": 0,
+    "fat": 0,
+    "saturated_fat": 0,
+    "trans_fat": 0,
+    "carbohydrates": 11.3,
+    "sugar": 10.4,
+    "fiber": null,
+    "sodium": 20.0
+  },
+  "serving_size": 325,
+  "servings_per_container": 2,
+  "nutrition_per_serving": {
+    "calories": 146,
+    "protein": 0,
+    "fat": 0,
+    "saturated_fat": 0,
+    "trans_fat": 0,
+    "carbohydrates": 36.7,
+    "sugar": 33.8,
+    "fiber": null,
+    "sodium": 65.0
+  },
+  "manufacturer": "泰山企業股份有限公司",
+  "allergy_warning": "該生產線亦生產含堅果類、大豆、奶類、含麩質之穀物及其製品",
+  "certification_marks": [
+    "TQF"
+  ]
+}

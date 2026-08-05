@@ -1,0 +1,41 @@
+{
+  "case_id": "c12_肉鬆御飯糰",
+  "prediction": {
+    "is_food_label": true,
+    "reject_reason": null,
+    "name": "FamilyMart 肉鬆飯糰",
+    "brand": "FamilyMart",
+    "ingredients_raw": "成份米、肉鬆(豬肉、豌豆粉、糖、鹽、大豆油、醬油、芝麻、麵包粉、紅麴粉)、美乃滋(沙拉油、蔗糖、蛋、鹽、醋、玉米糖膠、柑橘果膠)、豬油、海苔、海鹽、醋。",
+    "ingredients_list": [
+      "米",
+      "肉鬆(豬肉、豌豆粉、糖、鹽、大豆油、醬油、芝麻、麵包粉、紅麴粉)",
+      "美乃滋(沙拉油、蔗糖、蛋、鹽、醋、玉米糖膠、柑橘果膠)",
+      "豬油",
+      "海苔",
+      "海鹽",
+      "醋"
+    ],
+    "nutrition": null,
+    "serving_size": 110,
+    "servings_per_container": 1,
+    "serving_description": "110公克",
+    "nutrition_raw": "重量:110公克\n熱量 245 大卡",
+    "nutrition_other": {},
+    "nutrition_per_serving": {
+      "calories": 245,
+      "protein": null,
+      "fat": null,
+      "saturated_fat": null,
+      "trans_fat": null,
+      "carbohydrates": null,
+      "sugar": null,
+      "fiber": null,
+      "sodium": null
+    },
+    "manufacturer": "屏榮食品(股)",
+    "allergy_warning": null,
+    "certification_marks": [
+      "CAS"
+    ]
+  }
+}

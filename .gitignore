@@ -73,6 +73,21 @@ RoadMap/
 # （原本被上方的 *.md / *.json 規則擋掉，才會一直只存在於 add-app-and-assets 分支。）
 !測試/圖片掃描處理/*.md
 !測試/圖片掃描處理/*.json
+
+# 量化測試集的文字資產。必須進版控——教授 2026-07-30 回饋要求「用同一組案例」
+# 跨期比較 P/R/F1 與延遲，而測試集若不在版控內，「同一組」無從證明，
+# 歷次報告的數字也沒有第二個人能重跑驗證。
+#   cases.json      案例定義（含 set_version，core48 為凍結子集）
+#   ground_truth/   人工正解，唯一不可由程式重生的資產
+#   predictions/    已存的辨識結果。離線回測（eval_ingredient_parse.py、
+#                   audit_additive_matches.py）吃這批資料，不必重打 API 花錢
+#   manifest.json   原圖的 SHA256 清單，見 manifest_tool.py 檔頭
+# 原圖本身（167 MB）仍不進版控，由 manifest 保證其身分。
+!測試/量化測試/cases.json
+!測試/量化測試/manifest.json
+!測試/量化測試/ground_truth/*.json
+!測試/量化測試/predictions/*.json
+!測試/量化測試/README.md
 !cloud/requirements.txt
 !fog/requirements.txt
 # tests/ 底下多為需要跑起伺服器與資料庫的臨時整合腳本，預設不進版控。
