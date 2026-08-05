@@ -65,14 +65,46 @@ def _install_usage_probe():
         return
     inner = client.models.generate_content
 
+    # thinking 的實驗開關。正式程式碼寫死 thinking_budget=0，此處在同一個
+    # 包裝內覆寫，**不改 server/main.py**——量測工具不該為自己方便去動被量測
+    # 的對象，否則線上行為與量到的行為就不再是同一件事。
+    #   EVAL_THINKING_BUDGET   0 停用（線上現值）／-1 自動／正整數為 token 上限
+    #   EVAL_MAX_OUTPUT_TOKENS 開 thinking 時務必一併設定，見下方說明
+    budget = os.environ.get('EVAL_THINKING_BUDGET')
+    max_out = os.environ.get('EVAL_MAX_OUTPUT_TOKENS')
+    if budget is not None:
+        print(f"[實驗] thinking_budget 覆寫為 {budget}"
+              + (f"、max_output_tokens={max_out}" if max_out else ""))
+        if not max_out:
+            # response.text 會排除 thought 部分；thinking 若把 output 額度用完，
+            # response.text 為 None，main.py 的 re.search 會丟 TypeError 而被
+            # 外層 except 接住 → 該案記為辨識失敗。看起來像模型變差，
+            # 實際是額度被思考吃掉了。
+            print("[WARN] 未設 EVAL_MAX_OUTPUT_TOKENS。thinking 佔用 output 額度，"
+                  "額度不足時回應會是空的，該案會被記為失敗而非低分。")
+
     def wrapper(*a, **kw):
+        if budget is not None:
+            cfg = dict(kw.get('config') or {})
+            cfg['thinking_config'] = {'thinking_budget': int(budget)}
+            if max_out:
+                cfg['max_output_tokens'] = int(max_out)
+            kw['config'] = cfg
         resp = inner(*a, **kw)
         u = getattr(resp, 'usage_metadata', None)
+        fr = None
+        try:
+            fr = str(resp.candidates[0].finish_reason)
+        except Exception:
+            pass
         _usage.append({
             "prompt": getattr(u, 'prompt_token_count', None),
             "output": getattr(u, 'candidates_token_count', None),
+            # thinking 實際用掉多少——效果與成本的對照要靠這個欄位
+            "thoughts": getattr(u, 'thoughts_token_count', None),
             "total": getattr(u, 'total_token_count', None),
             "model": kw.get('model') or (a[0] if a else None),
+            "finish_reason": fr,
         } if u else {})
         return resp
 
@@ -165,7 +197,9 @@ def main():
                 "n_images": len(imgs), "payload_raw_bytes": payload_raw,
                 "payload_b64_bytes": payload_b64,
                 "tokens_prompt": u.get('prompt'), "tokens_output": u.get('output'),
-                "tokens_total": u.get('total'), "model": u.get('model'),
+                "tokens_thoughts": u.get('thoughts'), "tokens_total": u.get('total'),
+                "model": u.get('model'), "finish_reason": u.get('finish_reason'),
+                "thinking_budget": os.environ.get('EVAL_THINKING_BUDGET'),
                 "is_food_label": (out or {}).get('is_food_label'),
                 "ok": out is not None, "error": err,
             })
