@@ -3,13 +3,13 @@
   "prediction": {
     "is_food_label": true,
     "reject_reason": "",
-    "name": "統一麥香綠茶",
+    "name": "統一 麥香紅茶",
     "brand": "統一",
-    "ingredients_raw": "原料：水、蔗糖、綠茶、大麥、茉莉綠茶、維生素C (抗氧化劑)、香料、小蘇打",
+    "ingredients_raw": "原料：水、蔗糖、紅茶、大麥、茉莉綠茶、維生素C (抗氧化劑)、香料、小蘇打",
     "ingredients_list": [
       "水",
       "蔗糖",
-      "綠茶",
+      "紅茶",
       "大麥",
       "茉莉綠茶",
       "維生素C (抗氧化劑)",
@@ -18,19 +18,19 @@
     ],
     "nutrition": {
       "calories": 27.2,
-      "protein": 0.5,
+      "protein": 0.0,
       "fat": 0.0,
       "saturated_fat": 0.0,
       "trans_fat": 0.0,
       "carbohydrates": 6.8,
       "sugar": 6.5,
       "fiber": null,
-      "sodium": 7.0
+      "sodium": 2.0
     },
     "serving_size": 375,
     "servings_per_container": 1,
     "serving_description": "每一份量375毫升",
-    "nutrition_raw": "營養標示\n每一份量375毫升\n本包裝含1份\n每份\t每100毫升\n熱量\t102大卡\t27.2大卡\n蛋白質\t0公克\t0公克\n脂肪\t0公克\t0公克\n飽和脂肪\t0公克\t0公克\n反式脂肪\t0公克\t0公克\n碳水化合物\t25.5公克\t6.8公克\n糖\t24.4公克\t6.5公克\n鈉\t26毫克\t7毫克",
+    "nutrition_raw": "營養標示\n每一份量375毫升\n本包裝含1份\n\n每份 每100毫升\n熱量 102大卡 27.2大卡\n蛋白質 0公克 0公克\n脂肪 0公克 0公克\n飽和脂肪 0公克 0公克\n反式脂肪 0公克 0公克\n碳水化合物 25.5公克 6.8公克\n糖 24.4公克 6.5公克\n鈉 26毫克 7毫克",
     "nutrition_other": {},
     "nutrition_per_serving": {
       "calories": 102.0,
@@ -44,7 +44,7 @@
       "sodium": 26.0
     },
     "manufacturer": "統一企業(股)公司",
-    "allergy_warning": "過敏原資訊：本產品含麩質之穀物及其製品。該生產線亦生產含牛奶製品的產品。",
+    "allergy_warning": "過敏原資訊：本產品含麩質之穀物及其製品，該生產線亦生產含牛奶製品的產品。",
     "certification_marks": [
       "FSC",
       "TQF"

@@ -16,10 +16,10 @@
       "醋"
     ],
     "nutrition": null,
-    "serving_size": 110,
-    "servings_per_container": 1,
-    "serving_description": "110公克",
-    "nutrition_raw": "重量:110公克\n熱量 245 大卡",
+    "serving_size": null,
+    "servings_per_container": null,
+    "serving_description": null,
+    "nutrition_raw": "重量: 110公克\n熱量 245 大卡",
     "nutrition_other": {},
     "nutrition_per_serving": {
       "calories": 245,

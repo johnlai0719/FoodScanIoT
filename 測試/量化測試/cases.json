@@ -1,5 +1,5 @@
 {
-  "_說明": "影像辨識層量化測試的案例定義。\n\nset_version —— 測試集版本。core48 為 2026-07-30 報告所用的 48 案，**永久凍結**：\n  不增、不減、不換圖。跨期比較一律只看 core48 的數字，新增案例另標 v3 以後版本，\n  分開報告。理由：測試集一改，前後期數字就不再是同一把尺量的（20→48 案時已\n  發生過一次，上下期延遲數字實際上不可直接比）。\n\ncategory —— 商品類別，供評分時切片。supplement_food 指「是食品、但以保健食品\n  形態呈現」者，與 v3 將新增的硬負例（真正的保健食品外盒）僅一線之隔，\n  是相關性閘門最容易出錯的邊界。\n\ndifficulty —— 影像困難度標籤（glare 反光／curved 曲面／crease 摺痕／\n  low_light 低光／angled 斜拍／small_text 小字密集／occluded 遮擋）。\n  **core48 目前全為空陣列，這是誠實的未知而非「無困難」**：這批照片拍攝時\n  未記錄拍攝條件，事後補標需要有人逐張看過原圖才能標。標註完成前，\n  依 difficulty 切片的報告只會涵蓋 v3 之後的案例。",
+  "_說明": "影像辨識層量化測試的案例定義。\n\nset_version —— 測試集版本。\n  core48   2026-07-30 報告所用的原始 48 案（每案 1–3 張，含正面照與 HEIC 副本）。\n  core48r2 2026-08-06 起。案例仍是同樣 48 件，但移除了無實質內容的正面照與\n           HEIC 重複檔——圖片自 98 張降為 54 張。輸入變了，**故 core48 與\n           core48r2 的數字不可直接相比**（延遲尤其：送出資料量大幅下降）。\n  以下凍結規則對 core48r2 同樣適用：\n  不增、不減、不換圖。跨期比較一律只看 core48 的數字，新增案例另標 v3 以後版本，\n  分開報告。理由：測試集一改，前後期數字就不再是同一把尺量的（20→48 案時已\n  發生過一次，上下期延遲數字實際上不可直接比）。\n\ncategory —— 商品類別，供評分時切片。supplement_food 指「是食品、但以保健食品\n  形態呈現」者，與 v3 將新增的硬負例（真正的保健食品外盒）僅一線之隔，\n  是相關性閘門最容易出錯的邊界。\n\ndifficulty —— 影像困難度標籤（glare 反光／curved 曲面／crease 摺痕／\n  low_light 低光／angled 斜拍／small_text 小字密集／occluded 遮擋）。\n  **core48 目前全為空陣列，這是誠實的未知而非「無困難」**：這批照片拍攝時\n  未記錄拍攝條件，事後補標需要有人逐張看過原圖才能標。標註完成前，\n  依 difficulty 切片的報告只會涵蓋 v3 之後的案例。",
   "cases": [
     {
       "case_id": "c01_柳橙綠茶",
@@ -14,7 +14,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "beverage",
       "difficulty": []
     },
@@ -31,7 +31,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "beverage",
       "difficulty": []
     },
@@ -48,7 +48,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "beverage",
       "difficulty": []
     },
@@ -66,7 +66,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "beverage",
       "difficulty": []
     },
@@ -83,7 +83,7 @@
         "has_per_serving": false,
         "has_ingredients": false
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "non_food",
       "difficulty": []
     },
@@ -100,7 +100,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "beverage",
       "difficulty": []
     },
@@ -117,7 +117,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "beverage",
       "difficulty": []
     },
@@ -134,7 +134,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -151,7 +151,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -168,7 +168,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -185,7 +185,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -202,7 +202,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -219,7 +219,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "beverage",
       "difficulty": []
     },
@@ -236,7 +236,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "beverage",
       "difficulty": []
     },
@@ -253,7 +253,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "beverage",
       "difficulty": []
     },
@@ -270,7 +270,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "beverage",
       "difficulty": []
     },
@@ -287,7 +287,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "snack",
       "difficulty": []
     },
@@ -304,7 +304,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "snack",
       "difficulty": []
     },
@@ -321,7 +321,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "snack",
       "difficulty": []
     },
@@ -330,8 +330,7 @@
       "desc": "Pocky百奇 草莓棒",
       "barcode": "TEST",
       "images": [
-        "images/snack/c21_Pockey百奇草莓棒/IMG_7782.jpg",
-        "images/snack/c21_Pockey百奇草莓棒/IMG_7783.jpg"
+        "images/snack/c21_Pockey百奇草莓棒/IMG_7782.jpg"
       ],
       "tags": {
         "is_food": true,
@@ -339,7 +338,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "snack",
       "difficulty": []
     },
@@ -348,8 +347,7 @@
       "desc": "UNCLE LEMON蜂蜜檸檬風味膠囊",
       "barcode": "TEST",
       "images": [
-        "images/supplement_food/c22_UNCLELEMON蜂蜜檸檬風味膠囊/IMG_7790.jpg",
-        "images/supplement_food/c22_UNCLELEMON蜂蜜檸檬風味膠囊/IMG_7791.jpg"
+        "images/supplement_food/c22_UNCLELEMON蜂蜜檸檬風味膠囊/IMG_7790.jpg"
       ],
       "tags": {
         "is_food": true,
@@ -357,7 +355,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "supplement_food",
       "difficulty": []
     },
@@ -366,8 +364,7 @@
       "desc": "in果凍(綜合礦物質)",
       "barcode": "TEST",
       "images": [
-        "images/supplement_food/c23_in果凍/IMG_7792.jpg",
-        "images/supplement_food/c23_in果凍/IMG_7793.jpg"
+        "images/supplement_food/c23_in果凍/IMG_7792.jpg"
       ],
       "tags": {
         "is_food": true,
@@ -375,7 +372,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "supplement_food",
       "difficulty": []
     },
@@ -384,7 +381,6 @@
       "desc": "in果凍(綜合礦物質)",
       "barcode": "TEST",
       "images": [
-        "images/beverage/c24_優質蛋白奶-堅果杏仁/IMG_4734.jpg",
         "images/beverage/c24_優質蛋白奶-堅果杏仁/IMG_4735.jpg"
       ],
       "tags": {
@@ -393,7 +389,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "beverage",
       "difficulty": []
     },
@@ -402,7 +398,6 @@
       "desc": "優質蛋白奶-無加糖燕麥",
       "barcode": "TEST",
       "images": [
-        "images/beverage/c25_優質蛋白奶-無加糖燕麥/IMG_4732.jpg",
         "images/beverage/c25_優質蛋白奶-無加糖燕麥/IMG_4733.jpg"
       ],
       "tags": {
@@ -411,7 +406,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "beverage",
       "difficulty": []
     },
@@ -420,7 +415,6 @@
       "desc": "冰鎮芭樂綠茶",
       "barcode": "TEST",
       "images": [
-        "images/beverage/c26_冰鎮芭樂綠茶/IMG_4751.jpg",
         "images/beverage/c26_冰鎮芭樂綠茶/IMG_4752.jpg"
       ],
       "tags": {
@@ -429,7 +423,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "beverage",
       "difficulty": []
     },
@@ -438,7 +432,6 @@
       "desc": "冰鎮葡萄鮮冰茶",
       "barcode": "TEST",
       "images": [
-        "images/beverage/c27_冰鎮葡萄鮮冰茶/IMG_4749.jpg",
         "images/beverage/c27_冰鎮葡萄鮮冰茶/IMG_4750.jpg"
       ],
       "tags": {
@@ -447,7 +440,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "beverage",
       "difficulty": []
     },
@@ -456,8 +449,7 @@
       "desc": "北海鱈魚香絲",
       "barcode": "TEST",
       "images": [
-        "images/snack/c28_北海鱈魚香絲/IMG_7786.jpg",
-        "images/snack/c28_北海鱈魚香絲/IMG_7787.jpg"
+        "images/snack/c28_北海鱈魚香絲/IMG_7786.jpg"
       ],
       "tags": {
         "is_food": true,
@@ -465,7 +457,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "snack",
       "difficulty": []
     },
@@ -474,7 +466,6 @@
       "desc": "可口可樂汽水",
       "barcode": "TEST",
       "images": [
-        "images/beverage/c29_可口可樂/IMG_4759.jpg",
         "images/beverage/c29_可口可樂/IMG_4760.jpg",
         "images/beverage/c29_可口可樂/IMG_4761.jpg"
       ],
@@ -484,7 +475,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "beverage",
       "difficulty": []
     },
@@ -493,7 +484,6 @@
       "desc": "吉士豬肉堡加蛋",
       "barcode": "TEST",
       "images": [
-        "images/prepared_meal/c30_吉士豬肉堡加蛋/IMG_4736.jpg",
         "images/prepared_meal/c30_吉士豬肉堡加蛋/IMG_4737.jpg"
       ],
       "tags": {
@@ -502,7 +492,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -511,7 +501,6 @@
       "desc": "增雞蛋白質餐",
       "barcode": "TEST",
       "images": [
-        "images/prepared_meal/c31_增雞蛋白餐/IMG_7800.jpg",
         "images/prepared_meal/c31_增雞蛋白餐/IMG_7801.jpg"
       ],
       "tags": {
@@ -520,7 +509,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -529,8 +518,7 @@
       "desc": "奧利奧捲心酥-巧克力口味",
       "barcode": "TEST",
       "images": [
-        "images/snack/c32_奧利奧捲心酥-巧克力口味/IMG_7784.jpg",
-        "images/snack/c32_奧利奧捲心酥-巧克力口味/IMG_7785.jpg"
+        "images/snack/c32_奧利奧捲心酥-巧克力口味/IMG_7784.jpg"
       ],
       "tags": {
         "is_food": true,
@@ -538,7 +526,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "snack",
       "difficulty": []
     },
@@ -547,8 +535,7 @@
       "desc": "手摘果物 無籽梅肉",
       "barcode": "TEST",
       "images": [
-        "images/snack/c33_手摘果物-無籽梅肉/IMG_7788.jpg",
-        "images/snack/c33_手摘果物-無籽梅肉/IMG_7789.jpg"
+        "images/snack/c33_手摘果物-無籽梅肉/IMG_7788.jpg"
       ],
       "tags": {
         "is_food": true,
@@ -556,7 +543,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "snack",
       "difficulty": []
     },
@@ -565,7 +552,6 @@
       "desc": "日式佛蒙特咖哩雞肉飯",
       "barcode": "TEST",
       "images": [
-        "images/prepared_meal/c34_日式佛蒙特咖哩雞肉飯/IMG_4747.jpg",
         "images/prepared_meal/c34_日式佛蒙特咖哩雞肉飯/IMG_4748.jpg"
       ],
       "tags": {
@@ -574,7 +560,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -583,7 +569,6 @@
       "desc": "極饗-真飽經典麻醬涼麵",
       "barcode": "TEST",
       "images": [
-        "images/prepared_meal/c35_極饕-真飽經典麻醬涼麵/IMG_4740.jpg",
         "images/prepared_meal/c35_極饕-真飽經典麻醬涼麵/IMG_4741.jpg"
       ],
       "tags": {
@@ -592,7 +577,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -601,7 +586,6 @@
       "desc": "滿漢大餐酸菜牛肉拌麵",
       "barcode": "TEST",
       "images": [
-        "images/instant_noodle/c36_滿漢大餐酸菜白肉拌麵/IMG_4730.jpg",
         "images/instant_noodle/c36_滿漢大餐酸菜白肉拌麵/IMG_4731.jpg"
       ],
       "tags": {
@@ -610,7 +594,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "instant_noodle",
       "difficulty": []
     },
@@ -619,7 +603,6 @@
       "desc": "爆蛋流心豬肉堡",
       "barcode": "TEST",
       "images": [
-        "images/prepared_meal/c37_爆蛋流心豬肉堡/IMG_4738.jpg",
         "images/prepared_meal/c37_爆蛋流心豬肉堡/IMG_4739.jpg"
       ],
       "tags": {
@@ -628,7 +611,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -637,8 +620,7 @@
       "desc": "c38_科學麵",
       "barcode": "TEST",
       "images": [
-        "images/snack/c38_科學麵/IMG_7794.jpg",
-        "images/snack/c38_科學麵/IMG_7795.jpg"
+        "images/snack/c38_科學麵/IMG_7794.jpg"
       ],
       "tags": {
         "is_food": true,
@@ -646,7 +628,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "snack",
       "difficulty": []
     },
@@ -655,7 +637,6 @@
       "desc": "米香-三杯雞燴飯",
       "barcode": "TEST",
       "images": [
-        "images/prepared_meal/c39_米香-三杯雞燴飯/IMG_4745.jpg",
         "images/prepared_meal/c39_米香-三杯雞燴飯/IMG_4746.jpg"
       ],
       "tags": {
@@ -664,7 +645,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -673,7 +654,6 @@
       "desc": "米香-催淚蛋親子丼飯",
       "barcode": "TEST",
       "images": [
-        "images/prepared_meal/c40_米香-催淚蛋親子丼飯/IMG_4743.jpg",
         "images/prepared_meal/c40_米香-催淚蛋親子丼飯/IMG_4744.jpg"
       ],
       "tags": {
@@ -682,7 +662,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -692,8 +672,7 @@
       "barcode": "TEST",
       "images": [
         "images/canned_food/c41_綠巨人珍珠玉米/IMG_7804.jpg",
-        "images/canned_food/c41_綠巨人珍珠玉米/IMG_7805.jpg",
-        "images/canned_food/c41_綠巨人珍珠玉米/IMG_7806.jpg"
+        "images/canned_food/c41_綠巨人珍珠玉米/IMG_7805.jpg"
       ],
       "tags": {
         "is_food": true,
@@ -701,7 +680,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "canned_food",
       "difficulty": []
     },
@@ -710,8 +689,7 @@
       "desc": "(區)牛角-蔥鹽炙燒豬肉便當",
       "barcode": "TEST",
       "images": [
-        "images/prepared_meal/c42_蔥鹽炙燒豬肉便當/IMG_4725.jpg",
-        "images/prepared_meal/c42_蔥鹽炙燒豬肉便當/IMG_4726.jpg"
+        "images/prepared_meal/c42_蔥鹽炙燒豬肉便當/IMG_4725.jpg"
       ],
       "tags": {
         "is_food": true,
@@ -719,7 +697,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -728,7 +706,6 @@
       "desc": "太和殿-藤椒風味烤雞拌麵(辣)",
       "barcode": "TEST",
       "images": [
-        "images/prepared_meal/c43_藤椒風味烤雞便當/IMG_4727.jpg",
         "images/prepared_meal/c43_藤椒風味烤雞便當/IMG_4728.jpg"
       ],
       "tags": {
@@ -737,7 +714,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -746,8 +723,7 @@
       "desc": "(專)新台味-酸菜白肉個人鍋",
       "barcode": "TEST",
       "images": [
-        "images/prepared_meal/c44_酸菜白肉個人鍋/IMG_7802.jpg",
-        "images/prepared_meal/c44_酸菜白肉個人鍋/IMG_7803.jpg"
+        "images/prepared_meal/c44_酸菜白肉個人鍋/IMG_7802.jpg"
       ],
       "tags": {
         "is_food": true,
@@ -755,7 +731,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -764,7 +740,6 @@
       "desc": "(蔬)金沙烤豆腐義大利麵",
       "barcode": "TEST",
       "images": [
-        "images/prepared_meal/c45_金沙烤豆腐義大利麵/IMG_7798.jpg",
         "images/prepared_meal/c45_金沙烤豆腐義大利麵/IMG_7799.jpg"
       ],
       "tags": {
@@ -773,7 +748,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -782,7 +757,6 @@
       "desc": "雙拼起司紅醬焗飯",
       "barcode": "TEST",
       "images": [
-        "images/prepared_meal/c46_雙拼起司紅醬焗飯/IMG_7796.jpg",
         "images/prepared_meal/c46_雙拼起司紅醬焗飯/IMG_7797.jpg"
       ],
       "tags": {
@@ -791,7 +765,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -800,7 +774,6 @@
       "desc": "麥香奶茶",
       "barcode": "TEST",
       "images": [
-        "images/beverage/c47_麥香奶茶/IMG_4757.jpg",
         "images/beverage/c47_麥香奶茶/IMG_4758.jpg",
         "images/beverage/c47_麥香奶茶/IMG_4764.jpg"
       ],
@@ -810,7 +783,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "beverage",
       "difficulty": []
     },
@@ -819,7 +792,6 @@
       "desc": "麥香紅茶",
       "barcode": "TEST",
       "images": [
-        "images/beverage/c48_麥香紅茶/IMG_4753.jpg",
         "images/beverage/c48_麥香紅茶/IMG_4754.jpg",
         "images/beverage/c48_麥香紅茶/IMG_4763.jpg"
       ],
@@ -829,7 +801,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "beverage",
       "difficulty": []
     },
@@ -838,7 +810,6 @@
       "desc": "麥香綠茶",
       "barcode": "TEST",
       "images": [
-        "images/beverage/c49_麥香綠茶/IMG_4755.jpg",
         "images/beverage/c49_麥香綠茶/IMG_4756.jpg",
         "images/beverage/c49_麥香綠茶/IMG_4762.jpg"
       ],
@@ -848,7 +819,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48",
+      "set_version": "core48r2",
       "category": "beverage",
       "difficulty": []
     }

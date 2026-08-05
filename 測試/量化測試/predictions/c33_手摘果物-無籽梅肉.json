@@ -3,15 +3,15 @@
   "prediction": {
     "is_food_label": true,
     "reject_reason": "",
-    "name": "無籽梅肉",
-    "brand": "7-ELEVEN",
+    "name": "無籽梅肉 Dried Plum Without Seed",
+    "brand": "手摘果物",
     "ingredients_raw": "原料：梅肉、食鹽、蔗糖、檸檬酸、甜味劑(阿斯巴甜、蔗糖素、甜菊醣苷、甘草素、紐甜)、香莢蘭醛、香料",
     "ingredients_list": [
       "梅肉",
       "食鹽",
       "蔗糖",
       "檸檬酸",
-      "甜味劑(阿斯巴甜)",
+      "阿斯巴甜",
       "蔗糖素",
       "甜菊醣苷",
       "甘草素",
@@ -24,30 +24,30 @@
       "protein": 5.5,
       "fat": 1.1,
       "saturated_fat": 0.2,
-      "trans_fat": 0,
+      "trans_fat": 0.0,
       "carbohydrates": 52.2,
-      "sugar": 0.7,
+      "sugar": 4.1,
       "fiber": null,
-      "sodium": 5575
+      "sodium": 5575.0
     },
     "serving_size": 18,
     "servings_per_container": 1,
     "serving_description": "每一份量18公克",
-    "nutrition_raw": "營養標示\n每一份量18公克\n本包裝含1份\n每份 每100公克\n熱量 43.3大卡 240.7大卡\n蛋白質 1.0公克 5.5公克\n脂肪 0.2公克 1.1公克\n飽和脂肪 0.04公克 0.2公克\n反式脂肪 0公克 0公克\n碳水化合物 9.4公克 52.2公克\n糖 0.1公克 0.7公克\n鈉 100.3毫克 5575毫克",
+    "nutrition_raw": "營養標示\n每一份量18公克\n本包裝含 1份\n每份\t每100公克\n熱量\t43.3大卡\t240.7大卡\n蛋白質\t1.0公克\t5.5公克\n脂肪\t0.2公克\t1.1公克\n飽和脂肪\t0.04公克\t0.2公克\n反式脂肪\t0公克\t0公克\n碳水化合物\t9.4公克\t52.2公克\n糖\t0.7公克\t4.1公克\n鈉\t1003.5毫克\t5575毫克",
     "nutrition_other": {},
     "nutrition_per_serving": {
       "calories": 43.3,
       "protein": 1.0,
       "fat": 0.2,
       "saturated_fat": 0.04,
-      "trans_fat": 0,
+      "trans_fat": 0.0,
       "carbohydrates": 9.4,
-      "sugar": 0.1,
+      "sugar": 0.7,
       "fiber": null,
-      "sodium": 100.3
+      "sodium": 1003.5
     },
-    "manufacturer": "維合企業有限公司",
-    "allergy_warning": "※本產品含阿斯巴甜，苯酮尿症患者不宜食用。\n※梅肉表面上的白色粉末，是鹽巴及甜味劑(例如糖粉)，請安心食用。",
+    "manufacturer": "佳合企業有限公司",
+    "allergy_warning": "※本產品含阿斯巴甜，苯酮尿症患者不宜食用。\n※梅子表面上的白色粉末，是鹽巴及甜味劑(阿斯巴甜)，請安心食用。",
     "certification_marks": []
   }
 }

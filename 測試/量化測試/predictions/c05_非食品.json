@@ -21,7 +21,7 @@
     "serving_size": null,
     "servings_per_container": null,
     "serving_description": null,
-    "nutrition_raw": null,
+    "nutrition_raw": "",
     "nutrition_other": {},
     "nutrition_per_serving": {
       "calories": null,

@@ -33,9 +33,11 @@ IMAGE_ROOT = os.environ.get('EVAL_IMAGE_ROOT') or HERE
 
 
 def load_env(path):
+    # 明確指定 utf-8：.env 與 .env.example 都含中文註解，而 Windows 的
+    # open() 預設是 cp950，不指定會在載入設定這一步就 UnicodeDecodeError。
     if not os.path.exists(path):
         return
-    for line in open(path):
+    for line in open(path, encoding='utf-8'):
         line = line.strip()
         if not line or line.startswith('#') or '=' not in line:
             continue

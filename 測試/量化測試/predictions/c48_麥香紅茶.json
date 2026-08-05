@@ -3,53 +3,53 @@
   "prediction": {
     "is_food_label": true,
     "reject_reason": "",
-    "name": "麥香紅茶",
-    "brand": "統一 Uni-President",
-    "ingredients_raw": "水、蔗糖、紅茶、大麥、香料、碳酸鈉、多磷酸鈉、小蘇打、維生素C(抗氧化劑)、焦磷酸鈉(無水)",
+    "name": "統一 麥香紅茶",
+    "brand": "統一",
+    "ingredients_raw": "原料:水、砂糖、紅茶、大麥、香料、偏磷酸鈉、多磷酸鈉、小蘇打、維生素C(抗氧化劑)、焦糖酸鈉(無水)",
     "ingredients_list": [
       "水",
-      "蔗糖",
+      "砂糖",
       "紅茶",
       "大麥",
       "香料",
-      "碳酸鈉",
+      "偏磷酸鈉",
       "多磷酸鈉",
       "小蘇打",
       "維生素C(抗氧化劑)",
-      "焦磷酸鈉(無水)"
+      "焦糖酸鈉(無水)"
     ],
     "nutrition": {
-      "calories": 38.0,
-      "protein": 0.0,
-      "fat": 0.0,
-      "saturated_fat": 0.0,
-      "trans_fat": 0.0,
+      "calories": 39.2,
+      "protein": 0.3,
+      "fat": 0.2,
+      "saturated_fat": 0,
+      "trans_fat": 0,
       "carbohydrates": 9.5,
       "sugar": 9.5,
       "fiber": null,
-      "sodium": 14.0
+      "sodium": 14
     },
-    "serving_size": 375.0,
-    "servings_per_container": 1.0,
+    "serving_size": 375,
+    "servings_per_container": 1,
     "serving_description": "每一份量375毫升",
-    "nutrition_raw": "營養標示\n每一份量375毫升\n本包裝含1份\n每份\n每100毫升\n熱量\n142大卡\n38大卡\n蛋白質\n0公克\n0公克\n脂肪\n0公克\n0公克\n飽和脂肪\n0公克\n0公克\n反式脂肪\n0公克\n0公克\n碳水化合物\n35.6公克\n9.5公克\n糖\n35.6公克\n9.5公克\n鈉\n52毫克\n14毫克",
+    "nutrition_raw": "營養標示\n每一份量375毫升\n本包裝含1份\n每份 每100毫升\n熱量 147大卡 39.2大卡\n蛋白質 1.1公克 0.3公克\n脂肪 0.8公克 0.2公克\n飽和脂肪 0公克 0公克\n反式脂肪 0公克 0公克\n碳水化合物 35.6公克 9.5公克\n糖 35.6公克 9.5公克\n鈉 52毫克 14毫克",
     "nutrition_other": {},
     "nutrition_per_serving": {
-      "calories": 142.0,
-      "protein": 0.0,
-      "fat": 0.0,
-      "saturated_fat": 0.0,
-      "trans_fat": 0.0,
+      "calories": 147,
+      "protein": 1.1,
+      "fat": 0.8,
+      "saturated_fat": 0,
+      "trans_fat": 0,
       "carbohydrates": 35.6,
       "sugar": 35.6,
       "fiber": null,
-      "sodium": 52.0
+      "sodium": 52
     },
     "manufacturer": "統一企業(股)公司",
-    "allergy_warning": "本產品含麩質之穀物及其製品，該生產線亦生產含牛奶製品的產品。",
+    "allergy_warning": "過敏原資訊:本產品含麩質之穀物及其製品,該生產線亦生產含牛奶製品的產品。",
     "certification_marks": [
-      "FSC",
-      "TQF"
+      "TQF",
+      "FSC"
     ]
   }
 }

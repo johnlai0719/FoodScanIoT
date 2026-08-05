@@ -2,10 +2,10 @@
   "case_id": "c21_Pockey百奇草莓棒",
   "prediction": {
     "is_food_label": true,
-    "reject_reason": "",
-    "name": "Pocky 百奇 草莓棒",
+    "reject_reason": null,
+    "name": "Pocky百奇草莓棒",
     "brand": "Glico",
-    "ingredients_raw": "成分:小麥麵粉、砂糖、植物油(葵花籽油、棕櫚油)、乳糖、全脂奶粉、酥油(棕櫚油、完全氫化棕櫚油)、紅甜菜色素、香料、食鹽、酵母、大豆卵磷脂、草莓粉、脂肪酸甘油酯、碳酸氫鈉。",
+    "ingredients_raw": "成分:小麥麵粉、砂糖、植物油(葵花籽油、棕櫚油)、乳糖、全脂奶粉、酥油(棕櫚油、完全氫化棕櫚油)、紅甜菜色素、香料、食鹽、酵母、大豆卵磷脂、草莓粉、脂肪酸甘油酯、碳酸氫鈉",
     "ingredients_list": [
       "小麥麵粉",
       "砂糖",
@@ -49,7 +49,7 @@
       "fiber": null,
       "sodium": 48.2
     },
-    "manufacturer": "泰國Glico Co., Ltd. (Bangkhadi)",
+    "manufacturer": "THAI GLICO CO., LTD. (Bangcadi)",
     "allergy_warning": "過敏原標示:本產品含有麩質之穀物、牛奶、大豆及其製品，不適合對其過敏體質者食用。本產品生產製程廠房，其設備或生產管線有處理芒果、堅果類及其製品。",
     "certification_marks": []
   }

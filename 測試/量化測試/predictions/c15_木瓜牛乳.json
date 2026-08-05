@@ -2,7 +2,7 @@
   "case_id": "c15_木瓜牛乳",
   "prediction": {
     "is_food_label": true,
-    "reject_reason": null,
+    "reject_reason": "",
     "name": "統一木瓜牛乳",
     "brand": "統一",
     "ingredients_raw": "水、濃縮木瓜汁、蔗糖、全脂乳粉、脫脂乳粉、鮮乳油、羧甲基纖維素鈉、小蘇打、香料、脂肪酸甘油酯、複方β-胡蘿蔔素(甘油、水、β-胡蘿蔔素、抗氧化劑(L-抗壞血酸棕櫚酸酯、維生素E)、葵花卵磷脂)",
@@ -34,7 +34,7 @@
     "serving_size": 478.0,
     "servings_per_container": 1.0,
     "serving_description": "每一份量478毫升",
-    "nutrition_raw": "營養標示\n每一份量478毫升\n本包裝含1份\n\n每份\n每100毫升\n熱量\n303大卡\n63.4大卡\n蛋白質\n9.1公克\n1.9公克\n脂肪\n8.6公克\n1.8公克\n飽和脂肪\n6.2公克\n1.3公克\n反式脂肪\n0公克\n0公克\n碳水化合物\n47.3公克\n9.9公克\n糖\n46.8公克\n9.8公克\n鈉\n277毫克\n58毫克",
+    "nutrition_raw": "營養標示\n每一份量478毫升\n本包裝含1份\n每份 每100毫升\n熱量 303大卡 63.4大卡\n蛋白質 9.1公克 1.9公克\n脂肪 8.6公克 1.8公克\n飽和脂肪 6.2公克 1.3公克\n反式脂肪 0公克 0公克\n碳水化合物 47.3公克 9.9公克\n糖 46.8公克 9.8公克\n鈉 277毫克 58毫克",
     "nutrition_other": {},
     "nutrition_per_serving": {
       "calories": 303.0,
@@ -48,7 +48,7 @@
       "sodium": 277.0
     },
     "manufacturer": "統一企業(股)公司",
-    "allergy_warning": "本產品含牛乳製品及種子類製品，該生產線亦生產含麩質之穀物及大豆製品。",
+    "allergy_warning": "本產品含牛奶製品及種子類製品，該生產線亦生產含麩質之穀物及大豆製品。",
     "certification_marks": []
   }
 }

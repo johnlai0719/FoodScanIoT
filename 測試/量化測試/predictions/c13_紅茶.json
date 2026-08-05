@@ -2,7 +2,7 @@
   "case_id": "c13_紅茶",
   "prediction": {
     "is_food_label": true,
-    "reject_reason": null,
+    "reject_reason": "",
     "name": "純喫茶紅茶",
     "brand": "純喫茶",
     "ingredients_raw": "水、蔗糖、紅茶、大麥、香料、抗氧化劑(L-抗壞血酸鈉)、小蘇打",
@@ -29,7 +29,7 @@
     "serving_size": 325.0,
     "servings_per_container": 2.0,
     "serving_description": "每一份量 325 毫升",
-    "nutrition_raw": "營養標示\n每一份量 325 毫升\n本包裝含 2 份\n\n每份\n每100毫升\n熱量\n96.2大卡\n29.6大卡\n蛋白質\n0公克\n0公克\n脂肪\n0公克\n0公克\n飽和脂肪\n0公克\n0公克\n反式脂肪\n0公克\n0公克\n碳水化合物 24.0公克\n7.4公克\n糖\n22.8公克\n7.0公克\n鈉\n46毫克\n14毫克",
+    "nutrition_raw": "營 養 標 示\n每一份量 325 毫升\n本包裝含2份\n每份 每100毫升\n熱量 96.2大卡 29.6大卡\n蛋白質 0公克 0公克\n脂肪 0公克 0公克\n飽和脂肪 0公克 0公克\n反式脂肪 0公克 0公克\n碳水化合物 24.0公克 7.4公克\n糖 22.8公克 7.0公克\n鈉 46毫克 14毫克",
     "nutrition_other": {},
     "nutrition_per_serving": {
       "calories": 96.2,

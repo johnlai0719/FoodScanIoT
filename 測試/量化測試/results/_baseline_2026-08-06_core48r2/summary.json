@@ -1,0 +1,360 @@
+{
+  "n_cases": 48,
+  "is_food_label": {
+    "TP": 47,
+    "FP": 0,
+    "TN": 1,
+    "FN": 0,
+    "accuracy": 1.0,
+    "precision": 1.0,
+    "recall": 1.0
+  },
+  "name": {
+    "exact_rate": 0.587,
+    "char_sim": 0.841,
+    "n": 46
+  },
+  "brand": {
+    "exact_rate": 0.643,
+    "char_sim": 0.737,
+    "n": 42
+  },
+  "manufacturer": {
+    "exact_rate": 0.667,
+    "char_sim": 0.803,
+    "n": 45
+  },
+  "allergy_warning": {
+    "exact_rate": 0.317,
+    "char_sim": 0.823,
+    "n": 41
+  },
+  "ingredients_list": {
+    "precision": 0.712,
+    "recall": 0.77,
+    "f1": 0.724,
+    "n_cases": 47
+  },
+  "ingredients_flat": {
+    "precision": 0.807,
+    "recall": 0.795,
+    "f1": 0.797,
+    "n_cases": 47,
+    "_說明": "巢狀括號攤平至最小成分名稱後比對，排除拆解粒度差異"
+  },
+  "ingredients_raw": {
+    "char_sim": 0.693,
+    "n": 47
+  },
+  "ingredient_types": {
+    "accuracy": null,
+    "n": 0,
+    "status": "不予評估",
+    "reason": "正解不應由人工判定：食品添加物採正面表列制，歸屬為查表問題；原正解與受測模型同源有循環評估之虞。改於 A2 以官方清單為正解評估。"
+  },
+  "nutrition": {
+    "calories": {
+      "accuracy_within_tol": 0.976,
+      "MAE": 1.017,
+      "n": 42
+    },
+    "protein": {
+      "accuracy_within_tol": 0.976,
+      "MAE": 0.098,
+      "n": 42
+    },
+    "fat": {
+      "accuracy_within_tol": 0.976,
+      "MAE": 0.067,
+      "n": 42
+    },
+    "saturated_fat": {
+      "accuracy_within_tol": 1.0,
+      "MAE": 0.01,
+      "n": 42
+    },
+    "trans_fat": {
+      "accuracy_within_tol": 1.0,
+      "MAE": 0.0,
+      "n": 42
+    },
+    "carbohydrates": {
+      "accuracy_within_tol": 0.976,
+      "MAE": 0.048,
+      "n": 42
+    },
+    "sugar": {
+      "accuracy_within_tol": 1.0,
+      "MAE": 0.021,
+      "n": 42
+    },
+    "fiber": {
+      "accuracy_within_tol": 1.0,
+      "MAE": 0.0,
+      "n": 3
+    },
+    "sodium": {
+      "accuracy_within_tol": 0.929,
+      "MAE": 6.024,
+      "n": 42
+    }
+  },
+  "nutrition_per_serving": {
+    "calories": {
+      "accuracy_within_tol": 0.979,
+      "n": 47
+    },
+    "protein": {
+      "accuracy_within_tol": 0.955,
+      "n": 44
+    },
+    "fat": {
+      "accuracy_within_tol": 0.955,
+      "n": 44
+    },
+    "saturated_fat": {
+      "accuracy_within_tol": 0.977,
+      "n": 44
+    },
+    "trans_fat": {
+      "accuracy_within_tol": 1.0,
+      "n": 44
+    },
+    "carbohydrates": {
+      "accuracy_within_tol": 0.977,
+      "n": 44
+    },
+    "sugar": {
+      "accuracy_within_tol": 0.977,
+      "n": 44
+    },
+    "fiber": {
+      "accuracy_within_tol": 1.0,
+      "n": 3
+    },
+    "sodium": {
+      "accuracy_within_tol": 0.955,
+      "n": 44
+    }
+  },
+  "serving_fields": {
+    "accuracy_within_tol": 0.989,
+    "n": 89
+  },
+  "certification_marks": {
+    "f1": 0.905,
+    "n_cases": 14
+  },
+  "config": {
+    "NUM_ABS_TOL": 0.5,
+    "NUM_REL_TOL": 0.05
+  },
+  "slices": {
+    "by_set_version": {
+      "core48r2": {
+        "n_cases": 48,
+        "is_food_label": {
+          "TP": 47,
+          "FP": 0,
+          "TN": 1,
+          "FN": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        "ingredients_list": {
+          "precision": 0.712,
+          "recall": 0.77,
+          "f1": 0.724,
+          "n_cases": 47
+        },
+        "ingredients_flat": {
+          "precision": 0.807,
+          "recall": 0.795,
+          "f1": 0.797,
+          "n_cases": 47
+        },
+        "nutrition_accuracy": 0.979,
+        "nutrition_n_fields": 339
+      }
+    },
+    "by_category": {
+      "beverage": {
+        "n_cases": 18,
+        "is_food_label": {
+          "TP": 18,
+          "FP": 0,
+          "TN": 0,
+          "FN": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        "ingredients_list": {
+          "precision": 0.857,
+          "recall": 0.894,
+          "f1": 0.868,
+          "n_cases": 18
+        },
+        "ingredients_flat": {
+          "precision": 0.893,
+          "recall": 0.885,
+          "f1": 0.888,
+          "n_cases": 18
+        },
+        "nutrition_accuracy": 0.956,
+        "nutrition_n_fields": 137
+      },
+      "canned_food": {
+        "n_cases": 1,
+        "is_food_label": {
+          "TP": 1,
+          "FP": 0,
+          "TN": 0,
+          "FN": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        "ingredients_list": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "n_cases": 1
+        },
+        "ingredients_flat": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "n_cases": 1
+        },
+        "nutrition_accuracy": 1.0,
+        "nutrition_n_fields": 9
+      },
+      "instant_noodle": {
+        "n_cases": 1,
+        "is_food_label": {
+          "TP": 1,
+          "FP": 0,
+          "TN": 0,
+          "FN": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        "ingredients_list": {
+          "precision": 0.5,
+          "recall": 0.5,
+          "f1": 0.5,
+          "n_cases": 1
+        },
+        "ingredients_flat": {
+          "precision": 0.462,
+          "recall": 0.462,
+          "f1": 0.462,
+          "n_cases": 1
+        },
+        "nutrition_accuracy": 1.0,
+        "nutrition_n_fields": 8
+      },
+      "non_food": {
+        "n_cases": 1,
+        "is_food_label": {
+          "TP": 0,
+          "FP": 0,
+          "TN": 1,
+          "FN": 0,
+          "accuracy": 1.0,
+          "precision": null,
+          "recall": null
+        },
+        "ingredients_list": null,
+        "ingredients_flat": null,
+        "nutrition_accuracy": null,
+        "nutrition_n_fields": 0
+      },
+      "prepared_meal": {
+        "n_cases": 17,
+        "is_food_label": {
+          "TP": 17,
+          "FP": 0,
+          "TN": 0,
+          "FN": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        "ingredients_list": {
+          "precision": 0.563,
+          "recall": 0.609,
+          "f1": 0.562,
+          "n_cases": 17
+        },
+        "ingredients_flat": {
+          "precision": 0.657,
+          "recall": 0.656,
+          "f1": 0.647,
+          "n_cases": 17
+        },
+        "nutrition_accuracy": 0.991,
+        "nutrition_n_fields": 112
+      },
+      "snack": {
+        "n_cases": 8,
+        "is_food_label": {
+          "TP": 8,
+          "FP": 0,
+          "TN": 0,
+          "FN": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        "ingredients_list": {
+          "precision": 0.654,
+          "recall": 0.805,
+          "f1": 0.7,
+          "n_cases": 8
+        },
+        "ingredients_flat": {
+          "precision": 0.923,
+          "recall": 0.879,
+          "f1": 0.9,
+          "n_cases": 8
+        },
+        "nutrition_accuracy": 1.0,
+        "nutrition_n_fields": 56
+      },
+      "supplement_food": {
+        "n_cases": 2,
+        "is_food_label": {
+          "TP": 2,
+          "FP": 0,
+          "TN": 0,
+          "FN": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        "ingredients_list": {
+          "precision": 0.87,
+          "recall": 0.905,
+          "f1": 0.886,
+          "n_cases": 2
+        },
+        "ingredients_flat": {
+          "precision": 0.911,
+          "recall": 0.911,
+          "f1": 0.911,
+          "n_cases": 2
+        },
+        "nutrition_accuracy": 1.0,
+        "nutrition_n_fields": 17
+      }
+    },
+    "by_difficulty": {
+      "_說明": "尚無案例標註 difficulty，見 cases.json 的說明"
+    },
+    "_說明": "跨期比較請只引用 by_set_version.core48 —— 它是凍結子集，整體數字會隨測試集擴充而變動。by_difficulty 一案可屬多個標籤，各組 n 相加會大於案例總數。"
+  }
+}
