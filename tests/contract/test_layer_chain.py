@@ -20,6 +20,8 @@ APP_CONSUMED = [
     "health_score", "risk_level", "score_breakdown", "product_info",
     "allergen_warnings", "food_safety_events", "ingredients_detail",
     "overall_summary", "additives_summary", "safety_events_summary",
+    # App 以此顯示「更新於 X」；快取命中時仍須是原始計算時間，故必須一路存活
+    "processed_at",
 ]
 
 

@@ -15,7 +15,7 @@ import {
   StyleSheet,
   Modal,
 } from 'react-native';
-import { Sparkles, Sliders, Database, ShoppingBag, AlertOctagon, RotateCcw, Layers, ShieldCheck, Grid, ChevronRight, Zap, ChevronUp, ChevronDown, ArrowLeft, AlertTriangle, CheckCircle2, Info, ScanLine, Activity, Settings2, X, Trash2 } from 'lucide-react-native';
+import { Sparkles, Sliders, Database, ShoppingBag, AlertOctagon, RotateCcw, Layers, ShieldCheck, Grid, ChevronRight, Zap, ChevronUp, ChevronDown, ArrowLeft, AlertTriangle, CheckCircle2, Info, ScanLine, Activity, Settings2, X } from 'lucide-react-native';
 
 import { useFontScale } from '../contexts/FontScaleContext';
 import { UserConditions, AnalysisResponse } from '../types';
@@ -26,6 +26,7 @@ import DropdownEvent from '../components/DropdownEvent';
 import PackageImageScanner from '../components/PackageImageScanner';
 import BarcodeScanner from '../components/BarcodeScanner';
 import { analyzePersonalRisks, getProductAllergenWarnings } from '../utils/personalization';
+import { getDataFreshness } from '../utils/dataFreshness';
 import {
   getScoreBreakdownList,
   getDynamicHealthPoints,
@@ -117,7 +118,6 @@ export default function HomeScreen() {
   const [barcodeInput, setBarcodeInput] = useState('');
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [serverEndpoint, setServerEndpoint] = useState<'fog' | 'cloud'>('fog');
-  const [clearCacheStatus, setClearCacheStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   const [advancedVisible, setAdvancedVisible] = useState(false);
   const [scannerVisible, setScannerVisible] = useState(false);
@@ -146,20 +146,6 @@ export default function HomeScreen() {
     setView('result');
   };
 
-  const handleClearFogCache = async () => {
-    setClearCacheStatus('loading');
-    try {
-      const res = await fetch('http://100.86.249.39:3001/cache/clear', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      setClearCacheStatus(res.ok ? 'success' : 'error');
-    } catch {
-      setClearCacheStatus('error');
-    } finally {
-      setTimeout(() => setClearCacheStatus('idle'), 2500);
-    }
-  };
 
   const handleSubmitAnalysis = async () => {
     if (!barcodeInput && uploadedImages.length === 0) return;
@@ -264,6 +250,9 @@ export default function HomeScreen() {
   }).length;
 
   const scoreBreakdownList = getScoreBreakdownList(analysisResult);
+
+  // 資料新鮮度：讓使用者知道手上這份分析是何時算出來的，以及是否為降級回應
+  const dataFreshness = getDataFreshness(analysisResult);
 
   // ── 本地個人化比對（健康背景不離開裝置）──────────────────────────────────
   // 通用警告＝產品標示本身；舊快取中 Fog 寫入的「偵測到過敏原：X」屬於前一位
@@ -547,8 +536,20 @@ export default function HomeScreen() {
                       <RotateCcw size={13} color="#757575" />
                       <Text style={s.btnSecondaryText}>重新檢測</Text>
                     </Pressable>
-                    <Text style={s.navTimestamp}>資料校準時間：2026</Text>
+                    {/* 原本這裡寫死「資料校準時間：2026」，對使用者沒有任何資訊。
+                        改為顯示 Cloud 實際計算此分析的時間（快取命中時即為原始計算時間）。 */}
+                    <Text style={[s.navTimestamp, dataFreshness.isStale && s.navTimestampStale]}>
+                      {dataFreshness.label}
+                    </Text>
                   </View>
+
+                  {/* Cloud 不可用、Fog 以過期快取降級回應時，必須讓使用者知道 */}
+                  {dataFreshness.warning && (
+                    <View style={s.staleBanner}>
+                      <Info size={13} color="#b45309" />
+                      <Text style={s.staleBannerText}>{dataFreshness.warning}</Text>
+                    </View>
+                  )}
 
                   {matchedAllergens.length > 0 && (
                     <View style={s.allergenHitBanner}>
@@ -880,18 +881,12 @@ export default function HomeScreen() {
             </Pressable>
           </View>
 
-          <Text style={[s.modalSectionLabel, { marginTop: 20 }]}>快取管理</Text>
-          <Text style={s.modalSectionSub}>清除 Fog 節點已暫存的分析結果，下次掃描將重新計算</Text>
-          <Pressable
-            style={[s.clearCacheBtn, clearCacheStatus === 'loading' && { opacity: 0.6 }]}
-            onPress={handleClearFogCache}
-            disabled={clearCacheStatus === 'loading'}
-          >
-            <Trash2 size={14} color={clearCacheStatus === 'success' ? '#009B52' : clearCacheStatus === 'error' ? '#ef4444' : '#757575'} />
-            <Text style={[s.clearCacheBtnText, clearCacheStatus === 'success' && { color: '#009B52' }, clearCacheStatus === 'error' && { color: '#ef4444' }]}>
-              {clearCacheStatus === 'loading' ? '清除中...' : clearCacheStatus === 'success' ? '清除成功' : clearCacheStatus === 'error' ? '清除失敗' : '清除 Fog 暫存'}
-            </Text>
-          </Pressable>
+          {/* 「快取管理」區塊已於 2026-08-05 移除。它呼叫 POST :3001/cache/clear，
+              但 Fog 的 Node 層（3001）只註冊了 DELETE /cache 與 DELETE /cache/:barcode，
+              該路由不存在 → 一直是 404，按下去只會顯示「清除失敗」。
+              POST /cache/clear 只存在於 Python 層（3002），而 App 連不到 3002。
+              Fog 的快取機制本身不受影響，仍照常運作（TTL 到期自動失效）。
+              若之後要恢復：在 fog/server.ts 補一條轉發路由，並補上路由存在性測試。 */}
 
           <Pressable style={[s.btnPrimary, { marginTop: 16 }]} onPress={() => setAdvancedVisible(false)}>
             <Text style={s.btnPrimaryText}>確認</Text>
@@ -1011,6 +1006,15 @@ const createStyles = (scale: number) => StyleSheet.create({
   // Results nav
   resultNav: { justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(200,184,154,0.4)' },
   navTimestamp: { fontSize: 10 * scale, color: TEXT_MID, fontWeight: '700' },
+  navTimestampStale: { color: '#b45309' },
+
+  // Cloud 不可用、以過期快取降級回應時的提示橫幅
+  staleBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#fffbeb', borderRadius: 10, padding: 10,
+    borderWidth: 1, borderColor: '#fcd34d',
+  },
+  staleBannerText: { flex: 1, fontSize: 11 * scale, color: '#92400e', lineHeight: 16 },
 
   // Product card
   productIcon: { padding: 10, backgroundColor: BRAND_LIGHT, borderRadius: 14, borderWidth: 1, borderColor: BORDER },
@@ -1307,11 +1311,4 @@ const createStyles = (scale: number) => StyleSheet.create({
   },
   modalSectionLabel: { fontSize: 12 * scale, fontWeight: '800', color: TEXT_DARK, marginBottom: 4 },
   modalSectionSub: { fontSize: 11 * scale, color: TEXT_MID, marginBottom: 12 },
-  clearCacheBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingVertical: 10, paddingHorizontal: 14,
-    borderRadius: 10, borderWidth: 1, borderColor: BORDER,
-    backgroundColor: '#F5F5F5',
-  },
-  clearCacheBtnText: { fontSize: 13 * scale, fontWeight: '700', color: TEXT_MID },
 });

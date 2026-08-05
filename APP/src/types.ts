@@ -82,6 +82,13 @@ export interface AnalysisResponse {
   safety_events_summary?: string;
   cached?: boolean;
   /**
+   * Cloud 計算此分析的時間（ISO 8601），由 build_response() 產生、Fog 不會改動。
+   * 快取命中時仍是原始計算時間——這正是要顯示給使用者的「上次更新」。
+   */
+  processed_at?: string;
+  /** Fog 在 Cloud 不可用、改以過期快取回應時帶上的提示 */
+  _warning?: string;
+  /**
    * Cloud 回應的巢狀區塊。`nutrition_facts` 只存在於此處，頂層沒有。
    * 詳見 server/module_d/response_builder.py 的 build_response()。
    */

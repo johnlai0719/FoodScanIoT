@@ -39,6 +39,8 @@ APP_CONSUMED_TOP_LEVEL = [
     "health_score", "risk_level", "score_breakdown", "product_info",
     "allergen_warnings", "food_safety_events", "ingredients_detail",
     "overall_summary", "additives_summary", "safety_events_summary",
+    # 2026-08-05 起 App 顯示資料新鮮度，依賴此欄位（utils/dataFreshness.ts）
+    "processed_at",
 ]
 
 # App 的 checkNutritionThresholds() 讀取的營養欄位（每 100g/100mL 基準）
