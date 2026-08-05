@@ -196,7 +196,11 @@ def main():
     serving_hits = [0, 0]
     n_cases = 0
 
-    for gp in sorted(glob.glob(os.path.join(GT, '*.json'))):
+    # 正解依類別分資料夾（ground_truth/<category>/<case_id>.json），故遞迴收集。
+    # 底線開頭的資料夾為歸檔區（舊版正解備份），不參與評分。
+    gt_paths = [p for p in glob.glob(os.path.join(GT, '**', '*.json'), recursive=True)
+                if not os.path.basename(os.path.dirname(p)).startswith('_')]
+    for gp in sorted(gt_paths):
         cid = os.path.basename(gp)[:-5]
         pp = os.path.join(PRED, f'{cid}.json')
         if not os.path.exists(pp):

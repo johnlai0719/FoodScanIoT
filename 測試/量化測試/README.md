@@ -10,14 +10,43 @@
 
 ## 目錄
 
+```
+測試/量化測試/
+├── cases.json                     案例定義（set_version / category / difficulty）
+├── manifest.json                  原圖的 SHA256 清單
+├── images/                        原圖，依類別分資料夾
+│   ├── beverage/       c01_柳橙綠茶/  c02_濃豆漿/  …      18 案
+│   ├── prepared_meal/  c08_椰香綠咖哩嫩雞飯/  …           17 案
+│   ├── snack/                                             8 案
+│   ├── supplement_food/                                   2 案
+│   ├── canned_food/  instant_noodle/  non_food/         各 1 案
+│   └── （新增類別時直接開資料夾）
+├── ground_truth/                  人工正解，同樣依類別分
+│   ├── beverage/       c01_柳橙綠茶.json  …
+│   ├── …
+│   └── _bak_2026-07/              舊版正解備份（底線開頭＝歸檔區，不參與評分）
+├── predictions/                   辨識結果，扁平放（機器產物，不需人工瀏覽）
+└── results/                       每次執行的產物
+    └── _baseline_2026-07-30/      0730 與 0806 報告的歷史數字
+```
+
 | 路徑 | 進版控 | 內容 |
 |---|---|---|
-| `cases.json` | ✅ | 案例定義。含 `set_version` / `category` / `difficulty` |
+| `cases.json` | ✅ | 案例定義 |
 | `ground_truth/` | ✅ | 48 份人工正解。**唯一不可由程式重生的資產** |
 | `predictions/` | ✅ | 已存的辨識結果。離線回測吃這批，不必重打 API |
 | `manifest.json` | ✅ | 原圖的 SHA256 清單 |
 | `images/` | ❌ | 原圖 98 張、167 MB。由 manifest 保證身分 |
 | `results/` | ❌ | 每次執行的產物 |
+
+**為何依類別分資料夾**：人工審核時看的是資料夾，不是打開 JSON 一筆筆找。
+分好之後「哪一類幾件、非食品有沒有補夠」用檔案總管即可看出，
+補案例時也直接看得到自己在補哪一類。
+
+**代價與防護**：類別因此同時存在於兩處——`cases.json` 的欄位與資料夾位置。
+兩者若不同步，會出現「JSON 說是零食、檔案卻在飲料資料夾」的狀態，
+人工審核與程式評分看到的分類不同。`casetool.py check` 對此有專門檢查，
+改分類時務必兩邊一起改（或用工具搬）。
 
 原圖不進版控，但**測試集的可重現性不因此打折**：`manifest.json` 記下每張圖的
 SHA256，圖片本體另行傳遞（GitHub Release 附件或校內雲端硬碟），取得後放回
@@ -168,7 +197,9 @@ case_id 已預先指定，拍完照片放進對應資料夾即可照下方指令
 ### 新增案例的流程
 
 ```bash
-# 1. 照片放進 images/<case_id>/（原始解析度，不要先壓縮）
+# 1. 照片放進 images/<category>/<case_id>/（原始解析度，不要先壓縮）
+#    從手機匯入時懶得先建類別資料夾的話，暫放 images/<case_id>/ 也可以，
+#    下一步的工具會依 --category 代為歸位。
 
 # 2. 建檔。非食品一行完成，正解也一併寫好：
 python casetool.py new c50_保健食品外盒 --non-food --desc="某某葉黃素膠囊外盒"
@@ -177,7 +208,7 @@ python casetool.py new c50_保健食品外盒 --non-food --desc="某某葉黃素
 python casetool.py new c70_反光鋁袋零食 --category=snack \
     --desc="某某洋芋片" --difficulty=glare
 
-# 3. 食品案例：填 ground_truth/<case_id>.json
+# 3. 食品案例：填 ground_truth/<category>/<case_id>.json
 #    照著照片上看得到的填，看不到的留 null——不可填 0，
 #    「沒有標示」與「含量為零」是兩件事。
 
@@ -191,8 +222,22 @@ python casetool.py check
 
 `casetool.py check` 會抓出所有「不會報錯但會靜默算錯」的狀況：
 案例有登記卻缺正解（該案被略過，不計入任何指標）、照片路徑對不上、
-category 與正解的 is_food_label 自相矛盾、manifest 過期等。
-**每次新增完都跑一次。**
+**資料夾位置與 category 欄位不一致**、category 與正解的 is_food_label
+自相矛盾、manifest 過期、difficulty 標籤拼錯。**每次新增完都跑一次。**
+
+### 改某案的分類
+
+三處要一起動：`cases.json` 的 `category`、`images/` 資料夾、`ground_truth/` 資料夾。
+
+```bash
+# 例：把 c23_in果凍 從 supplement_food 改成 snack
+mv images/supplement_food/c23_in果凍 images/snack/
+mv ground_truth/supplement_food/c23_in果凍.json ground_truth/snack/
+# 再編輯 cases.json 的 category 與 images 路徑
+python manifest_tool.py generate && python casetool.py check
+```
+
+漏掉任一處，`check` 會直接報「分類不一致」並指出實際位置。
 
 ### 補標既有 48 案的困難度
 

@@ -83,9 +83,14 @@ RoadMap/
 #                   audit_additive_matches.py）吃這批資料，不必重打 API 花錢
 #   manifest.json   原圖的 SHA256 清單，見 manifest_tool.py 檔頭
 # 原圖本身（167 MB）仍不進版控，由 manifest 保證其身分。
+#
+# 注意萬用字元只吃一層：ground_truth/ 依類別分了子資料夾
+# （ground_truth/<category>/<case_id>.json），故需 ** 而非 *。
+# 曾因此漏掉——重整目錄後 48 份正解在 git 眼中變成「全部刪除」，
+# 新位置又進不了版控，而 git status 只顯示 D、不會提醒你新檔被忽略。
 !測試/量化測試/cases.json
 !測試/量化測試/manifest.json
-!測試/量化測試/ground_truth/*.json
+!測試/量化測試/ground_truth/**/*.json
 !測試/量化測試/predictions/*.json
 !測試/量化測試/README.md
 !cloud/requirements.txt

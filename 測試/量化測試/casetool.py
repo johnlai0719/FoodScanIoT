@@ -17,6 +17,7 @@
 # 非食品案例例外：其正解只有 is_food_label=false 一個欄位，可直接寫完。
 import json
 import os
+import shutil
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -61,13 +62,47 @@ def save_cases(data):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
-def images_for(case_id):
-    """列出 images/<case_id>/ 底下的圖片，回傳相對於 images root 的路徑。"""
-    d = os.path.join(IMAGES, case_id)
+def images_for(case_id, category):
+    """列出 images/<category>/<case_id>/ 底下的圖片，回傳相對於 images root 的路徑。"""
+    d = os.path.join(IMAGES, category, case_id)
     if not os.path.isdir(d):
         return []
-    return [f'images/{case_id}/{fn}' for fn in sorted(os.listdir(d))
+    return [f'images/{category}/{case_id}/{fn}' for fn in sorted(os.listdir(d))
             if fn.lower().endswith(_EXTS)]
+
+
+def gt_path(case_id, category):
+    return os.path.join(GT, category, f'{case_id}.json')
+
+
+def scan_gt():
+    """{case_id: 所在類別資料夾}。底線開頭的資料夾為歸檔區，略過。"""
+    out = {}
+    if not os.path.isdir(GT):
+        return out
+    for cat in os.listdir(GT):
+        d = os.path.join(GT, cat)
+        if not os.path.isdir(d) or cat.startswith('_'):
+            continue
+        for fn in os.listdir(d):
+            if fn.endswith('.json'):
+                out[fn[:-5]] = cat
+    return out
+
+
+def scan_img_dirs():
+    """{case_id: 所在類別資料夾}。"""
+    out = {}
+    if not os.path.isdir(IMAGES):
+        return out
+    for cat in os.listdir(IMAGES):
+        d = os.path.join(IMAGES, cat)
+        if not os.path.isdir(d) or cat.startswith('_'):
+            continue
+        for cid in os.listdir(d):
+            if os.path.isdir(os.path.join(d, cid)):
+                out[cid] = cat
+    return out
 
 
 # ─── check ────────────────────────────────────────────────────────────────────
@@ -77,17 +112,18 @@ def check():
     cases = {c['case_id']: c for c in data['cases']}
     problems = []
 
-    gt_files = {fn[:-5] for fn in os.listdir(GT) if fn.endswith('.json')}
-    img_dirs = {d for d in os.listdir(IMAGES)
-                if os.path.isdir(os.path.join(IMAGES, d))} if os.path.isdir(IMAGES) else set()
+    gt_at = scan_gt()          # case_id → 正解所在的類別資料夾
+    img_at = scan_img_dirs()   # case_id → 圖片所在的類別資料夾
 
-    for cid in sorted(set(cases) - gt_files):
-        problems.append(f"[缺正解] {cid} 在 cases.json 內，但沒有 ground_truth/{cid}.json"
+    for cid in sorted(set(cases) - set(gt_at)):
+        problems.append(f"[缺正解] {cid} 在 cases.json 內，但 ground_truth/ 底下找不到"
                         f" → 該案會被靜默略過，不列入任何指標")
-    for cid in sorted(gt_files - set(cases)):
-        problems.append(f"[孤兒正解] ground_truth/{cid}.json 沒有對應的 cases.json 項目")
-    for cid in sorted(img_dirs - set(cases)):
-        problems.append(f"[未登記] images/{cid}/ 存在，但 cases.json 沒有這個案例")
+    for cid in sorted(set(gt_at) - set(cases)):
+        problems.append(f"[孤兒正解] ground_truth/{gt_at[cid]}/{cid}.json"
+                        f" 沒有對應的 cases.json 項目")
+    for cid in sorted(set(img_at) - set(cases)):
+        problems.append(f"[未登記] images/{img_at[cid]}/{cid}/ 存在，"
+                        f"但 cases.json 沒有這個案例")
 
     for cid, c in sorted(cases.items()):
         # 圖片實際存在
@@ -107,13 +143,24 @@ def check():
             problems.append(f"[缺 category] {cid}")
         elif cat not in VALID_CATEGORY:
             problems.append(f"[未知 category] {cid} → '{cat}'（可用：{sorted(VALID_CATEGORY)}）")
+
+        # 類別現在同時存在於兩處：cases.json 的欄位、以及資料夾位置。
+        # 兩者必須一致——分類改了卻只改一邊，就會出現「JSON 說是零食、
+        # 檔案卻放在飲料資料夾」的狀態，人工審核與程式評分看到的分類不同。
+        # 此檢查是允許用資料夾表達分類的前提。
+        if cat and cid in img_at and img_at[cid] != cat:
+            problems.append(f"[分類不一致] {cid} category={cat}，"
+                            f"但圖片放在 images/{img_at[cid]}/")
+        if cat and cid in gt_at and gt_at[cid] != cat:
+            problems.append(f"[分類不一致] {cid} category={cat}，"
+                            f"但正解放在 ground_truth/{gt_at[cid]}/")
         for d in c.get('difficulty') or []:
             if d not in VALID_DIFFICULTY:
                 problems.append(f"[未知 difficulty] {cid} → '{d}'"
                                 f"（可用：{sorted(VALID_DIFFICULTY)}）")
 
         # 正解與 category 是否自相矛盾
-        gp = os.path.join(GT, f'{cid}.json')
+        gp = gt_path(cid, gt_at.get(cid, cat or ''))
         if os.path.exists(gp):
             try:
                 gt = json.load(open(gp, encoding='utf-8'))
@@ -189,15 +236,26 @@ def new(argv):
     if any(c['case_id'] == case_id for c in data['cases']):
         sys.exit(f"{case_id} 已存在於 cases.json")
 
-    imgs = images_for(case_id)
-    if not imgs:
-        sys.exit(f"找不到照片。請先把照片放進 {os.path.join(IMAGES, case_id)}/")
-
     category = 'non_food' if non_food else opts.get('category')
     if not category:
         sys.exit("食品案例需指定 --category=（或用 --non-food）")
     if category not in VALID_CATEGORY:
         sys.exit(f"未知 category：{category}（可用：{sorted(VALID_CATEGORY)}）")
+
+    imgs = images_for(case_id, category)
+    if not imgs:
+        # 也接受照片暫放在 images/ 底下未分類處，代為搬到正確的類別資料夾——
+        # 從手機匯入時很難記得先建對資料夾，讓工具處理比讓人記得可靠。
+        loose = os.path.join(IMAGES, case_id)
+        if os.path.isdir(loose):
+            os.makedirs(os.path.join(IMAGES, category), exist_ok=True)
+            shutil.move(loose, os.path.join(IMAGES, category, case_id))
+            print(f"  照片已自 images/{case_id}/ 移至 images/{category}/{case_id}/")
+            imgs = images_for(case_id, category)
+        else:
+            sys.exit(f"找不到照片。請把照片放進 "
+                     f"{os.path.join(IMAGES, category, case_id)}/ "
+                     f"（或暫放 {loose}/，本工具會代為歸位）")
 
     difficulty = [d for d in (opts.get('difficulty') or '').split(',') if d]
     bad = set(difficulty) - VALID_DIFFICULTY
@@ -217,7 +275,8 @@ def new(argv):
     data['cases'].sort(key=lambda c: c['case_id'])
     save_cases(data)
 
-    gp = os.path.join(GT, f'{case_id}.json')
+    gp = gt_path(case_id, category)
+    os.makedirs(os.path.dirname(gp), exist_ok=True)
     if os.path.exists(gp):
         print(f"[略過] {gp} 已存在，未覆寫")
     else:
@@ -231,8 +290,8 @@ def new(argv):
     if non_food:
         print("  正解已完成（非食品只需 is_food_label=false）")
     else:
-        print(f"  → 請填寫 ground_truth/{case_id}.json，照著照片上看得到的填，"
-              f"看不到的留 null（不可填 0）")
+        print(f"  → 請填寫 ground_truth/{category}/{case_id}.json，"
+              f"照著照片上看得到的填，看不到的留 null（不可填 0）")
     print("  → 接著跑：python manifest_tool.py generate && python casetool.py check")
 
 

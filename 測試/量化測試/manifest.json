@@ -4,397 +4,397 @@
   "n_files": 98,
   "total_bytes": 175330528,
   "files": {
-    "c01_柳橙綠茶/nutrition_en.5.400.jpg": {
+    "beverage/c01_柳橙綠茶/nutrition_en.5.400.jpg": {
       "sha256": "69cacfb24d6384661948079ed9d18afe54cf70f6d9fb5df374421a1850275f4e",
       "bytes": 503970
     },
-    "c02_濃豆漿/nutrition_zh.24.400.jpg": {
+    "beverage/c02_濃豆漿/nutrition_zh.24.400.jpg": {
       "sha256": "76c7f67cbc6fd743f424656e27149e5256e1c6d67123d8821f5a26b23753a43d",
       "bytes": 31142
     },
-    "c03_厚奶茶/0_uJPfypiLOpVUvp06.webp": {
+    "beverage/c03_厚奶茶/0_uJPfypiLOpVUvp06.webp": {
       "sha256": "b31d021a836bd0b7acc7ba3201238b2164a7bc1987eebed93b4213014dbf152f",
       "bytes": 104842
     },
-    "c04_比菲多/ingredients_en.7.400.jpg": {
+    "beverage/c04_比菲多/ingredients_en.7.400.jpg": {
       "sha256": "94aa682136f91a275af8fe8af168b0329ecc0cbeb0df286beed28e969c299e1a",
       "bytes": 25871
     },
-    "c04_比菲多/nutrition_en.5.400.jpg": {
+    "beverage/c04_比菲多/nutrition_en.5.400.jpg": {
       "sha256": "5c7601bfa887a9b36330a751002a188017aa5e64ad071bdb6b3cf495867f1afb",
       "bytes": 22270
     },
-    "c05_非食品/Test_NotFood.jpg": {
-      "sha256": "ac454e7c625746528a596786f7a06149fa286030bee3669cbafdf0cad1c1ac93",
-      "bytes": 53050
-    },
-    "c06_奶茶/0_njkPfSmPy2IdNSmt.webp": {
+    "beverage/c06_奶茶/0_njkPfSmPy2IdNSmt.webp": {
       "sha256": "3f1b34c07e39edd256929d45ec2452040522aeafc41afb4a22915b8f16878f1b",
       "bytes": 95060
     },
-    "c07_綠奶茶/489867086_1956576744874697_7802472238210489182_n.jpg": {
+    "beverage/c07_綠奶茶/489867086_1956576744874697_7802472238210489182_n.jpg": {
       "sha256": "e30d88147863ab4b88d2db3fdaa2f9075387c8ada676f23c44bd577749766d3b",
       "bytes": 132128
     },
-    "c08_椰香綠咖哩嫩雞飯/7ulxh12.jpeg": {
-      "sha256": "592b590573d6a6c724b5cc50ab458e5f82056fc10da967dcbff362bd3bbdd00c",
-      "bytes": 237747
-    },
-    "c09_麻婆豆腐燴飯/麻婆豆腐燴飯.jpg": {
-      "sha256": "c4ca4e6b85ed929157e374f5ac25b71e3eb770376212c2ab375baddb1626a7a7",
-      "bytes": 1136086
-    },
-    "c10_鮮蔬烤雞三明治/P9680325.jpg": {
-      "sha256": "dcddffe9d0d7d94130743c1440c4eafe5bb35e5c0cf3a3d564b83ca73a69d2ac",
-      "bytes": 366795
-    },
-    "c11_大飯糰椒香鮪魚/fqxo8Iv.jpg": {
-      "sha256": "6672abb18f3e97a816adc577cb7ea027dd78f813f22ad5eab1d195c537cc9302",
-      "bytes": 328892
-    },
-    "c12_肉鬆御飯糰/hSpNZr9.jpg": {
-      "sha256": "966b55bb6984febbe5c55fd6011166262cac405c9c5d325092356c8f4073fe7d",
-      "bytes": 967471
-    },
-    "c13_紅茶/RWHWWaJ.jpg": {
+    "beverage/c13_紅茶/RWHWWaJ.jpg": {
       "sha256": "6e4e3d7ddc1832832991385e3d1e15e25e4ce6bdd01a35ecb5ff2e097761a69d",
       "bytes": 229456
     },
-    "c14_鮮乳/zofz2rw.jpg": {
+    "beverage/c14_鮮乳/zofz2rw.jpg": {
       "sha256": "bc6dad46214bdf6f6694053685c9f8c44a361404e91c7665559f5ee001e73a15",
       "bytes": 382540
     },
-    "c15_木瓜牛乳/639180001445230000.jpg": {
+    "beverage/c15_木瓜牛乳/639180001445230000.jpg": {
       "sha256": "abfae21e1f9ae1842b19f3bd32a68fb0bdbd3b3c38bf944cfd062e1a2fbab567",
       "bytes": 130822
     },
-    "c17_三合一咖啡/11fbee8a640242ac110005.webp": {
+    "beverage/c17_三合一咖啡/11fbee8a640242ac110005.webp": {
       "sha256": "a765cb5b1069e18c3996e54e50442ebf37691939c65574a91f658167fdeb8c08",
       "bytes": 154300
     },
-    "c18_蝦味先原味/bbdf1274-03af-42e3-b32a-f8cacf51212c.jpg": {
-      "sha256": "8d7801971fb98aedf7af7b09833fb7dfaa2e541d40bfd337528f3b5e8e055309",
-      "bytes": 59716
-    },
-    "c19_經典原味洋芋片/25003_126639_2ujudkkh.jpg": {
-      "sha256": "b8172acc9f470927143395351e2e1d8c4b6cfa4db81ae97010f2c4aaed6c9970",
-      "bytes": 166185
-    },
-    "c20_海苔洋芋片/25003_126633_m302pks3.jpg": {
-      "sha256": "0a7fe4c4532832e18be0913a238108ea0fc723b123f02daea5d2dc37950b0552",
-      "bytes": 210882
-    },
-    "c21_Pockey百奇草莓棒/IMG_7782.jpg": {
-      "sha256": "1da5788d79882845bcf5507bc1e7e7c9db1577c4bad9575525fa4e54ec5e4e38",
-      "bytes": 2539289
-    },
-    "c21_Pockey百奇草莓棒/IMG_7783.jpg": {
-      "sha256": "448eb11ca28a0d35a53600ef0f1b426cb86d395c0a770c58914399281b99cbf3",
-      "bytes": 2239519
-    },
-    "c22_UNCLELEMON蜂蜜檸檬風味膠囊/IMG_7790.jpg": {
-      "sha256": "012631de30225245d36194e550edf4acba7b0634ae073b60b7dc698e0562550c",
-      "bytes": 2174335
-    },
-    "c22_UNCLELEMON蜂蜜檸檬風味膠囊/IMG_7791.jpg": {
-      "sha256": "b07880257f4d415d158f8e1128ef7beb29f3bec7fc744fa7c1a23e5d864c828d",
-      "bytes": 1956269
-    },
-    "c23_in果凍/._IMG_7792.HEIC": {
-      "sha256": "f82e6643866d8847fbfbf7e3fc0481e61e80059e07df7b3d9b0a4b06341b4e25",
-      "bytes": 4096
-    },
-    "c23_in果凍/._IMG_7793.HEIC": {
-      "sha256": "88443a1cf5c668328d7d6108dbff630aa4a6664dece92024e062a2f4c8ea5cea",
-      "bytes": 4096
-    },
-    "c23_in果凍/IMG_7792.jpg": {
-      "sha256": "200455bde10f50dd5638ad88d53880b0a6672375c90dd87eebcbf1674f9b6189",
-      "bytes": 429234
-    },
-    "c23_in果凍/IMG_7793.jpg": {
-      "sha256": "ea2e8d84316dc4673362c3fb37f3084b59e433a6f851cabdd1c869049c993ec2",
-      "bytes": 267993
-    },
-    "c24_優質蛋白奶-堅果杏仁/IMG_4734.jpg": {
+    "beverage/c24_優質蛋白奶-堅果杏仁/IMG_4734.jpg": {
       "sha256": "da930755cf2a7cb20bb3587baaf2515006d1f255d2efe974ee5e5e8c7efe28cd",
       "bytes": 2877631
     },
-    "c24_優質蛋白奶-堅果杏仁/IMG_4735.jpg": {
+    "beverage/c24_優質蛋白奶-堅果杏仁/IMG_4735.jpg": {
       "sha256": "883e929f2765b55ddde42ad079d5425d7926e887702e998e759315ca67f69b44",
       "bytes": 3152401
     },
-    "c25_優質蛋白奶-無加糖燕麥/IMG_4732.jpg": {
+    "beverage/c25_優質蛋白奶-無加糖燕麥/IMG_4732.jpg": {
       "sha256": "dd4705976367cc978c090aa41e6f322b7317cf68c6d359013b6ebb88e1d6e2ea",
       "bytes": 2816372
     },
-    "c25_優質蛋白奶-無加糖燕麥/IMG_4733.jpg": {
+    "beverage/c25_優質蛋白奶-無加糖燕麥/IMG_4733.jpg": {
       "sha256": "34aed9acd82f3a64b4b2162a291ead9a196006a3c0d4ed84888ecdea080e5906",
       "bytes": 3045490
     },
-    "c26_冰鎮芭樂綠茶/IMG_4751.jpg": {
+    "beverage/c26_冰鎮芭樂綠茶/IMG_4751.jpg": {
       "sha256": "024853f500f15f31130462d1375a09536aee4e29324ff49796a9644e5b573cd9",
       "bytes": 3081946
     },
-    "c26_冰鎮芭樂綠茶/IMG_4752.jpg": {
+    "beverage/c26_冰鎮芭樂綠茶/IMG_4752.jpg": {
       "sha256": "0e49824f645ebaf59e965595772257bf28917b68afd42c3fd23b149f159f2c13",
       "bytes": 3304865
     },
-    "c27_冰鎮葡萄鮮冰茶/IMG_4749.jpg": {
+    "beverage/c27_冰鎮葡萄鮮冰茶/IMG_4749.jpg": {
       "sha256": "610b4b89cfe0c4323b56fe117395b855593f09b5688773816f3c21508f55b6c0",
       "bytes": 3098130
     },
-    "c27_冰鎮葡萄鮮冰茶/IMG_4750.jpg": {
+    "beverage/c27_冰鎮葡萄鮮冰茶/IMG_4750.jpg": {
       "sha256": "9bb20efc8fc37bf4a113dd732ac68e24e0f1de0cfa7d286a4b3120128bd31861",
       "bytes": 3269330
     },
-    "c28_北海鱈魚香絲/IMG_7786.jpg": {
-      "sha256": "9dd31109d3d4010ad2f93d79c44cfc41d5ae85628210ef0b45b0596139ae31e1",
-      "bytes": 5062364
-    },
-    "c28_北海鱈魚香絲/IMG_7787.jpg": {
-      "sha256": "64aa92e6dfbdd146faa2810c3a1b7cbf58af8a48f2f7a6705c1b633d417de2a0",
-      "bytes": 4942479
-    },
-    "c29_可口可樂/IMG_4759.jpg": {
+    "beverage/c29_可口可樂/IMG_4759.jpg": {
       "sha256": "8a5dc7ead6a8b1208fadd0bd77e42632f59b2d02c2658f4d394ec66d5aefa832",
       "bytes": 2485807
     },
-    "c29_可口可樂/IMG_4760.jpg": {
+    "beverage/c29_可口可樂/IMG_4760.jpg": {
       "sha256": "e96494279634eeeabf7d68c92bb0da0d83d8553075cd210facb65236df5c1ca1",
       "bytes": 2356486
     },
-    "c29_可口可樂/IMG_4761.jpg": {
+    "beverage/c29_可口可樂/IMG_4761.jpg": {
       "sha256": "3318616dbd4afec96b0110fa4243c37a1310309b5760955f2a84d6e752c45be6",
       "bytes": 2231031
     },
-    "c30_吉士豬肉堡加蛋/IMG_4736.jpg": {
-      "sha256": "ddf692efaa8e8b1bcf299447bb385b888fbd39eda70103590998f48cdc061ecd",
-      "bytes": 2871597
-    },
-    "c30_吉士豬肉堡加蛋/IMG_4737.jpg": {
-      "sha256": "65b080f20bea7d0006eec6397d027dfc14fdcee1cac304cf8050507ca44d063e",
-      "bytes": 2889682
-    },
-    "c31_增雞蛋白餐/._IMG_7800.HEIC": {
-      "sha256": "c76792fa9a4cf72392ea483ed650acc4cc41284a38a4e3ce10092518c25ce3d1",
-      "bytes": 4096
-    },
-    "c31_增雞蛋白餐/._IMG_7801.HEIC": {
-      "sha256": "6c39adfd961fc9f701e8c0bb3876fef1ae3b0be9010e23aa5c2013285485ec86",
-      "bytes": 4096
-    },
-    "c31_增雞蛋白餐/IMG_7800.jpg": {
-      "sha256": "0365ca641ad52ed771fa60f29107237b88cfdd9ca377f90670ed0e4089271589",
-      "bytes": 3856435
-    },
-    "c31_增雞蛋白餐/IMG_7801.jpg": {
-      "sha256": "906c17c54e849bcc79925f3f9d3ce9531443a51d2ce08552817ac8b1d6eea526",
-      "bytes": 1842832
-    },
-    "c32_奧利奧捲心酥-巧克力口味/IMG_7784.jpg": {
-      "sha256": "05516f1fbd73336d93704a1673d0a5332a0fc1495f4b65a1432e3490a9929a5c",
-      "bytes": 4448662
-    },
-    "c32_奧利奧捲心酥-巧克力口味/IMG_7785.jpg": {
-      "sha256": "59fd32d42d1e84db411ba21ebb080afc1060304b7cf4ce0bf985712b404a9eaf",
-      "bytes": 5224325
-    },
-    "c33_手摘果物-無籽梅肉/IMG_7788.jpg": {
-      "sha256": "47a99b8a13080952bd9f82d44c5706f2547f12d5ca2d3bd562c8c342435d1e12",
-      "bytes": 3614993
-    },
-    "c33_手摘果物-無籽梅肉/IMG_7789.jpg": {
-      "sha256": "adfe396391d8a778b74a8aadd5c0e1aa3c8998c33a3a103439d6094267e438b4",
-      "bytes": 4651051
-    },
-    "c34_日式佛蒙特咖哩雞肉飯/IMG_4747.jpg": {
-      "sha256": "e5fcea7fea5c93c9d473e3e31996631f187f21f52d4bb878c45d7a3105eea7da",
-      "bytes": 2649633
-    },
-    "c34_日式佛蒙特咖哩雞肉飯/IMG_4748.jpg": {
-      "sha256": "4e3e204e0bc818a67c22d5423fa27ae8d016c3819faff9198850c9bb508aeb0c",
-      "bytes": 2434530
-    },
-    "c35_極饕-真飽經典麻醬涼麵/IMG_4740.jpg": {
-      "sha256": "db17cd279ead08cb88810def9649eb357e78d6817b78ce38d08d3911ed14e0fe",
-      "bytes": 2823910
-    },
-    "c35_極饕-真飽經典麻醬涼麵/IMG_4741.jpg": {
-      "sha256": "fd53804f959deb24000ba637c99891e4e5b3cc74fb4690349097098dd7fe7012",
-      "bytes": 2715451
-    },
-    "c36_滿漢大餐酸菜白肉拌麵/IMG_4730.jpg": {
-      "sha256": "816a7c17a9a34280937a72fb95abeed25b006b458bf7e01c377385303d62191b",
-      "bytes": 3399525
-    },
-    "c36_滿漢大餐酸菜白肉拌麵/IMG_4731.jpg": {
-      "sha256": "5529af060b386d429e14eab5f63ee30502872f00ce58360531046fb10d9dc604",
-      "bytes": 2982927
-    },
-    "c37_爆蛋流心豬肉堡/IMG_4738.jpg": {
-      "sha256": "dd399fd9e0be0473ffe9cdd575322d926c26bf19b4e94f6ec362dd76755178b0",
-      "bytes": 2863401
-    },
-    "c37_爆蛋流心豬肉堡/IMG_4739.jpg": {
-      "sha256": "3217fe19ad27c59094436b022079b16c3f8ace891a01abef955195731c39f6c5",
-      "bytes": 3103058
-    },
-    "c38_科學麵/._IMG_7794.HEIC": {
-      "sha256": "3fc61207ebcf58a319ce19820df37bfe48cfe82923b2b6faa713e7ee5430ad0a",
-      "bytes": 4096
-    },
-    "c38_科學麵/._IMG_7795.HEIC": {
-      "sha256": "118195cf183fc6ca68d638e2ca5c1101e688c4486bffb8f96f13077d98b61ed8",
-      "bytes": 4096
-    },
-    "c38_科學麵/IMG_7794.jpg": {
-      "sha256": "8002a89e8ddf39f679291f33de4c5ef51c8379a24f538c4fd3244f9791c5c5a1",
-      "bytes": 496064
-    },
-    "c38_科學麵/IMG_7795.jpg": {
-      "sha256": "07dea7f8e0cbef247bd6b9e1c5681393038859fdb7db6d94738dc26c5ba39067",
-      "bytes": 428432
-    },
-    "c39_米香-三杯雞燴飯/IMG_4745.jpg": {
-      "sha256": "ad58ab020ad3a6f34438f56dcadcd4957b7e371f371308326f60114abbe5ec8a",
-      "bytes": 2861798
-    },
-    "c39_米香-三杯雞燴飯/IMG_4746.jpg": {
-      "sha256": "1b20c2b696fb9b498e7372abcd9ce5f0a392cf035e3d3999b4508a43e9b64c65",
-      "bytes": 2558966
-    },
-    "c40_米香-催淚蛋親子丼飯/IMG_4743.jpg": {
-      "sha256": "a5f8b4bd41bda19440296ba73a2e64afefb05df7a11d1488db73057ea9ffb96a",
-      "bytes": 2665760
-    },
-    "c40_米香-催淚蛋親子丼飯/IMG_4744.jpg": {
-      "sha256": "e2a654991a93f7a11720d9ba8b3995bf28a161adfbf78ab604ea317a9b5fa2f0",
-      "bytes": 2692077
-    },
-    "c41_綠巨人珍珠玉米/._IMG_7804.HEIC": {
-      "sha256": "35e36fd1c97215d7ba17467acc6c02c2590ef27d1a295725c885f1ec3888cc53",
-      "bytes": 4096
-    },
-    "c41_綠巨人珍珠玉米/._IMG_7805.HEIC": {
-      "sha256": "55b60e5b9f0b8ce09bf4ac7ff32dafadf6f50b466a411c6af755f3d6e0c53529",
-      "bytes": 4096
-    },
-    "c41_綠巨人珍珠玉米/._IMG_7806.HEIC": {
-      "sha256": "f15f2349640aea4b11f0016cf082ad39d666714cf17324cf6dd3dd7f518afe3d",
-      "bytes": 4096
-    },
-    "c41_綠巨人珍珠玉米/IMG_7804.jpg": {
-      "sha256": "c9ab619acdac9a9172b9072e5f4babf24e03caa937f6c4e1438828d2029df391",
-      "bytes": 327697
-    },
-    "c41_綠巨人珍珠玉米/IMG_7805.jpg": {
-      "sha256": "c8c59d7d689938172f378e01e4fafdfeab8968b3ce3a6d78537ad74ad4144095",
-      "bytes": 379464
-    },
-    "c41_綠巨人珍珠玉米/IMG_7806.jpg": {
-      "sha256": "8d9f29d91cb8c89b841a1c23c88270886ef9982509d30b6101b99290cd90d356",
-      "bytes": 209094
-    },
-    "c42_蔥鹽炙燒豬肉便當/IMG_4725.jpg": {
-      "sha256": "11d09157dc5e62461137ed1fc4b7cb40eed5504422f822c9a6cf0b529db366da",
-      "bytes": 2800068
-    },
-    "c42_蔥鹽炙燒豬肉便當/IMG_4726.jpg": {
-      "sha256": "450a64772ac3c8737aa62e399665a7c21f0757e9d53899cdb9f99253e3c6e3f4",
-      "bytes": 3061727
-    },
-    "c43_藤椒風味烤雞便當/IMG_4727.jpg": {
-      "sha256": "ef7bc297f4f95618d958ee8b5a245ec34fa9e1d5c4d4bea4c0796976d55aad06",
-      "bytes": 2812676
-    },
-    "c43_藤椒風味烤雞便當/IMG_4728.jpg": {
-      "sha256": "798905c477635b29931450171d12f6c7234f7f5a6f6085470ab4f3eacf505d0c",
-      "bytes": 2089619
-    },
-    "c44_酸菜白肉個人鍋/._IMG_7802.HEIC": {
-      "sha256": "d37f7a8a1823b72d28534023e06ab163f07ed368e2ddd2995ed7c578fa8417e7",
-      "bytes": 4096
-    },
-    "c44_酸菜白肉個人鍋/._IMG_7803.HEIC": {
-      "sha256": "db1cf8a5e9c7706acaf11647e03b7c81c1f1b0f56ead8e643ebea4a7b1debbc6",
-      "bytes": 4096
-    },
-    "c44_酸菜白肉個人鍋/IMG_7802.jpg": {
-      "sha256": "543fef388759295e125960d2eac19d88401c1decf5d6d92b7134107ea2e64265",
-      "bytes": 3579196
-    },
-    "c44_酸菜白肉個人鍋/IMG_7803.jpg": {
-      "sha256": "ecad611fd874cff1cda6db644a0069345063c2c94dcf3e9e70d061a85f18fdc3",
-      "bytes": 2031439
-    },
-    "c45_金沙烤豆腐義大利麵/._IMG_7798.HEIC": {
-      "sha256": "bbd1ec4c3272c5312810140228f6d58c403f322b31962f754536a726011e5df0",
-      "bytes": 4096
-    },
-    "c45_金沙烤豆腐義大利麵/._IMG_7799.HEIC": {
-      "sha256": "418d3107d194f41672979336f7d11acfc58d7ac75040d7d254f74f09b16e0f8d",
-      "bytes": 4096
-    },
-    "c45_金沙烤豆腐義大利麵/IMG_7798.jpg": {
-      "sha256": "299941986ecfabc3c500bc519bc63c600f1930b917748388094cefeab2c8f169",
-      "bytes": 4094813
-    },
-    "c45_金沙烤豆腐義大利麵/IMG_7799.jpg": {
-      "sha256": "a8f479f2e7c20b1e6dbc64060daf6bc029d1e0e9ff103095bd2d81db4b5d8d2b",
-      "bytes": 335182
-    },
-    "c46_雙拼起司紅醬焗飯/._IMG_7796.HEIC": {
-      "sha256": "ff1f6e9f673b799ddf3d9aef8fa28d97434226a94b9c035a290cb831c46fa27c",
-      "bytes": 4096
-    },
-    "c46_雙拼起司紅醬焗飯/._IMG_7797.HEIC": {
-      "sha256": "c8be2dd48867b2ff922c32280f695bc8bca4a04fb35205fd4b9f85fc00c82b8e",
-      "bytes": 4096
-    },
-    "c46_雙拼起司紅醬焗飯/IMG_7796.jpg": {
-      "sha256": "e365ac582b1906e541419afc0697b99919ead80d25090920f1f44c67c8f6816d",
-      "bytes": 4316006
-    },
-    "c46_雙拼起司紅醬焗飯/IMG_7797.jpg": {
-      "sha256": "0968ea0657208000343ac7b9e1e135feea3a4eb8a06dd10194826e815af52c63",
-      "bytes": 2052326
-    },
-    "c47_麥香奶茶/IMG_4757.jpg": {
+    "beverage/c47_麥香奶茶/IMG_4757.jpg": {
       "sha256": "3c178ee13a053cc32d1fdc61121dfaaeeec455442f540f9043605684278aacbe",
       "bytes": 3055938
     },
-    "c47_麥香奶茶/IMG_4758.jpg": {
+    "beverage/c47_麥香奶茶/IMG_4758.jpg": {
       "sha256": "ee0be95e31b986541f9a82a4b07000b55f98de5547e3ca580ed54641d556d1d7",
       "bytes": 2920938
     },
-    "c47_麥香奶茶/IMG_4764.jpg": {
+    "beverage/c47_麥香奶茶/IMG_4764.jpg": {
       "sha256": "5d82b5ee40e6f5efae5560be4f80d243e876748af7ab7f549519a9ad14ff5f79",
       "bytes": 3101707
     },
-    "c48_麥香紅茶/IMG_4753.jpg": {
+    "beverage/c48_麥香紅茶/IMG_4753.jpg": {
       "sha256": "762767cdc370bd4a7795d884cdc12352aa55320ecbab30f5c71fc0951455b9fd",
       "bytes": 2881634
     },
-    "c48_麥香紅茶/IMG_4754.jpg": {
+    "beverage/c48_麥香紅茶/IMG_4754.jpg": {
       "sha256": "f4318deb16802e09de4298dfc1e2610848b2857e36e778eee023f49bca72b9c2",
       "bytes": 2879295
     },
-    "c48_麥香紅茶/IMG_4763.jpg": {
+    "beverage/c48_麥香紅茶/IMG_4763.jpg": {
       "sha256": "44b671f0e1e3589b05453217ff4dbab7a54d9806dc2bea5e21ede37eabb7a2d0",
       "bytes": 2755000
     },
-    "c49_麥香綠茶/IMG_4755.jpg": {
+    "beverage/c49_麥香綠茶/IMG_4755.jpg": {
       "sha256": "dd6bfead190af72c1279f202056a3b0f9b286995940c66db8a1cf629255f3579",
       "bytes": 3028796
     },
-    "c49_麥香綠茶/IMG_4756.jpg": {
+    "beverage/c49_麥香綠茶/IMG_4756.jpg": {
       "sha256": "b4ce11bfbea950601d4515903e64351495354baa7ef165948298779bf6392cc6",
       "bytes": 2882401
     },
-    "c49_麥香綠茶/IMG_4762.jpg": {
+    "beverage/c49_麥香綠茶/IMG_4762.jpg": {
       "sha256": "5cdd1cba1b77ca6e160fc62c65a6b5048bad65a9a80c31da8401505082c9a6e8",
       "bytes": 2928767
+    },
+    "canned_food/c41_綠巨人珍珠玉米/._IMG_7804.HEIC": {
+      "sha256": "35e36fd1c97215d7ba17467acc6c02c2590ef27d1a295725c885f1ec3888cc53",
+      "bytes": 4096
+    },
+    "canned_food/c41_綠巨人珍珠玉米/._IMG_7805.HEIC": {
+      "sha256": "55b60e5b9f0b8ce09bf4ac7ff32dafadf6f50b466a411c6af755f3d6e0c53529",
+      "bytes": 4096
+    },
+    "canned_food/c41_綠巨人珍珠玉米/._IMG_7806.HEIC": {
+      "sha256": "f15f2349640aea4b11f0016cf082ad39d666714cf17324cf6dd3dd7f518afe3d",
+      "bytes": 4096
+    },
+    "canned_food/c41_綠巨人珍珠玉米/IMG_7804.jpg": {
+      "sha256": "c9ab619acdac9a9172b9072e5f4babf24e03caa937f6c4e1438828d2029df391",
+      "bytes": 327697
+    },
+    "canned_food/c41_綠巨人珍珠玉米/IMG_7805.jpg": {
+      "sha256": "c8c59d7d689938172f378e01e4fafdfeab8968b3ce3a6d78537ad74ad4144095",
+      "bytes": 379464
+    },
+    "canned_food/c41_綠巨人珍珠玉米/IMG_7806.jpg": {
+      "sha256": "8d9f29d91cb8c89b841a1c23c88270886ef9982509d30b6101b99290cd90d356",
+      "bytes": 209094
+    },
+    "instant_noodle/c36_滿漢大餐酸菜白肉拌麵/IMG_4730.jpg": {
+      "sha256": "816a7c17a9a34280937a72fb95abeed25b006b458bf7e01c377385303d62191b",
+      "bytes": 3399525
+    },
+    "instant_noodle/c36_滿漢大餐酸菜白肉拌麵/IMG_4731.jpg": {
+      "sha256": "5529af060b386d429e14eab5f63ee30502872f00ce58360531046fb10d9dc604",
+      "bytes": 2982927
+    },
+    "non_food/c05_非食品/Test_NotFood.jpg": {
+      "sha256": "ac454e7c625746528a596786f7a06149fa286030bee3669cbafdf0cad1c1ac93",
+      "bytes": 53050
+    },
+    "prepared_meal/c08_椰香綠咖哩嫩雞飯/7ulxh12.jpeg": {
+      "sha256": "592b590573d6a6c724b5cc50ab458e5f82056fc10da967dcbff362bd3bbdd00c",
+      "bytes": 237747
+    },
+    "prepared_meal/c09_麻婆豆腐燴飯/麻婆豆腐燴飯.jpg": {
+      "sha256": "c4ca4e6b85ed929157e374f5ac25b71e3eb770376212c2ab375baddb1626a7a7",
+      "bytes": 1136086
+    },
+    "prepared_meal/c10_鮮蔬烤雞三明治/P9680325.jpg": {
+      "sha256": "dcddffe9d0d7d94130743c1440c4eafe5bb35e5c0cf3a3d564b83ca73a69d2ac",
+      "bytes": 366795
+    },
+    "prepared_meal/c11_大飯糰椒香鮪魚/fqxo8Iv.jpg": {
+      "sha256": "6672abb18f3e97a816adc577cb7ea027dd78f813f22ad5eab1d195c537cc9302",
+      "bytes": 328892
+    },
+    "prepared_meal/c12_肉鬆御飯糰/hSpNZr9.jpg": {
+      "sha256": "966b55bb6984febbe5c55fd6011166262cac405c9c5d325092356c8f4073fe7d",
+      "bytes": 967471
+    },
+    "prepared_meal/c30_吉士豬肉堡加蛋/IMG_4736.jpg": {
+      "sha256": "ddf692efaa8e8b1bcf299447bb385b888fbd39eda70103590998f48cdc061ecd",
+      "bytes": 2871597
+    },
+    "prepared_meal/c30_吉士豬肉堡加蛋/IMG_4737.jpg": {
+      "sha256": "65b080f20bea7d0006eec6397d027dfc14fdcee1cac304cf8050507ca44d063e",
+      "bytes": 2889682
+    },
+    "prepared_meal/c31_增雞蛋白餐/._IMG_7800.HEIC": {
+      "sha256": "c76792fa9a4cf72392ea483ed650acc4cc41284a38a4e3ce10092518c25ce3d1",
+      "bytes": 4096
+    },
+    "prepared_meal/c31_增雞蛋白餐/._IMG_7801.HEIC": {
+      "sha256": "6c39adfd961fc9f701e8c0bb3876fef1ae3b0be9010e23aa5c2013285485ec86",
+      "bytes": 4096
+    },
+    "prepared_meal/c31_增雞蛋白餐/IMG_7800.jpg": {
+      "sha256": "0365ca641ad52ed771fa60f29107237b88cfdd9ca377f90670ed0e4089271589",
+      "bytes": 3856435
+    },
+    "prepared_meal/c31_增雞蛋白餐/IMG_7801.jpg": {
+      "sha256": "906c17c54e849bcc79925f3f9d3ce9531443a51d2ce08552817ac8b1d6eea526",
+      "bytes": 1842832
+    },
+    "prepared_meal/c34_日式佛蒙特咖哩雞肉飯/IMG_4747.jpg": {
+      "sha256": "e5fcea7fea5c93c9d473e3e31996631f187f21f52d4bb878c45d7a3105eea7da",
+      "bytes": 2649633
+    },
+    "prepared_meal/c34_日式佛蒙特咖哩雞肉飯/IMG_4748.jpg": {
+      "sha256": "4e3e204e0bc818a67c22d5423fa27ae8d016c3819faff9198850c9bb508aeb0c",
+      "bytes": 2434530
+    },
+    "prepared_meal/c35_極饕-真飽經典麻醬涼麵/IMG_4740.jpg": {
+      "sha256": "db17cd279ead08cb88810def9649eb357e78d6817b78ce38d08d3911ed14e0fe",
+      "bytes": 2823910
+    },
+    "prepared_meal/c35_極饕-真飽經典麻醬涼麵/IMG_4741.jpg": {
+      "sha256": "fd53804f959deb24000ba637c99891e4e5b3cc74fb4690349097098dd7fe7012",
+      "bytes": 2715451
+    },
+    "prepared_meal/c37_爆蛋流心豬肉堡/IMG_4738.jpg": {
+      "sha256": "dd399fd9e0be0473ffe9cdd575322d926c26bf19b4e94f6ec362dd76755178b0",
+      "bytes": 2863401
+    },
+    "prepared_meal/c37_爆蛋流心豬肉堡/IMG_4739.jpg": {
+      "sha256": "3217fe19ad27c59094436b022079b16c3f8ace891a01abef955195731c39f6c5",
+      "bytes": 3103058
+    },
+    "prepared_meal/c39_米香-三杯雞燴飯/IMG_4745.jpg": {
+      "sha256": "ad58ab020ad3a6f34438f56dcadcd4957b7e371f371308326f60114abbe5ec8a",
+      "bytes": 2861798
+    },
+    "prepared_meal/c39_米香-三杯雞燴飯/IMG_4746.jpg": {
+      "sha256": "1b20c2b696fb9b498e7372abcd9ce5f0a392cf035e3d3999b4508a43e9b64c65",
+      "bytes": 2558966
+    },
+    "prepared_meal/c40_米香-催淚蛋親子丼飯/IMG_4743.jpg": {
+      "sha256": "a5f8b4bd41bda19440296ba73a2e64afefb05df7a11d1488db73057ea9ffb96a",
+      "bytes": 2665760
+    },
+    "prepared_meal/c40_米香-催淚蛋親子丼飯/IMG_4744.jpg": {
+      "sha256": "e2a654991a93f7a11720d9ba8b3995bf28a161adfbf78ab604ea317a9b5fa2f0",
+      "bytes": 2692077
+    },
+    "prepared_meal/c42_蔥鹽炙燒豬肉便當/IMG_4725.jpg": {
+      "sha256": "11d09157dc5e62461137ed1fc4b7cb40eed5504422f822c9a6cf0b529db366da",
+      "bytes": 2800068
+    },
+    "prepared_meal/c42_蔥鹽炙燒豬肉便當/IMG_4726.jpg": {
+      "sha256": "450a64772ac3c8737aa62e399665a7c21f0757e9d53899cdb9f99253e3c6e3f4",
+      "bytes": 3061727
+    },
+    "prepared_meal/c43_藤椒風味烤雞便當/IMG_4727.jpg": {
+      "sha256": "ef7bc297f4f95618d958ee8b5a245ec34fa9e1d5c4d4bea4c0796976d55aad06",
+      "bytes": 2812676
+    },
+    "prepared_meal/c43_藤椒風味烤雞便當/IMG_4728.jpg": {
+      "sha256": "798905c477635b29931450171d12f6c7234f7f5a6f6085470ab4f3eacf505d0c",
+      "bytes": 2089619
+    },
+    "prepared_meal/c44_酸菜白肉個人鍋/._IMG_7802.HEIC": {
+      "sha256": "d37f7a8a1823b72d28534023e06ab163f07ed368e2ddd2995ed7c578fa8417e7",
+      "bytes": 4096
+    },
+    "prepared_meal/c44_酸菜白肉個人鍋/._IMG_7803.HEIC": {
+      "sha256": "db1cf8a5e9c7706acaf11647e03b7c81c1f1b0f56ead8e643ebea4a7b1debbc6",
+      "bytes": 4096
+    },
+    "prepared_meal/c44_酸菜白肉個人鍋/IMG_7802.jpg": {
+      "sha256": "543fef388759295e125960d2eac19d88401c1decf5d6d92b7134107ea2e64265",
+      "bytes": 3579196
+    },
+    "prepared_meal/c44_酸菜白肉個人鍋/IMG_7803.jpg": {
+      "sha256": "ecad611fd874cff1cda6db644a0069345063c2c94dcf3e9e70d061a85f18fdc3",
+      "bytes": 2031439
+    },
+    "prepared_meal/c45_金沙烤豆腐義大利麵/._IMG_7798.HEIC": {
+      "sha256": "bbd1ec4c3272c5312810140228f6d58c403f322b31962f754536a726011e5df0",
+      "bytes": 4096
+    },
+    "prepared_meal/c45_金沙烤豆腐義大利麵/._IMG_7799.HEIC": {
+      "sha256": "418d3107d194f41672979336f7d11acfc58d7ac75040d7d254f74f09b16e0f8d",
+      "bytes": 4096
+    },
+    "prepared_meal/c45_金沙烤豆腐義大利麵/IMG_7798.jpg": {
+      "sha256": "299941986ecfabc3c500bc519bc63c600f1930b917748388094cefeab2c8f169",
+      "bytes": 4094813
+    },
+    "prepared_meal/c45_金沙烤豆腐義大利麵/IMG_7799.jpg": {
+      "sha256": "a8f479f2e7c20b1e6dbc64060daf6bc029d1e0e9ff103095bd2d81db4b5d8d2b",
+      "bytes": 335182
+    },
+    "prepared_meal/c46_雙拼起司紅醬焗飯/._IMG_7796.HEIC": {
+      "sha256": "ff1f6e9f673b799ddf3d9aef8fa28d97434226a94b9c035a290cb831c46fa27c",
+      "bytes": 4096
+    },
+    "prepared_meal/c46_雙拼起司紅醬焗飯/._IMG_7797.HEIC": {
+      "sha256": "c8be2dd48867b2ff922c32280f695bc8bca4a04fb35205fd4b9f85fc00c82b8e",
+      "bytes": 4096
+    },
+    "prepared_meal/c46_雙拼起司紅醬焗飯/IMG_7796.jpg": {
+      "sha256": "e365ac582b1906e541419afc0697b99919ead80d25090920f1f44c67c8f6816d",
+      "bytes": 4316006
+    },
+    "prepared_meal/c46_雙拼起司紅醬焗飯/IMG_7797.jpg": {
+      "sha256": "0968ea0657208000343ac7b9e1e135feea3a4eb8a06dd10194826e815af52c63",
+      "bytes": 2052326
+    },
+    "snack/c18_蝦味先原味/bbdf1274-03af-42e3-b32a-f8cacf51212c.jpg": {
+      "sha256": "8d7801971fb98aedf7af7b09833fb7dfaa2e541d40bfd337528f3b5e8e055309",
+      "bytes": 59716
+    },
+    "snack/c19_經典原味洋芋片/25003_126639_2ujudkkh.jpg": {
+      "sha256": "b8172acc9f470927143395351e2e1d8c4b6cfa4db81ae97010f2c4aaed6c9970",
+      "bytes": 166185
+    },
+    "snack/c20_海苔洋芋片/25003_126633_m302pks3.jpg": {
+      "sha256": "0a7fe4c4532832e18be0913a238108ea0fc723b123f02daea5d2dc37950b0552",
+      "bytes": 210882
+    },
+    "snack/c21_Pockey百奇草莓棒/IMG_7782.jpg": {
+      "sha256": "1da5788d79882845bcf5507bc1e7e7c9db1577c4bad9575525fa4e54ec5e4e38",
+      "bytes": 2539289
+    },
+    "snack/c21_Pockey百奇草莓棒/IMG_7783.jpg": {
+      "sha256": "448eb11ca28a0d35a53600ef0f1b426cb86d395c0a770c58914399281b99cbf3",
+      "bytes": 2239519
+    },
+    "snack/c28_北海鱈魚香絲/IMG_7786.jpg": {
+      "sha256": "9dd31109d3d4010ad2f93d79c44cfc41d5ae85628210ef0b45b0596139ae31e1",
+      "bytes": 5062364
+    },
+    "snack/c28_北海鱈魚香絲/IMG_7787.jpg": {
+      "sha256": "64aa92e6dfbdd146faa2810c3a1b7cbf58af8a48f2f7a6705c1b633d417de2a0",
+      "bytes": 4942479
+    },
+    "snack/c32_奧利奧捲心酥-巧克力口味/IMG_7784.jpg": {
+      "sha256": "05516f1fbd73336d93704a1673d0a5332a0fc1495f4b65a1432e3490a9929a5c",
+      "bytes": 4448662
+    },
+    "snack/c32_奧利奧捲心酥-巧克力口味/IMG_7785.jpg": {
+      "sha256": "59fd32d42d1e84db411ba21ebb080afc1060304b7cf4ce0bf985712b404a9eaf",
+      "bytes": 5224325
+    },
+    "snack/c33_手摘果物-無籽梅肉/IMG_7788.jpg": {
+      "sha256": "47a99b8a13080952bd9f82d44c5706f2547f12d5ca2d3bd562c8c342435d1e12",
+      "bytes": 3614993
+    },
+    "snack/c33_手摘果物-無籽梅肉/IMG_7789.jpg": {
+      "sha256": "adfe396391d8a778b74a8aadd5c0e1aa3c8998c33a3a103439d6094267e438b4",
+      "bytes": 4651051
+    },
+    "snack/c38_科學麵/._IMG_7794.HEIC": {
+      "sha256": "3fc61207ebcf58a319ce19820df37bfe48cfe82923b2b6faa713e7ee5430ad0a",
+      "bytes": 4096
+    },
+    "snack/c38_科學麵/._IMG_7795.HEIC": {
+      "sha256": "118195cf183fc6ca68d638e2ca5c1101e688c4486bffb8f96f13077d98b61ed8",
+      "bytes": 4096
+    },
+    "snack/c38_科學麵/IMG_7794.jpg": {
+      "sha256": "8002a89e8ddf39f679291f33de4c5ef51c8379a24f538c4fd3244f9791c5c5a1",
+      "bytes": 496064
+    },
+    "snack/c38_科學麵/IMG_7795.jpg": {
+      "sha256": "07dea7f8e0cbef247bd6b9e1c5681393038859fdb7db6d94738dc26c5ba39067",
+      "bytes": 428432
+    },
+    "supplement_food/c22_UNCLELEMON蜂蜜檸檬風味膠囊/IMG_7790.jpg": {
+      "sha256": "012631de30225245d36194e550edf4acba7b0634ae073b60b7dc698e0562550c",
+      "bytes": 2174335
+    },
+    "supplement_food/c22_UNCLELEMON蜂蜜檸檬風味膠囊/IMG_7791.jpg": {
+      "sha256": "b07880257f4d415d158f8e1128ef7beb29f3bec7fc744fa7c1a23e5d864c828d",
+      "bytes": 1956269
+    },
+    "supplement_food/c23_in果凍/._IMG_7792.HEIC": {
+      "sha256": "f82e6643866d8847fbfbf7e3fc0481e61e80059e07df7b3d9b0a4b06341b4e25",
+      "bytes": 4096
+    },
+    "supplement_food/c23_in果凍/._IMG_7793.HEIC": {
+      "sha256": "88443a1cf5c668328d7d6108dbff630aa4a6664dece92024e062a2f4c8ea5cea",
+      "bytes": 4096
+    },
+    "supplement_food/c23_in果凍/IMG_7792.jpg": {
+      "sha256": "200455bde10f50dd5638ad88d53880b0a6672375c90dd87eebcbf1674f9b6189",
+      "bytes": 429234
+    },
+    "supplement_food/c23_in果凍/IMG_7793.jpg": {
+      "sha256": "ea2e8d84316dc4673362c3fb37f3084b59e433a6f851cabdd1c869049c993ec2",
+      "bytes": 267993
     }
   }
 }
