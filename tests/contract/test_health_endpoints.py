@@ -46,7 +46,9 @@ def fog_app(tmp_path, monkeypatch):
 
     # 指向一個保證連不上的位址，模擬 Cloud 離線
     monkeypatch.setenv("CLOUD_API_URL", "http://127.0.0.1:59999/api/analyze")
-    import main as fog_main
+    # 以明確路徑載入，避免與 server/main.py 名稱衝突（見 conftest.py 說明）
+    from conftest import load_fog_main
+    fog_main = load_fog_main()
 
     monkeypatch.setattr(fog_main, "DB_PATH", str(db))
     monkeypatch.setattr(fog_main, "CLOUD_URL", "http://127.0.0.1:59999/api/analyze")
