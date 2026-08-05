@@ -1,6 +1,16 @@
-# 暫時停用(2026-07-24):樹莓派裝置已搬遷,PI_TAILSCALE_IP 需要更新後
-# 才能恢復連線,否則此 workflow 會在 SSH 連線步驟失敗。
-# 恢復方式:改回副檔名 .yml 即可重新啟用(內容未變動)。
+# 目前停用中。恢復方式：把副檔名的 .disabled 去掉即可（GitHub 只認得 .yml）。
+#
+# 停用期間累積的修正（2026-08-05，皆已在腳本中處理）：
+#   1. npm install --production 會跳過 devDependencies，但下一行的 npm run build
+#      需要其中的 typescript。先前能過是因為 node_modules 裡還留著舊的完整安裝，
+#      Pi 一旦重灌就會以「tsc: not found」失敗。改為完整安裝。
+#   2. git pull 在工作區有未提交修改時會失敗。改為明確捨棄本機修改——Pi 是部署
+#      目標而非開發環境，其上的任何本機修改都應視為意外。
+#   3. 以 git reset --hard 取代 git pull，避免非快轉合併卡住。
+#   4. 傳入 APP_COMMIT，讓 /health 回報的版本來自部署當下的 SHA，而非依賴 Pi 上
+#      的 git 狀態——「部署成功」與「部署了正確版本」是兩件事。
+#   5. 部署後驗證改為檢查 /health 回報的 commit 是否等於本次部署的 SHA。原本只
+#      確認端點有回應，無法分辨服務是不是還跑著舊版。
 name: Deploy Fog to Pi 5
 
 on:
@@ -28,16 +38,38 @@ jobs:
           host: ${{ secrets.PI_TAILSCALE_IP }}
           username: johnlai
           key: ${{ secrets.FOG_SSH_PRIVATE_KEY }}
+          envs: GITHUB_SHA
           script: |
+            set -e
             cd /home/johnlai/fog/FoodScanIoT
-            git pull origin main
+
+            # Pi 是部署目標，不是開發環境——本機修改一律捨棄，否則 git pull 會失敗
+            git fetch origin main
+            git reset --hard origin/main
+            git clean -fd fog
+
             cd fog
             source venv/bin/activate
             pip install -r requirements.txt
-            npm install --production
+
+            # 不可用 --production：typescript 在 devDependencies，下一行的 build 需要它
+            npm ci || npm install
             npm run build
+
+            # 讓 /health 回報的 commit 來自部署當下，而非 Pi 上的 git 狀態
+            sudo systemctl set-environment APP_COMMIT="${GITHUB_SHA:0:7}"
             sudo systemctl restart fog-python fog-node
             sleep 5
-            curl -sf http://localhost:3001/health || exit 1
-            curl -sf http://localhost:3002/health || exit 1
-            echo "Deploy success"
+
+            # 驗證：服務活著，且跑的確實是本次部署的版本
+            for port in 3001 3002; do
+              body=$(curl -sf "http://localhost:$port/health") || {
+                echo "健康檢查失敗：port $port 沒有回應"; exit 1; }
+              echo "port $port -> $body"
+              echo "$body" | grep -q "\"commit\":\"${GITHUB_SHA:0:7}\"" || {
+                echo "版本不符：port $port 回報的 commit 不是本次部署的 ${GITHUB_SHA:0:7}"
+                echo "服務可能沒有真的重啟，或載入了舊的程式碼"
+                exit 1; }
+            done
+
+            echo "Deploy success — ${GITHUB_SHA:0:7}"
