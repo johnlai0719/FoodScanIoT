@@ -1,0 +1,54 @@
+name: Contract Tests
+
+# 跨層契約測試。刻意設計成「純函式、不需要外部服務」，所以不需要任何 secret、
+# 資料庫或 API key，可以在每次 push / PR 上直接跑。
+#
+# 這些測試存在的理由：Cloud → Fog → App 之間的資料契約過去只以描述性型別檔存在，
+# 沒有任何機制會在它被違反時報錯，已導致多次靜默失效（族群標籤中英文對不上、
+# nutrition_facts 位置被誤解等）。有了這個 workflow，改壞契約會當場擋下。
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  python-contract:
+    name: Cloud 回應契約 / 族群詞彙
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # 契約測試只 import server/module_a 與 server/module_d，兩者在模組層都只依賴
+      # 標準函式庫（json / os / re / datetime），不需要安裝 requirements.txt。
+      - name: Install pytest
+        run: python -m pip install --upgrade pip pytest
+
+      - name: Run contract tests
+        run: pytest
+
+  app-tests:
+    name: App 個人化邏輯
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: APP
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # 專案未提交 package-lock.json（APP/.gitignore 未忽略它，但從未加入版控），
+      # 因此不能用 npm ci。
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Run tests
+        run: npm test -- --ci

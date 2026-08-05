@@ -29,6 +29,29 @@ from module_a.ingredient_parser import (
 )
 
 
+# ─── 跨層族群詞彙的權威來源 ────────────────────────────────────────────────────
+# 這兩張表原本定義在 match_ingredients() 內部，外部無法 import，導致 Fog 與 App
+# 各自複製了一份、且方向相反（App 比對英文碼、Fog 卻先轉成中文），六種族群警告
+# 因此從未觸發。上提至模組層（2026-08-04）後由 tests/contract/ 強制跨層一致。
+#
+# 重要：GROUP_ZH_TO_EN 的「值域」就是 groupRisks[].group 能出現的全部值。不在這張
+# 表內的中文族群會被靜默丟棄（見下方 group_risks 組裝處的 `continue`），所以
+# 「高血壓患者」「血鐵沉著症患者」等資料庫既有標籤永遠不會傳到前端——高血壓與
+# 糖尿病的個人化只能靠營養素閾值，不能靠 groupRisks。
+CONCERN_TO_LEVEL = {"caution": 1, "avoid": 3, "danger": 5}
+
+GROUP_ZH_TO_EN = {
+    "孕婦": "pregnant", "哺乳期婦女": "pregnant",
+    "嬰幼兒": "child", "兒童": "child", "兒童及青少年": "child",
+    "六個月以下嬰兒": "child", "一歲以下嬰幼兒": "child",
+    "慢性腎臟病患者": "kidney_disease",
+    "氣喘患者": "asthma",
+    "阿斯匹靈過敏者": "aspirin_allergy",
+    "苯酮尿症患者": "pku",
+    "過敏體質者": "allergy", "對牛奶過敏者": "allergy",
+}
+
+
 # 資料庫查無此項時的統一標示。刻意不用「無」「未分類」「安全」等字眼——
 # 那會把「本系統沒有這筆資料」呈現成「經評估沒有疑慮」，是相反的意思。
 NOT_IN_DB_LABEL = "本系統未收錄"
@@ -585,18 +608,6 @@ def match_ingredients(ing_list_raw, vision_data, cursor, vector_rag,
 
     # 準備資料庫更新清單 (智能補完;目前呼叫端未消費此結果,沿用原邏輯保留計算)
     db_updates = []
-
-    CONCERN_TO_LEVEL = {"caution": 1, "avoid": 3, "danger": 5}
-    GROUP_ZH_TO_EN = {
-        "孕婦": "pregnant", "哺乳期婦女": "pregnant",
-        "嬰幼兒": "child", "兒童": "child", "兒童及青少年": "child",
-        "六個月以下嬰兒": "child", "一歲以下嬰幼兒": "child",
-        "慢性腎臟病患者": "kidney_disease",
-        "氣喘患者": "asthma",
-        "阿斯匹靈過敏者": "aspirin_allergy",
-        "苯酮尿症患者": "pku",
-        "過敏體質者": "allergy", "對牛奶過敏者": "allergy",
-    }
 
     _load_generic_terms(cursor)    # 由官方 category 衍生類別統稱（快取）
     _load_substance_names(cursor)  # 添加物庫物質名，供括號語意判斷佐證（快取）

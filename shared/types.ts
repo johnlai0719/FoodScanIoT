@@ -43,52 +43,36 @@ export interface ProductInfo {
 }
 
 /**
- * 可解釋依據
- */
-export interface Explanation {
-  /** 觸發風險的關鍵因素列表 */
-  triggers: string[];
-  /** 引用來源列表 (例如衛福部、知識庫版本) */
-  sources: string[];
-}
-
-/**
  * [Endpoint 1] POST /fog/query
  * App 發送給 Fog 的原始請求
  */
 export interface FogQueryRequest {
   /** 食品條碼 (EAN-8/13) */
   barcode: string;
-  /** 使用者個人化條件 */
-  user_conditions: UserConditions;
+  /**
+   * 使用者個人化條件
+   * @deprecated 個人化已於 2026-08-04 移至 App 端本地計算，健康背景不再離開裝置。
+   *             新版 App 不會送出此欄位；保留為選填僅為相容舊版 App。
+   */
+  user_conditions?: UserConditions;
   /** 標籤影像陣列 (Base64 字串，用於 OCR 備援與多角度分析) */
   label_images?: string[];
 }
 
 /**
- * [Endpoint 2] GET /fog/result/:barcode
- * Fog 回傳給 App 的最終處理結果
+ * [Endpoint 2] Fog 回傳給 App 的結果
+ *
+ * 這裡原本有一個 `FogQueryResult` 介面，已於 2026-08-04 移除。移除原因：
+ * 它被 queryHandler.ts import 但從未實際套用在任何值上（所有回傳路徑都是
+ * `data: any`），而且已與實際回應嚴重脫節——真正產出的 22 個頂層欄位裡，
+ * 它只列了 9 個，且缺少 App 真正依賴的 product_info / score_breakdown /
+ * ingredients_detail / 三個 summary。留著一份沒人檢查又不正確的型別，比沒有更糟。
+ *
+ * 回應形狀的權威來源與強制點：
+ *   - 產生處：server/module_d/response_builder.py 的 build_response()
+ *   - 強制處：tests/contract/test_cloud_response_contract.py（欄位集合已凍結）
+ *   - App 消費端型別：APP/src/types.ts 的 AnalysisResponse
  */
-export interface FogQueryResult {
-  /** 條碼 */
-  barcode: string;
-  /** 健康評分 (0-100) */
-  health_score: number;
-  /** 風險等級 */
-  risk_level: 'low' | 'medium' | 'high';
-  /** 風險標籤，例如 ["高糖", "高鈉", "含反式脂肪"] */
-  risk_tags: string[];
-  /** 過敏原警告訊息 */
-  allergen_warnings: string[];
-  /** 相關食安事件紀錄 */
-  food_safety_events: FoodSafetyEvent[];
-  /** 可解釋的判定依據 */
-  explanation: Explanation;
-  /** 針對使用者的建議筆記 */
-  personalized_notes: string[];
-  /** 資料處理時間戳 */
-  processed_at: string;
-}
 
 /**
  * [Endpoint 3] POST /cloud/analyze
@@ -107,6 +91,10 @@ export interface CloudAnalyzeRequest {
   nutrition: Record<string, any>;
   /** 歷史食安紀錄 */
   food_safety_records: FoodSafetyEvent[];
-  /** 使用者個人化條件 */
-  user_conditions: UserConditions;
+  /**
+   * 使用者個人化條件
+   * @deprecated Fog 的 mask_sensitive_data() 一律剝除此欄位，Cloud 實際上永遠收不到。
+   *             宣告為選填以與執行期行為一致。
+   */
+  user_conditions?: UserConditions;
 }

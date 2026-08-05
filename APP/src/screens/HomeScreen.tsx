@@ -15,7 +15,7 @@ import {
   StyleSheet,
   Modal,
 } from 'react-native';
-import { Sparkles, Sliders, Database, ShoppingBag, AlertOctagon, RotateCcw, Layers, ShieldCheck, Grid, ChevronRight, Zap, ChevronUp, ChevronDown, ArrowLeft, AlertTriangle, CheckCircle2, Info, ScanLine, Keyboard, Activity, Settings2, X, Trash2 } from 'lucide-react-native';
+import { Sparkles, Sliders, Database, ShoppingBag, AlertOctagon, RotateCcw, Layers, ShieldCheck, Grid, ChevronRight, Zap, ChevronUp, ChevronDown, ArrowLeft, AlertTriangle, CheckCircle2, Info, ScanLine, Activity, Settings2, X, Trash2 } from 'lucide-react-native';
 
 import { useFontScale } from '../contexts/FontScaleContext';
 import { UserConditions, AnalysisResponse } from '../types';
@@ -25,6 +25,7 @@ import IngredientsList from '../components/IngredientsList';
 import DropdownEvent from '../components/DropdownEvent';
 import PackageImageScanner from '../components/PackageImageScanner';
 import BarcodeScanner from '../components/BarcodeScanner';
+import { analyzePersonalRisks, getProductAllergenWarnings } from '../utils/personalization';
 import {
   getScoreBreakdownList,
   getDynamicHealthPoints,
@@ -73,31 +74,35 @@ export default function HomeScreen() {
   const { fontScale, toggleFontScale, isLarge } = useFontScale();
   const s = createStyles(fontScale);
 
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
+  // 掃描是進入 App 的第一個畫面；健康設定改由右下角齒輪進入（2026-08-05）
+  const [view, setView] = useState<'scan' | 'profile' | 'result'>('scan');
   const [targetGroup, setTargetGroup] = useState<UserConditions['group']>('adult');
   const [allergens, setAllergens] = useState<string[]>([]);
-  const [customGroup, setCustomGroup] = useState('');
   const [customAllergen, setCustomAllergen] = useState('');
   const [chronicDiseases, setChronicDiseases] = useState<string[]>([]);
-  const [customChronic, setCustomChronic] = useState('');
 
+  // 註：群體與慢性病的「自定義」文字欄位已於 2026-08-05 移除。它們輸入的是中文自由
+  // 文字，但比對對象 groupRisks[].group 只會是 7 個英文碼、慢性病閾值也只認
+  // hypertension/diabetes，中文字串兩邊都對不上，打了不會觸發任何東西。
+  // 過敏原的自定義欄位保留——它會直接以輸入文字比對成分與標示，法定 11 大類以外
+  // 的過敏原（如木瓜）確實需要它才能警示。
   useEffect(() => {
-    AsyncStorage.multiGet(['customGroup', 'customAllergen', 'chronicDiseases', 'customChronic', 'allergens']).then(pairs => {
+    AsyncStorage.multiGet(['targetGroup', 'customAllergen', 'chronicDiseases', 'allergens']).then(pairs => {
       pairs.forEach(([key, value]) => {
         if (!value) return;
-        if (key === 'customGroup') setCustomGroup(value);
+        if (key === 'targetGroup') setTargetGroup(value as UserConditions['group']);
         if (key === 'customAllergen') setCustomAllergen(value);
         if (key === 'chronicDiseases') setChronicDiseases(JSON.parse(value));
-        if (key === 'customChronic') setCustomChronic(value);
         if (key === 'allergens') setAllergens(JSON.parse(value));
       });
     });
   }, []);
 
-  const saveCustomGroup = (text: string) => {
-    setCustomGroup(text);
-    AsyncStorage.setItem('customGroup', text);
+  const saveTargetGroup = (value: UserConditions['group']) => {
+    setTargetGroup(value);
+    AsyncStorage.setItem('targetGroup', value);
   };
+
   const saveCustomAllergen = (text: string) => {
     setCustomAllergen(text);
     AsyncStorage.setItem('customAllergen', text);
@@ -109,16 +114,11 @@ export default function HomeScreen() {
       return next;
     });
   };
-  const saveCustomChronic = (text: string) => {
-    setCustomChronic(text);
-    AsyncStorage.setItem('customChronic', text);
-  };
   const [barcodeInput, setBarcodeInput] = useState('');
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [serverEndpoint, setServerEndpoint] = useState<'fog' | 'cloud'>('fog');
   const [clearCacheStatus, setClearCacheStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
-  const [inputMode, setInputMode] = useState<'manual' | 'scan'>('scan');
   const [advancedVisible, setAdvancedVisible] = useState(false);
   const [scannerVisible, setScannerVisible] = useState(false);
 
@@ -143,7 +143,7 @@ export default function HomeScreen() {
     setAnalysisResult(data);
     setAnalysisError(null);
     setIsAnalyzing(false);
-    setCurrentStep(3);
+    setView('result');
   };
 
   const handleClearFogCache = async () => {
@@ -168,14 +168,14 @@ export default function HomeScreen() {
     if (uploadedImages.length === 0 && MOCK_RESULTS[barcodeInput]) {
       setAnalysisResult(MOCK_RESULTS[barcodeInput]);
       setAnalysisError(null);
-      setCurrentStep(3);
+      setView('result');
       return;
     }
 
     setIsAnalyzing(true);
     setAnalysisResult(null);
     setAnalysisError(null);
-    setCurrentStep(3);
+    setView('result');
 
     try {
       const API_URL = serverEndpoint === 'fog'
@@ -184,23 +184,28 @@ export default function HomeScreen() {
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
+        // 個人化比對自 2026-08-04 起完全在本地進行，健康背景不再送往後端。
         body: JSON.stringify({
           barcode: barcodeInput,
           label_images: uploadedImages,
-          user_conditions: {
-            group: targetGroup,
-            allergens: [...allergens, ...(customAllergen.trim() ? [customAllergen.trim()] : [])],
-            chronic_conditions: [
-              ...chronicDiseases,
-              ...(customChronic.trim() ? [customChronic.trim()] : []),
-            ],
-          },
         }),
       });
       if (!response.ok) throw new Error(`伺服器代碼: ${response.status}`);
       const json = await response.json();
       // Fog 可能將結果包在 data 欄位內
       const result = json.health_score !== undefined ? json : (json.data ?? json);
+
+      // 「分析失敗」在兩層都是以 HTTP 200 ＋ {status, message} 回傳，不是 HTTP 錯誤：
+      //   Cloud — rejected（照片沒通過品質閘門）／not_found（查無條碼）／error
+      //   Fog   — degraded（Cloud 不可用且無快取）
+      // 這些形狀都沒有 health_score。若只看 response.ok 就會把它們當成有效結果，
+      // 結果頁的 `health_score ?? 100` 會顯示一個假的 100 分，而後端寫好的引導訊息
+      // （「請對準成分表重新拍攝」等）永遠不會被看到。
+      if (result?.health_score === undefined) {
+        throw new Error(
+          result?.message ?? json?.message ?? '無法完成分析，請確認條碼或照片後再試一次',
+        );
+      }
 
       // ── Debug：記錄 Fog 回傳中缺少的欄位 ──────────────────────────────
       const EXPECTED_FIELDS: (keyof typeof result)[] = [
@@ -227,7 +232,7 @@ export default function HomeScreen() {
   };
 
   const handleBackToScan = () => {
-    setCurrentStep(2);
+    setView('scan');
     setAnalysisResult(null);
     setAnalysisError(null);
     setActiveDetailView(null);
@@ -236,7 +241,6 @@ export default function HomeScreen() {
 
   // ── Derived stats ──────────────────────────────────────────────────────────
   const allIngredients = analysisResult?.ingredients_detail ?? [];
-  const safeAllergenWarnings = analysisResult?.allergen_warnings ?? [];
   const safeFoodSafetyEvents = analysisResult?.food_safety_events ?? [];
   const totalAdditivesCount = allIngredients.filter(i => i.isAdditive === true || i.isAdditive === 'true').length;
   const highRiskCount = allIngredients.filter(i => {
@@ -246,42 +250,33 @@ export default function HomeScreen() {
 
   const scoreBreakdownList = getScoreBreakdownList(analysisResult);
 
-  // 後端個人化命中（格式：偵測到過敏原：XXX）
-  const backendMatchedAllergens = (analysisResult?.allergen_warnings ?? [])
-    .filter(w => /偵測到過敏原[：:]/.test(w))
-    .map(w => w.replace(/.*偵測到過敏原[：:]\s*/, '').trim())
-    .filter(Boolean)
-    .filter(a => allergens.length === 0 || allergens.some(sel => a.includes(sel) || sel.includes(a)));
+  // ── 本地個人化比對（健康背景不離開裝置）──────────────────────────────────
+  // 通用警告＝產品標示本身；舊快取中 Fog 寫入的「偵測到過敏原：X」屬於前一位
+  // 使用者的比對結果，一律濾除不顯示。
+  const generalAllergenWarnings = getProductAllergenWarnings(analysisResult);
 
-  // 通用警告（產品本身標示，非個人化命中）
-  const generalAllergenWarnings = safeAllergenWarnings
-    .filter(w => !/偵測到過敏原[：:]/.test(w));
+  const {
+    matchedAllergens,
+    additiveRisks: personalAdditiveRisks,
+    nutritionWarnings,
+  } = analyzePersonalRisks(analysisResult, {
+    group: targetGroup,
+    allergens: [...allergens, ...(customAllergen.trim() ? [customAllergen.trim()] : [])],
+    chronicConditions: chronicDiseases,
+  });
 
-  // Fallback：後端未做個人化比對時，APP 自行掃描警語文字是否含用戶選取的過敏原關鍵字
-  const fallbackMatchedAllergens = backendMatchedAllergens.length === 0 && allergens.length > 0
-    ? allergens.filter(sel => generalAllergenWarnings.some(w => w.includes(sel)))
-    : [];
+  // 已設定的健康條件數量，顯示在齒輪上——否則設定被收起來後，使用者無從得知
+  // 自己到底有沒有設過、設了什麼。
+  const profileConfiguredCount =
+    (targetGroup !== 'adult' ? 1 : 0) +
+    chronicDiseases.length +
+    allergens.length +
+    (customAllergen.trim() ? 1 : 0);
 
-  const matchedAllergens = backendMatchedAllergens.length > 0
-    ? backendMatchedAllergens
-    : fallbackMatchedAllergens;
   const { pos: dynamicPos, neg: dynamicNeg } = getDynamicHealthPoints(analysisResult, scoreBreakdownList);
   const healthSegments = getDynamicHealthSegments(analysisResult, scoreBreakdownList);
   const healthLegend = getDynamicHealthLegend(scoreBreakdownList);
   const scoreValue = analysisResult?.health_score ?? 100;
-
-  // 根據使用者個人資料（群體＋慢性病）篩選有風險的添加物
-  const userGroupKeys = [
-    ...(targetGroup !== 'adult' ? [targetGroup] : []),
-    ...chronicDiseases,
-  ];
-  const personalAdditiveRisks = allIngredients
-    .filter(i => i.isAdditive === true || i.isAdditive === 'true')
-    .flatMap(ing =>
-      (ing.groupRisks ?? [])
-        .filter(r => userGroupKeys.includes(r.group))
-        .map(r => ({ name: ing.name, reason: r.reason, group: r.group }))
-    );
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -289,17 +284,40 @@ export default function HomeScreen() {
       <Pressable onPress={toggleFontScale} style={[s.fontScaleBtn, isLarge && s.fontScaleBtnActive]}>
         <Text style={[s.fontScaleBtnText, isLarge && s.fontScaleBtnTextActive]}>Aa</Text>
       </Pressable>
+
+      {/* 健康設定入口。設定畫面本身不顯示，避免與畫面內的返回鍵重複。 */}
+      {view !== 'profile' && (
+        <Pressable
+          onPress={() => setView('profile')}
+          style={s.profileGearBtn}
+          accessibilityLabel="個人健康設定"
+          accessibilityRole="button"
+        >
+          <Sliders size={16} color={BRAND} />
+          {profileConfiguredCount > 0 && (
+            <View style={s.profileGearBadge}>
+              <Text style={s.profileGearBadgeText}>{profileConfiguredCount}</Text>
+            </View>
+          )}
+        </Pressable>
+      )}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
 
-          {/* ══════════ STEP 1: Health Profile ══════════ */}
-          {currentStep === 1 && (
+          {/* ══════════ 健康設定（由右下角齒輪進入）══════════ */}
+          {view === 'profile' && (
             <View style={s.card}>
+              <View style={s.profileTopBar}>
+                <Pressable style={s.btnSecondary} onPress={() => setView('scan')}>
+                  <ArrowLeft size={14} color="#757575" />
+                  <Text style={s.btnSecondaryText}>返回掃描</Text>
+                </Pressable>
+              </View>
               <View style={s.cardHeader}>
                 <Sliders size={18} color="#757575" />
                 <Text style={s.cardTitle}>設定個人健康特徵</Text>
               </View>
-              <Text style={s.cardSubtitle}>建立受檢者的健康資料，系統將依此提供個人化風險警告</Text>
+              <Text style={s.cardSubtitle}>建立受檢者的健康資料，系統將依此提供個人化風險警告。設定會自動儲存。</Text>
 
               {/* Group selector */}
               <Text style={s.sectionLabel}>1. 群體</Text>
@@ -307,7 +325,7 @@ export default function HomeScreen() {
                 {GROUPS.map(g => (
                   <Pressable
                     key={g.value}
-                    onPress={() => setTargetGroup(g.value)}
+                    onPress={() => saveTargetGroup(g.value)}
                     style={[s.groupBtn, targetGroup === g.value && s.groupBtnActive]}
                   >
                     <Text style={[s.groupBtnText, targetGroup === g.value && s.groupBtnTextActive]}>
@@ -316,13 +334,6 @@ export default function HomeScreen() {
                   </Pressable>
                 ))}
               </View>
-              <TextInput
-                value={customGroup}
-                onChangeText={saveCustomGroup}
-                placeholder="自定義（選填）"
-                placeholderTextColor="#94A3B8"
-                style={s.customInlineInput}
-              />
 
               {/* Chronic diseases */}
               <Text style={[s.sectionLabel, { marginTop: 20 }]}>2. 慢性病</Text>
@@ -340,13 +351,6 @@ export default function HomeScreen() {
                   );
                 })}
               </View>
-              <TextInput
-                value={customChronic}
-                onChangeText={saveCustomChronic}
-                placeholder="自定義（選填，例如：慢性腎臟病）"
-                placeholderTextColor="#94A3B8"
-                style={s.customInlineInput}
-              />
 
               {/* Allergen toggles */}
               <Text style={[s.sectionLabel, { marginTop: 20 }]}>3. 過敏原</Text>
@@ -374,9 +378,9 @@ export default function HomeScreen() {
 
               {/* Action buttons */}
               <View style={[s.row, { marginTop: 24 }]}>
-                <Pressable style={[s.btnPrimary, { flex: 1 }]} onPress={() => setCurrentStep(2)}>
-                  <Text style={s.btnPrimaryText}>下一步</Text>
-                  <ChevronRight size={14} color="#fff" />
+                <Pressable style={[s.btnPrimary, { flex: 1 }]} onPress={() => setView('scan')}>
+                  <CheckCircle2 size={14} color="#fff" />
+                  <Text style={s.btnPrimaryText}>完成，回到掃描</Text>
                 </Pressable>
               </View>
               {__DEV__ && (
@@ -389,8 +393,10 @@ export default function HomeScreen() {
           )}
 
           {/* ══════════ STEP 2: Scan ══════════ */}
-          {currentStep === 2 && (
+          {view === 'scan' && (
             <>
+              {/* 不傳 onPhotosSubmit：標示照片統一由下方的 PackageImageScanner 負責，
+                  避免同一件事有兩個入口。掃描器因此只做條碼。 */}
               <BarcodeScanner
                 visible={scannerVisible}
                 onClose={() => setScannerVisible(false)}
@@ -398,107 +404,81 @@ export default function HomeScreen() {
                   setBarcodeInput(code);
                   setScannerVisible(false);
                 }}
-                onPhotosSubmit={photos => {
-                  setUploadedImages(prev => [...prev, ...photos]);
-                  setScannerVisible(false);
-                }}
               />
 
               <View style={s.card}>
                 <View style={s.cardHeader}>
                   <Database size={18} color="#757575" />
-                  <Text style={s.cardTitle}>上傳包裝照片組</Text>
+                  <Text style={s.cardTitle}>掃描食品</Text>
                 </View>
-                <Text style={s.cardSubtitle}>提供清晰成分或條碼標籤特寫，系統將啟動 Gemini 精準解析</Text>
+                <Text style={s.cardSubtitle}>掃條碼或拍標示照片，擇一即可；兩者都給可提升解析準確度</Text>
 
-                {/* Input mode toggle */}
-                <Text style={[s.sectionLabel, { marginTop: 16 }]}>條碼輸入方式</Text>
-                <View style={s.inputModeRow}>
+                {/* 條碼：輸入框 ＋ 掃描鈕（原本的手動／掃描切換已移除） */}
+                <View style={[s.row, { marginTop: 16, gap: 8 }]}>
+                  <TextInput
+                    value={barcodeInput}
+                    onChangeText={setBarcodeInput}
+                    placeholder="輸入條碼，例如 4710018123456"
+                    placeholderTextColor="#94A3B8"
+                    style={[s.textInput, { flex: 1 }]}
+                    keyboardType="numeric"
+                  />
                   <Pressable
-                    style={[s.inputModeBtn, inputMode === 'manual' && s.inputModeBtnActive]}
-                    onPress={() => setInputMode('manual')}
+                    style={s.scanIconBtn}
+                    onPress={() => setScannerVisible(true)}
+                    accessibilityLabel="開啟條碼掃描器"
+                    accessibilityRole="button"
                   >
-                    <Keyboard size={15} color={inputMode === 'manual' ? SEL_TEXT : BRAND} />
-                    <Text style={[s.inputModeBtnText, inputMode === 'manual' && s.inputModeBtnTextActive]}>
-                      手動輸入
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    style={[s.inputModeBtn, inputMode === 'scan' && s.inputModeBtnActive]}
-                    onPress={() => setInputMode('scan')}
-                  >
-                    <ScanLine size={15} color={inputMode === 'scan' ? SEL_TEXT : BRAND} />
-                    <Text style={[s.inputModeBtnText, inputMode === 'scan' && s.inputModeBtnTextActive]}>
-                      掃描條碼
-                    </Text>
+                    <ScanLine size={20} color={BRAND} />
                   </Pressable>
                 </View>
 
-                {/* Manual input */}
-                {inputMode === 'manual' && (
-                  <>
-                    <View style={[s.row, { marginTop: 10 }]}>
-                      <TextInput
-                        value={barcodeInput}
-                        onChangeText={setBarcodeInput}
-                        placeholder="請輸入條碼編號例如 4710018123456"
-                        placeholderTextColor="#94A3B8"
-                        style={s.textInput}
-                        keyboardType="numeric"
-                      />
-                      {__DEV__ && (
-                        <Pressable style={s.sampleBtn} onPress={() => setBarcodeInput('TEST')}>
-                          <Text style={s.sampleBtnText}>測試碼</Text>
-                        </Pressable>
-                      )}
-                    </View>
-                    {__DEV__ && (
-                      <View style={[s.row, { flexWrap: 'wrap', gap: 6, marginTop: 8 }]}>
-                        <Text style={s.demoLabel}>Demo 快速預載：</Text>
-                        {['4710018123456', 'TEST'].map(code => (
-                          <Pressable key={code} style={s.demoChip} onPress={() => setBarcodeInput(code)}>
-                            <Text style={s.demoChipText}>{code}</Text>
-                          </Pressable>
-                        ))}
-                      </View>
-                    )}
-                  </>
-                )}
-
-                {/* Scan mode */}
-                {inputMode === 'scan' && (
-                  <View style={{ marginTop: 10, gap: 10 }}>
-                    <Pressable style={s.scanLaunchBtn} onPress={() => setScannerVisible(true)}>
-                      <View style={s.scanLaunchIcon}>
-                        <ScanLine size={22} color={BRAND} />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={s.scanLaunchTitle}>開啟條碼掃描器</Text>
-                        <Text style={s.scanLaunchSub}>對準食品條碼自動讀取，或切換至拍照模式上傳標籤</Text>
-                      </View>
-                      <ChevronRight size={16} color={TEXT_MID} />
+                {barcodeInput !== '' && (
+                  <View style={[s.scannedResult, { marginTop: 8 }]}>
+                    <CheckCircle2 size={13} color={GREEN} />
+                    <Text style={s.scannedResultText}>條碼：{barcodeInput}</Text>
+                    <Pressable onPress={() => setBarcodeInput('')}>
+                      <Text style={s.scannedClear}>清除</Text>
                     </Pressable>
-                    {barcodeInput !== '' && (
-                      <View style={s.scannedResult}>
-                        <CheckCircle2 size={13} color={GREEN} />
-                        <Text style={s.scannedResultText}>已掃描：{barcodeInput}</Text>
-                        <Pressable onPress={() => setBarcodeInput('')}>
-                          <Text style={s.scannedClear}>清除</Text>
-                        </Pressable>
-                      </View>
-                    )}
                   </View>
                 )}
 
-                {/* Photo upload */}
-                <Text style={[s.sectionLabel, { marginTop: 20 }]}>食品包裝標籤照片</Text>
+                {__DEV__ && (
+                  <View style={[s.row, { flexWrap: 'wrap', gap: 6, marginTop: 8 }]}>
+                    <Text style={s.demoLabel}>Demo 快速預載：</Text>
+                    {['4710018123456', 'TEST'].map(code => (
+                      <Pressable key={code} style={s.demoChip} onPress={() => setBarcodeInput(code)}>
+                        <Text style={s.demoChipText}>{code}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+
+                {/* 或 */}
+                <View style={s.orDivider}>
+                  <View style={s.orLine} />
+                  <Text style={s.orText}>或</Text>
+                  <View style={s.orLine} />
+                </View>
+
+                {/* 標示照片（唯一入口） */}
                 <PackageImageScanner
                   onImageCaptured={base64 => setUploadedImages(prev => [...prev, base64])}
                   images={uploadedImages}
                   onRemoveImage={i => setUploadedImages(prev => prev.filter((_, idx) => idx !== i))}
                 />
 
-                {/* Advanced settings entry */}
+                <View style={[s.row, { marginTop: 20 }]}>
+                  <Pressable
+                    style={[s.btnPrimary, { flex: 1 }]}
+                    onPress={handleSubmitAnalysis}
+                    disabled={!barcodeInput && uploadedImages.length === 0}
+                  >
+                    <Text style={s.btnPrimaryText}>開始分析</Text>
+                  </Pressable>
+                </View>
+
+                {/* 進階設定：開發／展示用（選後端節點、清快取），故置於主要動作之後 */}
                 <Pressable style={s.advancedBtn} onPress={() => setAdvancedVisible(true)}>
                   <Settings2 size={13} color={TEXT_MID} />
                   <Text style={s.advancedBtnText}>進階設定</Text>
@@ -509,27 +489,12 @@ export default function HomeScreen() {
                   </View>
                   <ChevronRight size={13} color={TEXT_MID} />
                 </Pressable>
-
-                {/* Nav buttons */}
-                <View style={[s.row, { marginTop: 10, gap: 10 }]}>
-                  <Pressable style={[s.btnSecondary, { flex: 1 }]} onPress={() => setCurrentStep(1)}>
-                    <ArrowLeft size={14} color="#757575" />
-                    <Text style={s.btnSecondaryText}>返回</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[s.btnPrimary, { flex: 2 }]}
-                    onPress={handleSubmitAnalysis}
-                    disabled={!barcodeInput && uploadedImages.length === 0}
-                  >
-                    <Text style={s.btnPrimaryText}>開始深入分析</Text>
-                  </Pressable>
-                </View>
               </View>
             </>
           )}
 
           {/* ══════════ STEP 3: Results ══════════ */}
-          {currentStep === 3 && (
+          {view === 'result' && (
             <View style={{ gap: 12 }}>
 
               {/* Loading */}
@@ -547,7 +512,9 @@ export default function HomeScreen() {
               {!isAnalyzing && analysisError && (
                 <View style={[s.card, s.errorBox]}>
                   <AlertOctagon size={28} color="#dc2626" />
-                  <Text style={s.errorTitle}>資訊檢驗逾時或連線失敗</Text>
+                  {/* 這個框同時服務「連線失敗」與「後端判定無法分析」兩種情況，
+                      標題保持中性，實際原因由後端給的 message 說明。 */}
+                  <Text style={s.errorTitle}>無法完成分析</Text>
                   <Text style={s.errorMsg}>{analysisError}</Text>
                   <Pressable style={s.retryBtn} onPress={handleBackToScan}>
                     <RotateCcw size={14} color="#757575" />
@@ -651,6 +618,22 @@ export default function HomeScreen() {
                             <View key={i} style={s.personalRiskRow}>
                               <Text style={s.personalRiskName}>{r.name}</Text>
                               <Text style={s.personalRiskReason}>{r.reason}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+
+                      {/* Chronic-condition nutrition thresholds — sodium / sugar */}
+                      {nutritionWarnings.length > 0 && (
+                        <View style={s.personalRiskCard}>
+                          <View style={s.row}>
+                            <Activity size={15} color="#b45309" />
+                            <Text style={s.personalRiskTitle}>個人化營養警示</Text>
+                          </View>
+                          {nutritionWarnings.map((w, i) => (
+                            <View key={i} style={s.personalRiskRow}>
+                              <Text style={s.personalRiskName}>{w.condition}族群{w.title}</Text>
+                              <Text style={s.personalRiskReason}>{w.detail}</Text>
                             </View>
                           ))}
                         </View>
@@ -998,12 +981,6 @@ const createStyles = (scale: number) => StyleSheet.create({
     fontSize: 12 * scale, color: TEXT_DARK,
     marginTop: 8,
   },
-  sampleBtn: {
-    paddingHorizontal: 14, paddingVertical: 12,
-    backgroundColor: BRAND_LIGHT, borderRadius: 12,
-    borderWidth: 1, borderColor: BORDER,
-  },
-  sampleBtnText: { fontSize: 11 * scale, fontWeight: '700', color: BRAND },
 
   // Demo chips
   demoLabel: { fontSize: 10 * scale, color: TEXT_MID, fontWeight: '700' },
@@ -1156,29 +1133,8 @@ const createStyles = (scale: number) => StyleSheet.create({
   chevron: { fontSize: 11 * scale, color: TEXT_MID },
 
   // Input mode toggle (Step 2)
-  inputModeRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
-  inputModeBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
-    paddingVertical: 11, borderRadius: 14,
-    backgroundColor: BRAND_LIGHT, borderWidth: 1, borderColor: BORDER,
-  },
-  inputModeBtnActive: { backgroundColor: SEL_BG, borderColor: SEL_BORDER },
-  inputModeBtnText: { fontSize: 13 * scale, fontWeight: '700', color: BRAND },
-  inputModeBtnTextActive: { color: SEL_TEXT },
 
   // Scan launch button
-  scanLaunchBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: BRAND_LIGHT, borderRadius: 16, padding: 16,
-    borderWidth: 1, borderColor: BORDER,
-  },
-  scanLaunchIcon: {
-    width: 46, height: 46, borderRadius: 14,
-    backgroundColor: '#fff', borderWidth: 1, borderColor: BORDER,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  scanLaunchTitle: { fontSize: 14 * scale, fontWeight: '800', color: TEXT_DARK },
-  scanLaunchSub: { fontSize: 11 * scale, color: TEXT_MID, marginTop: 2, lineHeight: 15 },
 
   // Scanned result badge
   scannedResult: {
@@ -1224,6 +1180,38 @@ const createStyles = (scale: number) => StyleSheet.create({
   fontScaleBtnActive: { backgroundColor: BRAND, borderColor: BRAND },
   fontScaleBtnText: { fontSize: 12 * scale, fontWeight: '700', color: BRAND },
   fontScaleBtnTextActive: { color: '#fff' },
+
+  // 健康設定入口（浮動於 Aa 按鈕上方，共用同一套視覺）
+  profileGearBtn: {
+    position: 'absolute', right: 16, bottom: 84, zIndex: 99,
+    width: 40, height: 40, borderRadius: 20,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: BORDER, backgroundColor: '#fff',
+    shadowColor: BRAND, shadowOpacity: 0.15, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  profileGearBadge: {
+    position: 'absolute', top: -4, right: -4,
+    minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: BRAND, borderWidth: 2, borderColor: '#fff',
+  },
+  profileGearBadgeText: { fontSize: 10, fontWeight: '700', color: '#fff' },
+
+  // 健康設定頁最上方的返回列
+  profileTopBar: { flexDirection: 'row', marginBottom: 12 },
+
+  // 條碼輸入框旁的掃描鈕（取代原本的手動／掃描切換）
+  scanIconBtn: {
+    width: 48, height: 48, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: BORDER, backgroundColor: '#fff',
+  },
+
+  // 「或」分隔線
+  orDivider: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 20, marginBottom: 4 },
+  orLine: { flex: 1, height: 1, backgroundColor: BORDER },
+  orText: { fontSize: 12 * scale, color: TEXT_MID, fontWeight: '600' },
 
   // Personal additive risk card
   personalRiskCard: {

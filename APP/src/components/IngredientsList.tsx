@@ -3,20 +3,11 @@ import { View, Text, Pressable, StyleSheet, LayoutAnimation, Platform, UIManager
 import { ChevronUp, ChevronDown, ExternalLink } from 'lucide-react-native';
 import { IngredientDetail } from '../types';
 import { useFontScale } from '../contexts/FontScaleContext';
+import { groupLabel } from '../constants/groupVocabulary';
 
 if (Platform.OS === 'android') {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
 }
-
-const GROUP_ZH: Record<string, string> = {
-  pregnant: '孕婦',
-  child: '嬰幼兒/兒童',
-  kidney_disease: '慢性腎臟病患者',
-  asthma: '氣喘患者',
-  diabetes: '糖尿病族群',
-  hypertension: '高血壓族群',
-  allergy: '過敏體質者',
-};
 
 interface Props {
   ingredients: IngredientDetail[];
@@ -82,7 +73,7 @@ export default function IngredientsList({ ingredients }: Props) {
                     <Text style={styles.risksTitle}>可能受體風險警示 (特定族群)</Text>
                     {ing.groupRisks.map((r, rid) => (
                       <Text key={rid} style={styles.riskItem}>
-                        • {GROUP_ZH[r.group] ?? r.group}：{r.reason}
+                        • {groupLabel(r.group)}：{r.reason}
                       </Text>
                     ))}
                   </View>
