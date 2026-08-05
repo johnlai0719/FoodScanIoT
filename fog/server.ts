@@ -8,6 +8,28 @@ import { handleQuery } from './queryHandler';
 
 dotenv.config();
 
+/**
+ * 目前執行中的程式版本。
+ *
+ * 取得順序與 fog/version.py 一致：APP_COMMIT 環境變數 → git rev-parse → "unknown"。
+ * 部署腳本以 `git reset --hard origin/main` 更新，因此 Pi 上的 HEAD 必然等於本次
+ * 部署的 commit，讀 git 即可——毋須透過 `sudo systemctl set-environment` 注入環境
+ * 變數（那會是另一道 sudo 指令，若未列入 NOPASSWD 會讓非互動式部署卡在密碼提示）。
+ *
+ * 於啟動時計算一次並快取；健康檢查會被頻繁呼叫，不應每次都開子行程。
+ */
+const APP_COMMIT: string = (() => {
+  if (process.env.APP_COMMIT) return process.env.APP_COMMIT.trim();
+  try {
+    return require('child_process')
+      .execSync('git rev-parse --short HEAD', { cwd: __dirname, timeout: 3000 })
+      .toString()
+      .trim() || 'unknown';
+  } catch {
+    return 'unknown';
+  }
+})();
+
 // 初始化快取資料庫
 initDB();
 
@@ -55,7 +77,7 @@ app.get('/health', async (req: Request, res: Response) => {
   const payload: Record<string, unknown> = {
     status: 'ok',
     layer: 'fog-node',
-    commit: process.env.APP_COMMIT ?? 'unknown',
+    commit: APP_COMMIT,
   };
 
   if (req.query.deep) {
