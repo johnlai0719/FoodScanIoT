@@ -1,4 +1,20 @@
+# Runtime dependencies for the Fog Python layer (main.py, port 3002).
+# The deploy script runs `pip install -r requirements.txt` on every deploy,
+# so this file must match what the code actually imports.
+#
+# NOTE: keep this file ASCII-only. Older pip versions decode requirements files
+# using the system locale, so non-ASCII comments break the install on machines
+# with a non-UTF-8 default encoding (observed: UnicodeDecodeError under cp950).
+#
+# Verified 2026-08-05 by AST-scanning every import in fog/*.py:
+#   + python-dotenv  main.py does `from dotenv import load_dotenv`; it was missing
+#                    here. The Pi only worked because its venv had it installed by
+#                    hand long ago -- rebuilding the venv would fail at startup.
+#   - sqlalchemy     only used by database.py and models.py, which import nothing
+#                    but each other and are used by no one. The cache actually runs
+#                    on stdlib sqlite3 (Python) and better-sqlite3 (Node).
+
 fastapi
 uvicorn
 requests
-sqlalchemy
+python-dotenv
