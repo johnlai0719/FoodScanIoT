@@ -151,16 +151,31 @@ def slice_metrics(recs):
     tp, fp, fn = gate['TP'], gate['FP'], gate['FN']
     nut_ok = sum(r['nut_ok'] for r in recs)
     nut_n = sum(r['nut_n'] for r in recs)
-    f1s = [r['ing_f1'] for r in recs if r['ing_f1'] is not None]
-    flats = [r['ing_flat_f1'] for r in recs if r['ing_flat_f1'] is not None]
+
+    def prf(key):
+        """成分的 P/R/F1 三個一起給，不可只給 F1。
+
+        F1 會藏住方向：抓得少但準（P 0.85 / R 0.55）與抓得多但雜
+        （P 0.55 / R 0.85）的 F1 同為 0.67，但兩者是相反的問題、改善方向也相反。
+        階層解析的驗收條件是「召回率上升且精確率不掉」，單看 F1 驗收不了——
+        F1 可以在召回率下降時因精確率上升而變好看。
+        """
+        vals = [r[key] for r in recs if r[key] is not None]
+        if not vals:
+            return None
+        return {'precision': round(mean([v[0] for v in vals]), 3),
+                'recall': round(mean([v[1] for v in vals]), 3),
+                'f1': round(mean([v[2] for v in vals]), 3),
+                'n_cases': len(vals)}
+
     return {
         'n_cases': len(recs),
         'is_food_label': {**gate,
                           'accuracy': round((gate['TP'] + gate['TN']) / tot, 3) if tot else None,
                           'precision': round(tp / (tp + fp), 3) if tp + fp else None,
                           'recall': round(tp / (tp + fn), 3) if tp + fn else None},
-        'ingredients_list_f1': round(mean(f1s), 3) if f1s else None,
-        'ingredients_flat_f1': round(mean(flats), 3) if flats else None,
+        'ingredients_list': prf('ing_prf'),
+        'ingredients_flat': prf('ing_flat_prf'),
         'nutrition_accuracy': round(nut_ok / nut_n, 3) if nut_n else None,
         'nutrition_n_fields': nut_n,
     }
@@ -198,7 +213,7 @@ def main():
                     'set_version': m.get('set_version', 'unknown'),
                     'category': m.get('category', 'unknown'),
                     'difficulty': m.get('difficulty', []),
-                    'gate': None, 'ing_f1': None, 'ing_flat_f1': None,
+                    'gate': None, 'ing_prf': None, 'ing_flat_prf': None,
                     'nut_ok': 0, 'nut_n': 0}
         case_recs.append(rec_case)
 
@@ -233,7 +248,7 @@ def main():
         if r:
             prec, rec, f1, tp, fp, fn = r
             ing_prf.append((prec, rec, f1))
-            rec_case['ing_f1'] = f1
+            rec_case['ing_prf'] = (prec, rec, f1)
             add('ingredients_list', 'f1', round(f1, 3), f'tp={tp} fp={fp} fn={fn}')
             if fp or fn:
                 mism.append({'case_id': cid, 'field': 'ingredients_list',
@@ -243,7 +258,7 @@ def main():
         rf = flat_prf(gt.get('ingredients_list'), pred.get('ingredients_list'))
         if rf:
             ing_flat.append((rf[0], rf[1], rf[2]))
-            rec_case['ing_flat_f1'] = rf[2]
+            rec_case['ing_flat_prf'] = (rf[0], rf[1], rf[2])
             add('ingredients_flat', 'f1', round(rf[2], 3),
                 f'tp={rf[3]} fp={rf[4]} fn={rf[5]}')
 
