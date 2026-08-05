@@ -2,7 +2,7 @@
   "_說明": "測試集原圖的完整性清單。圖片不進版控，此檔進版控——見 manifest_tool.py 檔頭。",
   "image_root": "images/",
   "n_files": 54,
-  "total_bytes": 91714952,
+  "total_bytes": 91823411,
   "files": {
     "beverage/c01_柳橙綠茶/nutrition_en.5.400.jpg": {
       "sha256": "69cacfb24d6384661948079ed9d18afe54cf70f6d9fb5df374421a1850275f4e",
@@ -144,9 +144,9 @@
       "sha256": "4e3e204e0bc818a67c22d5423fa27ae8d016c3819faff9198850c9bb508aeb0c",
       "bytes": 2434530
     },
-    "prepared_meal/c35_極饕-真飽經典麻醬涼麵/IMG_4741.jpg": {
-      "sha256": "fd53804f959deb24000ba637c99891e4e5b3cc74fb4690349097098dd7fe7012",
-      "bytes": 2715451
+    "prepared_meal/c35_極饕-真飽經典麻醬涼麵/IMG_4740.jpg": {
+      "sha256": "db17cd279ead08cb88810def9649eb357e78d6817b78ce38d08d3911ed14e0fe",
+      "bytes": 2823910
     },
     "prepared_meal/c37_爆蛋流心豬肉堡/IMG_4739.jpg": {
       "sha256": "3217fe19ad27c59094436b022079b16c3f8ace891a01abef955195731c39f6c5",

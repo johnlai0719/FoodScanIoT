@@ -10,8 +10,8 @@
     "recall": 1.0
   },
   "name": {
-    "exact_rate": 0.587,
-    "char_sim": 0.841,
+    "exact_rate": 0.609,
+    "char_sim": 0.845,
     "n": 46
   },
   "brand": {
@@ -20,30 +20,30 @@
     "n": 42
   },
   "manufacturer": {
-    "exact_rate": 0.667,
-    "char_sim": 0.803,
+    "exact_rate": 0.689,
+    "char_sim": 0.825,
     "n": 45
   },
   "allergy_warning": {
-    "exact_rate": 0.317,
-    "char_sim": 0.823,
+    "exact_rate": 0.341,
+    "char_sim": 0.846,
     "n": 41
   },
   "ingredients_list": {
-    "precision": 0.712,
-    "recall": 0.77,
-    "f1": 0.724,
+    "precision": 0.713,
+    "recall": 0.775,
+    "f1": 0.725,
     "n_cases": 47
   },
   "ingredients_flat": {
-    "precision": 0.807,
-    "recall": 0.795,
-    "f1": 0.797,
+    "precision": 0.814,
+    "recall": 0.803,
+    "f1": 0.804,
     "n_cases": 47,
     "_說明": "巢狀括號攤平至最小成分名稱後比對，排除拆解粒度差異"
   },
   "ingredients_raw": {
-    "char_sim": 0.693,
+    "char_sim": 0.703,
     "n": 47
   },
   "ingredient_types": {
@@ -54,39 +54,39 @@
   },
   "nutrition": {
     "calories": {
-      "accuracy_within_tol": 0.976,
-      "MAE": 1.017,
-      "n": 42
+      "accuracy_within_tol": 0.977,
+      "MAE": 0.993,
+      "n": 43
     },
     "protein": {
-      "accuracy_within_tol": 0.976,
-      "MAE": 0.098,
-      "n": 42
+      "accuracy_within_tol": 0.977,
+      "MAE": 0.095,
+      "n": 43
     },
     "fat": {
-      "accuracy_within_tol": 0.976,
-      "MAE": 0.067,
-      "n": 42
+      "accuracy_within_tol": 0.977,
+      "MAE": 0.065,
+      "n": 43
     },
     "saturated_fat": {
       "accuracy_within_tol": 1.0,
-      "MAE": 0.01,
-      "n": 42
+      "MAE": 0.009,
+      "n": 43
     },
     "trans_fat": {
       "accuracy_within_tol": 1.0,
       "MAE": 0.0,
-      "n": 42
+      "n": 43
     },
     "carbohydrates": {
-      "accuracy_within_tol": 0.976,
-      "MAE": 0.048,
-      "n": 42
+      "accuracy_within_tol": 0.977,
+      "MAE": 0.047,
+      "n": 43
     },
     "sugar": {
       "accuracy_within_tol": 1.0,
       "MAE": 0.021,
-      "n": 42
+      "n": 43
     },
     "fiber": {
       "accuracy_within_tol": 1.0,
@@ -94,9 +94,9 @@
       "n": 3
     },
     "sodium": {
-      "accuracy_within_tol": 0.929,
-      "MAE": 6.024,
-      "n": 42
+      "accuracy_within_tol": 0.93,
+      "MAE": 5.884,
+      "n": 43
     }
   },
   "nutrition_per_serving": {
@@ -105,41 +105,41 @@
       "n": 47
     },
     "protein": {
-      "accuracy_within_tol": 0.955,
-      "n": 44
+      "accuracy_within_tol": 0.956,
+      "n": 45
     },
     "fat": {
-      "accuracy_within_tol": 0.955,
-      "n": 44
+      "accuracy_within_tol": 0.956,
+      "n": 45
     },
     "saturated_fat": {
-      "accuracy_within_tol": 0.977,
-      "n": 44
+      "accuracy_within_tol": 0.978,
+      "n": 45
     },
     "trans_fat": {
       "accuracy_within_tol": 1.0,
-      "n": 44
+      "n": 45
     },
     "carbohydrates": {
-      "accuracy_within_tol": 0.977,
-      "n": 44
+      "accuracy_within_tol": 0.978,
+      "n": 45
     },
     "sugar": {
-      "accuracy_within_tol": 0.977,
-      "n": 44
+      "accuracy_within_tol": 0.978,
+      "n": 45
     },
     "fiber": {
       "accuracy_within_tol": 1.0,
       "n": 3
     },
     "sodium": {
-      "accuracy_within_tol": 0.955,
-      "n": 44
+      "accuracy_within_tol": 0.956,
+      "n": 45
     }
   },
   "serving_fields": {
     "accuracy_within_tol": 0.989,
-    "n": 89
+    "n": 91
   },
   "certification_marks": {
     "f1": 0.905,
@@ -163,19 +163,19 @@
           "recall": 1.0
         },
         "ingredients_list": {
-          "precision": 0.712,
-          "recall": 0.77,
-          "f1": 0.724,
+          "precision": 0.713,
+          "recall": 0.775,
+          "f1": 0.725,
           "n_cases": 47
         },
         "ingredients_flat": {
-          "precision": 0.807,
-          "recall": 0.795,
-          "f1": 0.797,
+          "precision": 0.814,
+          "recall": 0.803,
+          "f1": 0.804,
           "n_cases": 47
         },
-        "nutrition_accuracy": 0.979,
-        "nutrition_n_fields": 339
+        "nutrition_accuracy": 0.98,
+        "nutrition_n_fields": 347
       }
     },
     "by_category": {
@@ -285,19 +285,19 @@
           "recall": 1.0
         },
         "ingredients_list": {
-          "precision": 0.563,
-          "recall": 0.609,
-          "f1": 0.562,
+          "precision": 0.565,
+          "recall": 0.622,
+          "f1": 0.565,
           "n_cases": 17
         },
         "ingredients_flat": {
-          "precision": 0.657,
-          "recall": 0.656,
-          "f1": 0.647,
+          "precision": 0.677,
+          "recall": 0.677,
+          "f1": 0.668,
           "n_cases": 17
         },
-        "nutrition_accuracy": 0.991,
-        "nutrition_n_fields": 112
+        "nutrition_accuracy": 0.992,
+        "nutrition_n_fields": 120
       },
       "snack": {
         "n_cases": 8,

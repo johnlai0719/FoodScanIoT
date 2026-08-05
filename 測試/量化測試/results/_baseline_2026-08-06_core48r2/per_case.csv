@@ -696,13 +696,30 @@ c34_日式佛蒙特咖哩雞肉飯,per_serving.sodium,within_tol,1,
 c34_日式佛蒙特咖哩雞肉飯,serving_size,within_tol,1,
 c34_日式佛蒙特咖哩雞肉飯,servings_per_container,within_tol,1,
 c35_極饕-真飽經典麻醬涼麵,is_food_label,correct,1,
-c35_極饕-真飽經典麻醬涼麵,name,exact,0,sim=0.80
-c35_極饕-真飽經典麻醬涼麵,manufacturer,exact,0,sim=0.00
-c35_極饕-真飽經典麻醬涼麵,allergy_warning,exact,0,sim=0.04
-c35_極饕-真飽經典麻醬涼麵,ingredients_list,f1,0.0,tp=0 fp=0 fn=9
-c35_極饕-真飽經典麻醬涼麵,ingredients_flat,f1,0.0,tp=0 fp=0 fn=56
-c35_極饕-真飽經典麻醬涼麵,ingredients_raw,char_sim,0.0,
+c35_極饕-真飽經典麻醬涼麵,name,exact,1,sim=1.00
+c35_極饕-真飽經典麻醬涼麵,manufacturer,exact,1,sim=1.00
+c35_極饕-真飽經典麻醬涼麵,allergy_warning,exact,1,sim=1.00
+c35_極饕-真飽經典麻醬涼麵,ingredients_list,f1,0.057,tp=2 fp=59 fn=7
+c35_極饕-真飽經典麻醬涼麵,ingredients_flat,f1,0.351,tp=20 fp=38 fn=36
+c35_極饕-真飽經典麻醬涼麵,ingredients_raw,char_sim,0.477,
+c35_極饕-真飽經典麻醬涼麵,nutrition.calories,within_tol,1,
+c35_極饕-真飽經典麻醬涼麵,nutrition.protein,within_tol,1,
+c35_極饕-真飽經典麻醬涼麵,nutrition.fat,within_tol,1,
+c35_極饕-真飽經典麻醬涼麵,nutrition.saturated_fat,within_tol,1,
+c35_極饕-真飽經典麻醬涼麵,nutrition.trans_fat,within_tol,1,
+c35_極饕-真飽經典麻醬涼麵,nutrition.carbohydrates,within_tol,1,
+c35_極饕-真飽經典麻醬涼麵,nutrition.sugar,within_tol,1,
+c35_極饕-真飽經典麻醬涼麵,nutrition.sodium,within_tol,1,
 c35_極饕-真飽經典麻醬涼麵,per_serving.calories,within_tol,1,
+c35_極饕-真飽經典麻醬涼麵,per_serving.protein,within_tol,1,
+c35_極饕-真飽經典麻醬涼麵,per_serving.fat,within_tol,1,
+c35_極饕-真飽經典麻醬涼麵,per_serving.saturated_fat,within_tol,1,
+c35_極饕-真飽經典麻醬涼麵,per_serving.trans_fat,within_tol,1,
+c35_極饕-真飽經典麻醬涼麵,per_serving.carbohydrates,within_tol,1,
+c35_極饕-真飽經典麻醬涼麵,per_serving.sugar,within_tol,1,
+c35_極饕-真飽經典麻醬涼麵,per_serving.sodium,within_tol,1,
+c35_極饕-真飽經典麻醬涼麵,serving_size,within_tol,1,
+c35_極饕-真飽經典麻醬涼麵,servings_per_container,within_tol,1,
 c37_爆蛋流心豬肉堡,is_food_label,correct,1,
 c37_爆蛋流心豬肉堡,name,exact,1,sim=1.00
 c37_爆蛋流心豬肉堡,brand,exact,1,sim=1.00
