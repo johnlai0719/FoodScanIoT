@@ -62,6 +62,12 @@ RoadMap/
 !CLAUDE.md
 # 後端串接參考包的說明（記載契約的權威來源與強制點）
 !APP/backend-ref/README.md
+# npm lockfile。被上方的 *.json 規則擋掉，導致 Pi 上沒有 lockfile、部署時
+# npm ci 必定失敗而回退到 npm install（版本可能與開發環境不同）。
+# 納入版控後部署才具可重現性。
+!fog/package-lock.json
+!APP/package-lock.json
+
 # PaddleOCR 本機辨識實驗的報告與原始數據。結論是「不採用」，但過程與數據是
 # 「為何改用視覺模型」的依據，論文需要引用，故明確納入版控。
 # （原本被上方的 *.md / *.json 規則擋掉，才會一直只存在於 add-app-and-assets 分支。）
