@@ -93,6 +93,11 @@ RoadMap/
 !測試/量化測試/ground_truth/**/*.json
 !測試/量化測試/predictions/*.json
 !測試/量化測試/README.md
+# results/ 每跑一次就覆寫，屬暫存產物，不進版控。
+# 但底線開頭的 _baseline_* 是刻意留存的參考點——報告引用的數字、以及日後
+# 比較的基準都在裡面，其中延遲與稽核類的數字要重跑得花 API 錢或連本機資料庫，
+# 只留在硬碟上等同於沒有備份（測試集本身先前就是這樣差點失去）。
+!測試/量化測試/results/_baseline_*/**
 !cloud/requirements.txt
 !fog/requirements.txt
 # tests/ 底下多為需要跑起伺服器與資料庫的臨時整合腳本，預設不進版控。

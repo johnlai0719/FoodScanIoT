@@ -1,0 +1,5 @@
+﻿case_id,label,matched_candidate,basis,official_name,ins,verdict
+c15_木瓜牛乳,複方β-胡蘿蔔素,複方β-胡蘿蔔素,substring,β-胡蘿蔔素,INS 160,
+c35_極饕-真飽經典麻醬涼麵,無水焦磷酸鈉,無水焦磷酸鈉,substring,焦磷酸鈉（無水）,INS 450(iii),
+c38_科學麵,抗氧化劑混合濃縮生育醇,抗氧化劑混合濃縮生育醇,substring,（高阿爾發類）混合濃縮生育醇（維生素E）,INS 307,
+c39_米香-三杯雞燴飯,麩酸鈉,麩酸鈉,substring,L-麩酸,INS 620,
