@@ -43,6 +43,38 @@ const validateQuery = (req: Request, res: Response, next: NextFunction) => {
   next();
 };
 
+/**
+ * 健康檢查。部署腳本（.github/workflows/deploy-fog.yml）會 curl 此端點確認
+ * 服務重啟後有沒有活過來——先前這個端點並不存在，導致部署最後一步必定失敗。
+ *
+ * 設計原則：下游狀態只作為資訊回報，不影響自身的 status。Node 層在 Python 層
+ * 失敗時仍能以 HIT-RAW 回應快取，把下游算進自身健康度會讓部署在不必要的時候失敗。
+ * 預設不做網路呼叫；`?deep=1` 才會實際連線 Python 層。
+ */
+app.get('/health', async (req: Request, res: Response) => {
+  const payload: Record<string, unknown> = {
+    status: 'ok',
+    layer: 'fog-node',
+    commit: process.env.APP_COMMIT ?? 'unknown',
+  };
+
+  if (req.query.deep) {
+    const PYTHON_URL = process.env.PYTHON_API_URL?.replace('/query', '') || 'http://127.0.0.1:3002';
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    try {
+      const r = await fetch(`${PYTHON_URL}/health`, { signal: controller.signal });
+      payload.downstream = { 'fog-python': r.ok ? 'ok' : `http_${r.status}` };
+    } catch (err: any) {
+      payload.downstream = { 'fog-python': `unreachable: ${err?.name ?? 'Error'}` };
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  res.json(payload);
+});
+
 // 路由: POST /query
 app.post('/query', validateQuery, async (req: Request, res: Response, next: NextFunction) => {
   try {

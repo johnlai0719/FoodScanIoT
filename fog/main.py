@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 
 # 純轉換函式抽至 transforms.py（2026-08-05），讓契約測試不必安裝 FastAPI 即可載入
 from transforms import mask_sensitive_data, normalize_result
+from version import get_commit
 
 # 加載環境變數
 load_dotenv()
@@ -79,6 +80,52 @@ async def lifespan(app: FastAPI):
     # --- 關閉時執行 (如有需要) ---
 
 app = FastAPI(title="FoodAware Fog Server - Vision Optimized", lifespan=lifespan)
+
+
+@app.get("/health")
+def health(deep: bool = False):
+    """健康檢查。部署腳本用它確認服務重啟後有沒有活過來。
+
+    設計原則：**Cloud 不可用不會讓 status 變成非 ok**。Fog 的存在理由之一就是
+    Cloud 斷線時仍能以快取服務，若把 Cloud 的狀態算進自身健康度，會導致 Cloud
+    離線時無法部署 Fog——那與離線降級的設計主張直接矛盾。下游狀態只作為資訊回報。
+
+    預設只做本機檢查（快取 DB 可否讀取），成本極低。
+    `?deep=1` 才會實際連線 Cloud，供人工診斷用。
+    """
+    payload = {
+        "status": "ok",
+        "layer": "fog-python",
+        "commit": get_commit(),
+        "cache_db": "unknown",
+        "cache_entries": None,
+    }
+
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM cache")
+        payload["cache_entries"] = cur.fetchone()[0]
+        conn.close()
+        payload["cache_db"] = "ok"
+    except Exception as e:
+        # 快取讀不到 = 這一層真的無法正常服務，才降級 status
+        payload["cache_db"] = f"error: {e}"
+        payload["status"] = "degraded"
+
+    payload["cloud_url_configured"] = bool(CLOUD_URL)
+
+    if deep:
+        if not CLOUD_URL:
+            payload["downstream"] = {"cloud": "not_configured"}
+        else:
+            try:
+                r = requests.get(CLOUD_URL.replace("/api/analyze", "/health"), timeout=3.0)
+                payload["downstream"] = {"cloud": "ok" if r.ok else f"http_{r.status_code}"}
+            except Exception as e:
+                payload["downstream"] = {"cloud": f"unreachable: {type(e).__name__}"}
+
+    return payload
 
 
 @app.post("/query")

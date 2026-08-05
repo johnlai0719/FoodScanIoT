@@ -124,6 +124,7 @@ from module_c.safety_monitor import update_producer_safety_events
 SAFETY_EVENTS_ENABLED = False
 from admin_api import router as admin_router
 from module_b.nutriscore_v7 import calculator as ns_calculator
+from version import get_commit
 
 # 配置 AI
 API_KEY = os.getenv("GEMINI_API_KEY")
@@ -546,6 +547,40 @@ DB_CONFIG = {
 
 def get_db_conn():
     return psycopg2.connect(**DB_CONFIG)
+
+
+@app.get("/health")
+def health():
+    """健康檢查。供部署腳本與 Fog 的深度檢查（GET /health?deep=1）使用。
+
+    只回報「這一層能不能服務」與必要的組態狀態，不回報任何金鑰內容——
+    gemini_key_configured 只說有沒有設定，不透露值。
+
+    資料庫連不上時 status 降為 degraded：Cloud 沒有資料庫就什麼都查不了，
+    這與 Fog 的情況不同（Fog 沒有 Cloud 仍能以快取服務）。
+    """
+    payload = {
+        "status": "ok",
+        "layer": "cloud",
+        "commit": get_commit(),
+        "database": "unknown",
+        "gemini_key_configured": bool(os.getenv("GEMINI_API_KEY")),
+        "safety_events_enabled": SAFETY_EVENTS_ENABLED,
+    }
+
+    try:
+        conn = get_db_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT 1")
+        cur.fetchone()
+        cur.close()
+        conn.close()
+        payload["database"] = "ok"
+    except Exception as e:
+        payload["database"] = f"error: {type(e).__name__}"
+        payload["status"] = "degraded"
+
+    return payload
 
 # normalize_text 已抽出至 module_a/ingredient_matching.py(2026-07-24),邏輯逐字未改動。
 from module_a.ingredient_matching import normalize_text, match_ingredients

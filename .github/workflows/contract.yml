@@ -24,13 +24,29 @@ jobs:
         with:
           python-version: '3.11'
 
-      # 契約測試只 import server/module_a 與 server/module_d，兩者在模組層都只依賴
-      # 標準函式庫（json / os / re / datetime），不需要安裝 requirements.txt。
-      - name: Install pytest
-        run: python -m pip install --upgrade pip pytest
+      # 大部分契約測試只 import server/module_a 與 server/module_d，兩者在模組層
+      # 都只依賴標準函式庫，不需要安裝 requirements.txt。
+      #
+      # 額外的 fastapi / requests / python-dotenv / httpx 只為了 test_health_endpoints.py
+      # ——它需要實際載入 fog/main.py 才能驗證 /health 的行為。不裝的話那些測試會被
+      # importorskip 靜默跳過，而「被跳過的測試」等於沒有強制力，比沒寫更危險（看起來是綠的）。
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest fastapi requests python-dotenv httpx
 
+      # 明確要求最低測試數，避免哪天收集不到測試卻回傳成功（例如 .gitignore 又把
+      # 測試檔擋掉、或 importorskip 靜默跳過整個檔案）而「假綠」。
+      # 同時擋下「有測試被跳過」——跳過的測試不具強制力，而畫面仍是綠的，
+      # 比沒寫測試更危險。依賴沒裝齊時 importorskip 就會靜默跳過整個檔案。
       - name: Run contract tests
-        run: pytest
+        run: |
+          set -o pipefail
+          pytest --tb=short | tee /tmp/pytest.out
+          if grep -qE '[0-9]+ skipped' /tmp/pytest.out; then
+            echo "::error::有測試被跳過，請確認測試依賴是否安裝完整"
+            exit 1
+          fi
 
   app-tests:
     name: App 個人化邏輯
