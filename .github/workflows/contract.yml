@@ -30,10 +30,14 @@ jobs:
       # 額外的 fastapi / requests / python-dotenv / httpx 只為了 test_health_endpoints.py
       # ——它需要實際載入 fog/main.py 才能驗證 /health 的行為。不裝的話那些測試會被
       # importorskip 靜默跳過，而「被跳過的測試」等於沒有強制力，比沒寫更危險（看起來是綠的）。
+      # sqlalchemy / psycopg2-binary 為 test_safety_engine_contract.py 所需：
+      # server/database.py 在 import 時就建立 engine，故即使測試跑在記憶體 SQLite 上，
+      # 仍必須有 PostgreSQL 驅動才能載入 models。
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pytest fastapi requests python-dotenv httpx
+          python -m pip install pytest fastapi requests python-dotenv httpx \
+                                sqlalchemy psycopg2-binary
 
       # 明確要求最低測試數，避免哪天收集不到測試卻回傳成功（例如 .gitignore 又把
       # 測試檔擋掉、或 importorskip 靜默跳過整個檔案）而「假綠」。
