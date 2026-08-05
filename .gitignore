@@ -62,6 +62,11 @@ RoadMap/
 !CLAUDE.md
 # 後端串接參考包的說明（記載契約的權威來源與強制點）
 !APP/backend-ref/README.md
+# PaddleOCR 本機辨識實驗的報告與原始數據。結論是「不採用」，但過程與數據是
+# 「為何改用視覺模型」的依據，論文需要引用，故明確納入版控。
+# （原本被上方的 *.md / *.json 規則擋掉，才會一直只存在於 add-app-and-assets 分支。）
+!測試/圖片掃描處理/*.md
+!測試/圖片掃描處理/*.json
 !cloud/requirements.txt
 !fog/requirements.txt
 # tests/ 底下多為需要跑起伺服器與資料庫的臨時整合腳本，預設不進版控。

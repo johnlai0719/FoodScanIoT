@@ -1,0 +1,174 @@
+{
+  "4710022034100": {
+    "name": "萬歲牌珍珠開心果",
+    "brand": "萬歲牌",
+    "ingredients_list": [
+      "開心果",
+      "食鹽"
+    ],
+    "ingredient_types": {
+      "開心果": "ingredient",
+      "食鹽": "ingredient"
+    },
+    "nutrition": {
+      "calories": 578.0,
+      "protein": 24.6,
+      "fat": 43.8,
+      "sugar": 6.1,
+      "sodium": 367.0
+    },
+    "manufacturer": "聯華食品工業股份有限公司",
+    "allergy_warning": "本產品含有堅果類製品",
+    "certification_marks": []
+  },
+  "4710088473202": {
+    "name": "純喫茶香橙綠茶",
+    "brand": "純喫茶",
+    "ingredients_list": [
+      "水",
+      "蔗糖",
+      "柳丁原汁",
+      "柳橙濃縮汁",
+      "茉莉綠茶",
+      "麥芽糊精",
+      "檸檬酸",
+      "香料",
+      "DL-蘋果酸",
+      "維生素C"
+    ],
+    "ingredient_types": {
+      "水": "ingredient",
+      "蔗糖": "ingredient",
+      "柳丁原汁": "ingredient",
+      "柳橙濃縮汁": "ingredient",
+      "茉莉綠茶": "ingredient",
+      "麥芽糊精": "additive",
+      "檸檬酸": "additive",
+      "香料": "additive",
+      "DL-蘋果酸": "additive",
+      "維生素C": "additive"
+    },
+    "nutrition": {
+      "calories": 39.2,
+      "protein": 0.0,
+      "fat": 0.0,
+      "sugar": 9.0,
+      "sodium": 7.0
+    },
+    "manufacturer": "統一企業股份有限公司",
+    "allergy_warning": "本生產線亦生產含有麩質之穀物、大豆及牛奶製品的產品",
+    "certification_marks": [
+      "TQF"
+    ]
+  },
+  "4710105037103": {
+    "name": "光泉無加糖濃豆漿",
+    "brand": "光泉",
+    "ingredients_list": [
+      "水",
+      "非基因改造黃豆"
+    ],
+    "ingredient_types": {
+      "水": "ingredient",
+      "非基因改造黃豆": "ingredient"
+    },
+    "nutrition": {
+      "calories": 50.7,
+      "protein": 5.1,
+      "fat": 2.7,
+      "sugar": 0.8,
+      "sodium": 15.0
+    },
+    "manufacturer": "光泉牧場股份有限公司",
+    "allergy_warning": "本產品含大豆，對其過敏者不宜飲用。該生產線亦生產含芒果、花生、芝麻、牛奶、蛋、堅果及含麩質之穀物和大豆製品",
+    "certification_marks": [
+      "TQF"
+    ]
+  },
+  "4710866000422": {
+    "name": "北海鱈魚香絲",
+    "brand": "北海",
+    "ingredients_list": [
+      "魚漿（含鱈魚）",
+      "樹薯澱粉",
+      "D-山梨醇液70%（甜味劑）",
+      "砂糖",
+      "鹽（氯化鉀、鹽）",
+      "油",
+      "L-麩酸鈉",
+      "辣椒粉",
+      "水解蛋白（豬皮明膠、大豆）",
+      "甘胺酸",
+      "5'-次黃嘌呤核苷磷酸二鈉",
+      "5'-鳥嘌呤核苷磷酸二鈉",
+      "琥珀酸二鈉",
+      "DL-胺基丙酸",
+      "辣椒膏（樹薯粉、紅辣椒萃取物、乙醇、D-山梨醇、脂肪酸蔗糖酯）",
+      "乙基麥芽醇"
+    ],
+    "ingredient_types": {
+      "魚漿（含鱈魚）": "ingredient",
+      "樹薯澱粉": "ingredient",
+      "D-山梨醇液70%（甜味劑）": "additive",
+      "砂糖": "ingredient",
+      "鹽（氯化鉀、鹽）": "ingredient",
+      "油": "ingredient",
+      "L-麩酸鈉": "additive",
+      "辣椒粉": "ingredient",
+      "水解蛋白（豬皮明膠、大豆）": "additive",
+      "甘胺酸": "additive",
+      "5'-次黃嘌呤核苷磷酸二鈉": "additive",
+      "5'-鳥嘌呤核苷磷酸二鈉": "additive",
+      "琥珀酸二鈉": "additive",
+      "DL-胺基丙酸": "additive",
+      "辣椒膏（樹薯粉、紅辣椒萃取物、乙醇、D-山梨醇、脂肪酸蔗糖酯）": "additive",
+      "乙基麥芽醇": "additive"
+    },
+    "nutrition": {
+      "calories": 333.1,
+      "protein": 27.2,
+      "fat": 1.5,
+      "sugar": 17.7,
+      "sodium": 1710.0
+    },
+    "manufacturer": "有豐食品股份有限公司",
+    "allergy_warning": "本產品含有魚類、小麥、大豆等成分",
+    "certification_marks": [
+      "HACCP"
+    ]
+  },
+  "4719857004012": {
+    "name": "光泉活性乳酸菌發酵乳（原味）",
+    "brand": "光泉",
+    "ingredients_list": [
+      "水",
+      "蔗糖",
+      "奶粉",
+      "葡萄糖",
+      "香料",
+      "菊糖",
+      "胭脂樹紅（天然紅木種子萃取）",
+      "活性乳酸菌"
+    ],
+    "ingredient_types": {
+      "水": "ingredient",
+      "蔗糖": "ingredient",
+      "奶粉": "ingredient",
+      "葡萄糖": "ingredient",
+      "香料": "additive",
+      "菊糖": "ingredient",
+      "胭脂樹紅（天然紅木種子萃取）": "additive",
+      "活性乳酸菌": "ingredient"
+    },
+    "nutrition": {
+      "calories": 63.0,
+      "protein": 1.0,
+      "fat": 0.0,
+      "sugar": 12.9,
+      "sodium": 11.0
+    },
+    "manufacturer": "光泉牧場股份有限公司",
+    "allergy_warning": "本產品含牛奶及其製品",
+    "certification_marks": []
+  }
+}

@@ -1,0 +1,142 @@
+{
+  "4710022034100": {
+    "name": "ViVa精威牌珍珠腳心果",
+    "brand": "萬歲牌",
+    "ingredients_list": [],
+    "ingredient_types": {},
+    "nutrition": {
+      "calories": 0.0,
+      "protein": 0.0,
+      "fat": 0.0,
+      "sugar": 0.0,
+      "sodium": 0.0
+    },
+    "manufacturer": "",
+    "allergy_warning": "",
+    "certification_marks": []
+  },
+  "4710088473202": {
+    "name": "香橙綠茶",
+    "brand": "純喫茶",
+    "ingredients_list": [],
+    "ingredient_types": {},
+    "nutrition": {
+      "calories": 0.0,
+      "protein": 0.0,
+      "fat": 0.0,
+      "sugar": 0.0,
+      "sodium": 0.0
+    },
+    "manufacturer": "委民總餘頒思股份有限公司",
+    "allergy_warning": "本產品含果汁",
+    "certification_marks": []
+  },
+  "4710105037103": {
+    "name": "無加糖潢豆漿",
+    "brand": "光泉",
+    "ingredients_list": [],
+    "ingredient_types": {},
+    "nutrition": {
+      "calories": 0.0,
+      "protein": 0.0,
+      "fat": 0.0,
+      "sugar": 0.0,
+      "sodium": 0.0
+    },
+    "manufacturer": "光泉牧場股份有限公司",
+    "allergy_warning": "本產品含大豆·封其教者",
+    "certification_marks": []
+  },
+  "4710866000422": {
+    "name": "北海鱈魚香絲以最新科學方法加",
+    "brand": "北海",
+    "ingredients_list": [
+      "魚漿（含鰭魚）",
+      "樹薯激粉",
+      "D-山梨醇液70%（甜味劑）",
+      "砂糖",
+      "鹽（鹽氯化鉀",
+      "粉）",
+      "醬油",
+      "L-魅酸鈉",
+      "辣椒粉",
+      "水解蛋白（豬皮明膠",
+      "大豆）",
+      "甘胺酸",
+      "5次黃嘌呤核苷磷酸二鈉5-易嘌呤核苷碳酸二鈉琥珀酸二鈉",
+      "DL-胺基丙酸",
+      "辣椒膏（樹薯微粉",
+      "紅辣椒萃取物",
+      "乙醇D-山梨醇",
+      "脂肪酸蔗糖酯）",
+      "乙基麥芽醇請避免潮濕及竭曬陽光",
+      "放置於險涼通風之處"
+    ],
+    "ingredient_types": {
+      "魚漿（含鰭魚）": "ingredient",
+      "樹薯激粉": "ingredient",
+      "D-山梨醇液70%（甜味劑）": "additive",
+      "砂糖": "ingredient",
+      "鹽（鹽氯化鉀": "additive",
+      "粉）": "ingredient",
+      "醬油": "ingredient",
+      "L-魅酸鈉": "additive",
+      "辣椒粉": "ingredient",
+      "水解蛋白（豬皮明膠": "additive",
+      "大豆）": "ingredient",
+      "甘胺酸": "additive",
+      "5次黃嘌呤核苷磷酸二鈉5-易嘌呤核苷碳酸二鈉琥珀酸二鈉": "additive",
+      "DL-胺基丙酸": "additive",
+      "辣椒膏（樹薯微粉": "ingredient",
+      "紅辣椒萃取物": "additive",
+      "乙醇D-山梨醇": "additive",
+      "脂肪酸蔗糖酯）": "additive",
+      "乙基麥芽醇請避免潮濕及竭曬陽光": "additive",
+      "放置於險涼通風之處": "ingredient"
+    },
+    "nutrition": {
+      "calories": 0.0,
+      "protein": 0.0,
+      "fat": 0.0,
+      "sugar": 250.0,
+      "sodium": 0.0
+    },
+    "manufacturer": "",
+    "allergy_warning": "本產品含有魚類、含質之驗物及大豆品，不適合其敏者食用",
+    "certification_marks": [
+      "HACCP"
+    ]
+  },
+  "4719857004012": {
+    "name": "活性乳酸菌發酵乳（原味）",
+    "brand": "",
+    "ingredients_list": [
+      "水",
+      "蔗糖",
+      "奶粉",
+      "葡萄路",
+      "香料",
+      "菊糖",
+      "燜娜多（天然紅木種子萃取）活性乳酸菌"
+    ],
+    "ingredient_types": {
+      "水": "ingredient",
+      "蔗糖": "ingredient",
+      "奶粉": "ingredient",
+      "葡萄路": "ingredient",
+      "香料": "additive",
+      "菊糖": "ingredient",
+      "燜娜多（天然紅木種子萃取）活性乳酸菌": "additive"
+    },
+    "nutrition": {
+      "calories": 0.0,
+      "protein": 0.0,
+      "fat": 0.0,
+      "sugar": 471.0,
+      "sodium": 0.0
+    },
+    "manufacturer": "",
+    "allergy_warning": "過敏原資訊·本",
+    "certification_marks": []
+  }
+}
