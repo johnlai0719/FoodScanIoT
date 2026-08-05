@@ -699,9 +699,9 @@ c35_極饕-真飽經典麻醬涼麵,is_food_label,correct,1,
 c35_極饕-真飽經典麻醬涼麵,name,exact,1,sim=1.00
 c35_極饕-真飽經典麻醬涼麵,manufacturer,exact,1,sim=1.00
 c35_極饕-真飽經典麻醬涼麵,allergy_warning,exact,1,sim=1.00
-c35_極饕-真飽經典麻醬涼麵,ingredients_list,f1,0.057,tp=2 fp=59 fn=7
-c35_極饕-真飽經典麻醬涼麵,ingredients_flat,f1,0.351,tp=20 fp=38 fn=36
-c35_極饕-真飽經典麻醬涼麵,ingredients_raw,char_sim,0.477,
+c35_極饕-真飽經典麻醬涼麵,ingredients_list,f1,0.061,tp=2 fp=55 fn=7
+c35_極饕-真飽經典麻醬涼麵,ingredients_flat,f1,0.642,tp=35 fp=18 fn=21
+c35_極饕-真飽經典麻醬涼麵,ingredients_raw,char_sim,0.452,
 c35_極饕-真飽經典麻醬涼麵,nutrition.calories,within_tol,1,
 c35_極饕-真飽經典麻醬涼麵,nutrition.protein,within_tol,1,
 c35_極饕-真飽經典麻醬涼麵,nutrition.fat,within_tol,1,

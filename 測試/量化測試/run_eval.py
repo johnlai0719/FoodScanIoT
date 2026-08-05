@@ -157,6 +157,9 @@ def main():
             u = _usage[mark] if len(_usage) > mark else {}
             samples.append({
                 "case_id": cid, "run": r + 1, "ms": round(ms, 1),
+                # 逐筆記錄來源：合併保留舊案例後，同一份 samples.jsonl 可能混有
+                # 不同次執行的資料，沒有這兩欄就分不出哪筆是什麼時候量的
+                "run_tag": tag, "run_at": started,
                 "set_version": c.get('set_version'), "category": c.get('category'),
                 "difficulty": c.get('difficulty') or [],
                 "n_images": len(imgs), "payload_raw_bytes": payload_raw,
@@ -181,10 +184,39 @@ def main():
         return
 
     # 逐次樣本落地：事後要改算分位數、依類別切、比對兩次執行，都不必重打 API
-    with open(os.path.join(res_dir, 'samples.jsonl'), 'w', encoding='utf-8') as f:
-        for s in samples:
+    #
+    # 只跑部分案例時**保留其餘案例的舊樣本**，僅取代本次跑到的那幾案。
+    # 直接覆寫的話，補跑一案就會讓整批延遲數據消失——修 c35 的照片後補跑該案，
+    # 前一次 48 案的 p50／p95 當場就沒了（幸好已先快照）。這與 predictions/
+    # 的行為一致：那裡本來就是一案一檔、後跑的取代先跑的，其餘案例不受影響。
+    sample_path = os.path.join(res_dir, 'samples.jsonl')
+    ran_ids = {s['case_id'] for s in samples}
+    kept = []
+    if os.path.exists(sample_path):
+        with open(sample_path, encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    old = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if old.get('case_id') not in ran_ids:
+                    kept.append(old)
+    merged = kept + samples
+    with open(sample_path, 'w', encoding='utf-8') as f:
+        for s in merged:
             f.write(json.dumps(s, ensure_ascii=False) + '\n')
 
+    if kept:
+        print(f"\n[合併] 本次跑了 {len(ran_ids)} 案，保留其餘 "
+              f"{len({s['case_id'] for s in kept})} 案的既有樣本。")
+
+    # 彙總一律以合併後的全部樣本計算——這樣「跑一案」不會讓彙總只剩一案，
+    # 而是反映「目前手上這批案例最新一次量到的結果」，與 score_eval 讀
+    # predictions/ 的語義相同。
+    samples = merged
     lat = [s['ms'] for s in samples]
     toks = [s['tokens_total'] for s in samples if s['tokens_total'] is not None]
     outs = [s['tokens_output'] for s in samples if s['tokens_output'] is not None]
@@ -193,12 +225,21 @@ def main():
         by_ver.setdefault(s['set_version'] or 'unknown', []).append(s['ms'])
         by_cat.setdefault(s['category'] or 'unknown', []).append(s['ms'])
 
+    # 樣本可能來自多次執行（補跑單案時保留了其餘案例）。混合來源不標示會誤導：
+    # 讀者會以為整批是同一時間、同一批設定下量出來的。
+    provenance = {}
+    for s in samples:
+        key = f"{s.get('run_tag') or '(未命名)'} @ {s.get('run_at') or '(未知時間)'}"
+        provenance[key] = provenance.get(key, 0) + 1
+
     summary = {
         "run_tag": tag,
         "started_at": started,
         "image_root": IMAGE_ROOT,
-        "n_cases": done,
+        "n_cases_this_run": done,
+        "n_cases": len({s['case_id'] for s in samples}),
         "n_samples": len(samples),
+        "sample_provenance": provenance,
         "n_failed": sum(1 for s in samples if not s['ok']),
         "skipped_cases": skipped,
         "latency_ms": stats(lat),
@@ -209,7 +250,9 @@ def main():
         "payload_raw_bytes": stats([s['payload_raw_bytes'] for s in samples]),
         "_說明": ("latency 為 Gemini 視覺推理單段耗時，不含 App→Fog→Cloud 傳輸。"
                   "比較壓縮前後時，傳輸段需另行量測——把兩段混在同一個 p95 裡，"
-                  "就分不出變慢是因為圖變大還是因為欄位變多。"),
+                  "就分不出變慢是因為圖變大還是因為欄位變多。"
+                  "sample_provenance 列出樣本的來源執行；若不只一項，代表本批"
+                  "混有不同次執行的資料（補跑部分案例所致），引用延遲數字時須說明。"),
     }
     with open(os.path.join(res_dir, 'latency_vision.json'), 'w', encoding='utf-8') as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
