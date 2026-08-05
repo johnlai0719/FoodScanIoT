@@ -17,6 +17,7 @@
 # 非食品案例例外：其正解只有 is_food_label=false 一個欄位，可直接寫完。
 import json
 import os
+import re
 import shutil
 import sys
 
@@ -136,8 +137,11 @@ def check():
             problems.append(f"[無圖片] {cid} 沒有列出任何照片")
 
         # 欄位完整
-        if not c.get('set_version'):
+        sv = c.get('set_version')
+        if not sv:
             problems.append(f"[缺 set_version] {cid} → 不會出現在任何版本切片中")
+        elif not re.fullmatch(r'v\d+\.\d+', sv):
+            problems.append(f"[版號格式錯誤] {cid} → '{sv}'，應為 v<主>.<次>（如 v2.1）")
         cat = c.get('category')
         if not cat:
             problems.append(f"[缺 category] {cid}")
@@ -268,7 +272,7 @@ def new(argv):
         "barcode": "TEST",
         "images": imgs,
         "tags": {"is_food": not non_food},
-        "set_version": opts.get('set_version', 'v3'),
+        "set_version": opts.get('set-version') or opts.get('set_version') or 'v3.0',
         "category": category,
         "difficulty": difficulty,
     })

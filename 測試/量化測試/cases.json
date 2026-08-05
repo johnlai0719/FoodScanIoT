@@ -1,5 +1,5 @@
 {
-  "_說明": "影像辨識層量化測試的案例定義。\n\nset_version —— 測試集版本。\n  core48   2026-07-30 報告所用的原始 48 案（每案 1–3 張，含正面照與 HEIC 副本）。\n  core48r2 2026-08-06 起。案例仍是同樣 48 件，但移除了無實質內容的正面照與\n           HEIC 重複檔——圖片自 98 張降為 54 張。輸入變了，**故 core48 與\n           core48r2 的數字不可直接相比**（延遲尤其：送出資料量大幅下降）。\n  以下凍結規則對 core48r2 同樣適用：\n  不增、不減、不換圖。跨期比較一律只看 core48 的數字，新增案例另標 v3 以後版本，\n  分開報告。理由：測試集一改，前後期數字就不再是同一把尺量的（20→48 案時已\n  發生過一次，上下期延遲數字實際上不可直接比）。\n\ncategory —— 商品類別，供評分時切片。supplement_food 指「是食品、但以保健食品\n  形態呈現」者，與 v3 將新增的硬負例（真正的保健食品外盒）僅一線之隔，\n  是相關性閘門最容易出錯的邊界。\n\ndifficulty —— 影像困難度標籤（glare 反光／curved 曲面／crease 摺痕／\n  low_light 低光／angled 斜拍／small_text 小字密集／occluded 遮擋）。\n  **core48 目前全為空陣列，這是誠實的未知而非「無困難」**：這批照片拍攝時\n  未記錄拍攝條件，事後補標需要有人逐張看過原圖才能標。標註完成前，\n  依 difficulty 切片的報告只會涵蓋 v3 之後的案例。",
+  "_說明": "影像辨識層量化測試的案例定義。\n\nset_version —— 測試集版本，格式為 v<主>.<次>。\n\n  主版本  案例的組成。新增或移除案例時 +1。\n          **主版本不同的兩組數字不可相比**——母體不同，比的不是同一件事。\n  次版本  同一批案例，但輸入照片或人工正解有修訂時 +1。\n          案例可一一對應，惟數字仍會受影響，引用時須註明修訂內容。\n\n  已發行的版本見 README.md 的「版本沿革」;每次調版都必須在該處記錄\n  改了什麼、為什麼改,只有版號而沒有說明的話,日後無從判斷兩組數字差在哪。\n\n  凍結規則:已發行的版本不再更動。任何改動一律進新版本,舊版數字保留不刪。\n  理由:20→48 案時案例數與擷取欄位同時變動,導致上下期延遲的退步無法歸因。\n\ncategory —— 商品類別,供評分時切片,同時決定 images/ 與 ground_truth/ 底下的\n  資料夾位置(兩處必須一致,由 casetool.py check 檢查)。supplement_food 指\n  「是食品、但以保健食品形態呈現」者,與待補的硬負例(真正的保健食品外盒)\n  僅一線之隔,是相關性閘門最容易出錯的邊界。\n\ndifficulty —— 影像困難度標籤(glare 反光／curved 曲面／crease 摺痕／\n  low_light 低光／angled 斜拍／small_text 小字密集／occluded 遮擋)。\n  **目前全為空陣列,這是誠實的未知而非「無困難」**:這批照片拍攝時未記錄\n  拍攝條件,事後補標需要有人逐張看過原圖。標註完成前,依 difficulty 切片的\n  報告不會有內容。",
   "cases": [
     {
       "case_id": "c01_柳橙綠茶",
@@ -14,7 +14,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "beverage",
       "difficulty": []
     },
@@ -31,7 +31,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "beverage",
       "difficulty": []
     },
@@ -48,7 +48,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "beverage",
       "difficulty": []
     },
@@ -66,7 +66,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "beverage",
       "difficulty": []
     },
@@ -83,7 +83,7 @@
         "has_per_serving": false,
         "has_ingredients": false
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "non_food",
       "difficulty": []
     },
@@ -100,7 +100,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "beverage",
       "difficulty": []
     },
@@ -117,7 +117,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "beverage",
       "difficulty": []
     },
@@ -134,7 +134,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -151,7 +151,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -168,7 +168,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -185,7 +185,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -202,7 +202,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -219,7 +219,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "beverage",
       "difficulty": []
     },
@@ -236,7 +236,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "beverage",
       "difficulty": []
     },
@@ -253,7 +253,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "beverage",
       "difficulty": []
     },
@@ -270,7 +270,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "beverage",
       "difficulty": []
     },
@@ -287,7 +287,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "snack",
       "difficulty": []
     },
@@ -304,7 +304,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "snack",
       "difficulty": []
     },
@@ -321,7 +321,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "snack",
       "difficulty": []
     },
@@ -338,7 +338,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "snack",
       "difficulty": []
     },
@@ -355,7 +355,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "supplement_food",
       "difficulty": []
     },
@@ -372,7 +372,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "supplement_food",
       "difficulty": []
     },
@@ -389,7 +389,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "beverage",
       "difficulty": []
     },
@@ -406,7 +406,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "beverage",
       "difficulty": []
     },
@@ -423,7 +423,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "beverage",
       "difficulty": []
     },
@@ -440,7 +440,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "beverage",
       "difficulty": []
     },
@@ -457,7 +457,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "snack",
       "difficulty": []
     },
@@ -475,7 +475,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "beverage",
       "difficulty": []
     },
@@ -492,7 +492,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -509,7 +509,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -526,7 +526,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "snack",
       "difficulty": []
     },
@@ -543,7 +543,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "snack",
       "difficulty": []
     },
@@ -560,7 +560,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -577,7 +577,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -594,7 +594,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "instant_noodle",
       "difficulty": []
     },
@@ -611,7 +611,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -628,7 +628,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "snack",
       "difficulty": []
     },
@@ -645,7 +645,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -662,7 +662,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -680,7 +680,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "canned_food",
       "difficulty": []
     },
@@ -697,7 +697,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -714,7 +714,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -731,7 +731,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -748,7 +748,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -765,7 +765,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "prepared_meal",
       "difficulty": []
     },
@@ -783,7 +783,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "beverage",
       "difficulty": []
     },
@@ -801,7 +801,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "beverage",
       "difficulty": []
     },
@@ -819,7 +819,7 @@
         "has_per_serving": true,
         "has_ingredients": true
       },
-      "set_version": "core48r2",
+      "set_version": "v2.1",
       "category": "beverage",
       "difficulty": []
     }
