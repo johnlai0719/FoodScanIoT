@@ -58,6 +58,10 @@ RoadMap/
 *.html
 *.md
 !README.md
+# 專案說明書，AI 助理每次開新對話會自動讀取，必須進版控才對交接與隊友有意義
+!CLAUDE.md
+# 後端串接參考包的說明（記載契約的權威來源與強制點）
+!APP/backend-ref/README.md
 !cloud/requirements.txt
 !fog/requirements.txt
 # tests/ 底下多為需要跑起伺服器與資料庫的臨時整合腳本，預設不進版控。
