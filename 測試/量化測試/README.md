@@ -73,7 +73,10 @@ python manifest_tool.py verify
 ```
 
 `EVAL_IMAGE_ROOT` 環境變數可改讀別處的圖片——影像壓縮實驗就是用這個切換壓縮前後，
-不必另寫一套 harness。
+不必另寫一套 harness。**該目錄底下必須也有 `images/` 這一層**：路徑是
+`EVAL_IMAGE_ROOT` 加上 `cases.json` 記的相對路徑，而後者本來就含 `images/`。
+少一層的話 48 案會全部「找不到圖片」被略過，而 `run_eval.py` 仍以 0 退出——
+看起來像跑完了，實際一案未跑。`compress_images.py` 產生的目錄已是正確結構。
 
 **產物**：`results/summary.json`（含切片）、`results/samples.jsonl`（逐次原始樣本）、
 `results/per_case.csv`、`results/mismatches.csv`、`results/latency_vision.json`。
@@ -272,11 +275,56 @@ python manifest_tool.py generate && python casetool.py check
 
 ---
 
+## 影像壓縮實驗（2026-08-06）
+
+回答 07-30 回饋第 5 點。App 上傳前壓縮成 **1280px 寬 / JPEG q80**
+（`APP/src/components/PackageImageScanner.tsx`），問的是這樣會不會讓標示上的
+小字讀不出來。
+
+```bash
+python compress_images.py                  # 產生 images_1280q80/
+python compression_ab.py run --passes=3    # 兩條件各 3 遍，交錯執行，約 55 分鐘
+python compression_ab.py report            # 只重新彙整既有快照，不打 API
+```
+
+**為何是 3 遍而非 `run_eval.py --repeat=3`**：`--repeat` 只把最後一次寫進
+`predictions/`，而 `score_eval.py` 讀的就是那裡——重複的必須是「跑＋評分」
+整組，不是只有跑。同一批圖重跑，成分 F1 實測可差 0.03 以上，跑一次分不出
+訊號與雜訊。兩條件交錯跑則是為了不把時間漂移記到壓縮頭上。
+
+### 結論（v2.1，48 案，各 3 遍）
+
+| | 原圖 | 1280/q80 |
+|---|---|---|
+| 每案送出位元組 avg | 1868 KB | 294 KB |
+| Gemini 視覺延遲 p50 | 11881–11994 ms | 6581–6965 ms |
+| Gemini 視覺延遲 p95 | 18379–20857 ms | 9904–11787 ms |
+| prompt token avg | 2712–2728 | 2673–2718 |
+| `is_food_label` | 48 / 48 | 48 / 48 |
+| `ingredients_flat` F1 | 0.828–0.841 | 0.862–0.881 |
+| `name` 答對 | 28–31 / 46 | 32–35 / 46 |
+
+**沒有證據顯示壓縮讓辨識變差**（`name` 與成分 F1 三遍區間不重疊、方向反而是
+壓縮較好，但機制未驗證，n=3 也談不上統計顯著，不宜宣稱「壓縮讓辨識變好」）。
+營養欄位的差異全在 ±1 案，且多數欄位的分母本身會隨執行浮動，不能當分數讀。
+
+**延遲的省下來的不是推理**：token 幾乎沒變，減少的是傳輸與解碼；而這段量的是
+本機到 Google，實機的 App→Fog→Cloud 傳輸段仍需另外量。
+
+**限制**：離線壓縮用 Pillow，App 用 RN 原生編碼器，量化表、色度抽樣與縮圖演算法
+皆不同（Pillow 的 LANCZOS 偏銳利，若有偏差方向大概是略偏樂觀）。故結論限於
+「這個解析度與品質等級足以辨識」，不等於「App 的輸出等同於此」。後者請看
+`PackageImageScanner.tsx` 的 `[compress]` log，實機拍一張即可核對。
+
+---
+
 ## 相關腳本
 
 | 腳本 | 用途 | 花錢 |
 |---|---|---|
 | `run_eval.py` | 跑辨識，記錄延遲／token／payload 大小 | ✅ Gemini API |
+| `compress_images.py` | 產生壓縮後的圖片組供 A/B | ❌ |
+| `compression_ab.py` | 壓縮前後各跑 N 遍並彙整成報告 | ✅ Gemini API |
 | `score_eval.py` | 對正解評分，輸出整體與切片 | ❌ |
 | `manifest_tool.py` | 圖片完整性清單的產生與驗證 | ❌ |
 | `eval_ingredient_parse.py` | 「模型整理的清單」vs「自行解析原文」回測 | ❌ 需本機 DB |

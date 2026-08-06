@@ -41,8 +41,13 @@ def compress(src_dir, out_dir, max_width, quality):
                 continue
             sp = os.path.join(root, fn)
             rel = os.path.relpath(sp, src_dir)
+            # 輸出目錄結構必須是 <out>/images/<rel>，不是 <out>/<rel>：
+            # run_eval.py 的路徑是 join(EVAL_IMAGE_ROOT, cases.json 的相對路徑)，
+            # 而 cases.json 記的是 "images/beverage/c01_.../x.jpg"（含 images/ 這一層）。
+            # 少了這一層，切換 EVAL_IMAGE_ROOT 後 48 案會全部「找不到圖片」而被
+            # SKIP，且 run_eval 不會因此非零退出——看起來像跑完了，實際一案未跑。
             # 一律輸出 .jpg：App 端壓縮後也是 JPEG，維持一致
-            dp = os.path.join(out_dir, os.path.splitext(rel)[0] + '.jpg')
+            dp = os.path.join(out_dir, 'images', os.path.splitext(rel)[0] + '.jpg')
             os.makedirs(os.path.dirname(dp), exist_ok=True)
 
             with Image.open(sp) as im:

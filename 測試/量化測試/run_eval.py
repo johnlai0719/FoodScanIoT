@@ -111,6 +111,20 @@ def _install_usage_probe():
     client.models.generate_content = wrapper
 
 
+def resolve(rel):
+    """把 cases.json 的相對路徑解到 IMAGE_ROOT 底下，副檔名不符時回退到 .jpg。
+
+    壓縮後的圖一律是 JPEG（見 compress_images.py），但原圖有 3 張是 .webp、
+    1 張是 .jpeg。不回退的話這幾案在壓縮組會被 SKIP，兩組的案例母體就不同，
+    比出來的分數不是同一批案例的分數。
+    """
+    p = os.path.join(IMAGE_ROOT, rel)
+    if os.path.exists(p):
+        return p
+    alt = os.path.splitext(p)[0] + '.jpg'
+    return alt if os.path.exists(alt) else p
+
+
 def img_to_b64(path):
     with open(path, 'rb') as f:
         return base64.b64encode(f.read()).decode()
@@ -161,7 +175,7 @@ def main():
             continue
         if only_version and c.get('set_version') != only_version:
             continue
-        imgs = [os.path.join(IMAGE_ROOT, p) for p in c['images']]
+        imgs = [resolve(p) for p in c['images']]
         missing = [p for p in imgs if not os.path.exists(p)]
         if missing:
             print(f"[SKIP] {cid}: 找不到圖片 {missing}")
