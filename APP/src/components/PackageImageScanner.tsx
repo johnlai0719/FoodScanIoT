@@ -1,7 +1,14 @@
 import React, { useState } from 'react';
 import { View, Text, Image, Alert, Pressable, StyleSheet, ScrollView } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { Camera, ImagePlus, Trash2, CheckCircle2 } from 'lucide-react-native';
+
+// 上傳前壓縮的參數。與 測試/量化測試/compress_images.py 的預設值相同——
+// 那支腳本用同一組參數處理測試集後重跑辨識，量的就是這裡送出去的東西。
+// 改動這兩個數字前先跑一次該實驗，否則辨識率的變化沒有依據。
+const MAX_WIDTH = 1280;
+const QUALITY = 0.8;
 
 interface Props {
   onImageCaptured: (base64: string) => void;
@@ -11,6 +18,39 @@ interface Props {
 
 export default function PackageImageScanner({ onImageCaptured, images = [], onRemoveImage }: Props) {
   const [loading, setLoading] = useState<'camera' | 'library' | null>(null);
+
+  /**
+   * 縮圖、壓縮、轉 base64。
+   *
+   * 不在 ImagePicker 的選項裡直接要 `quality` 與 `base64`：那樣拿到的是
+   * **原始解析度**的 base64（手機主鏡頭動輒 4000px 寬），既白編碼一次，
+   * 上傳量也是這裡的數倍。改由 ImageManipulator 一次完成縮圖與壓縮。
+   *
+   * 順帶解掉 iOS 相簿的 HEIC——原本會把 HEIC 的 base64 直接往上送。
+   */
+  const processAndCompressImage = async (uri: string, srcWidth: number) => {
+    try {
+      // 只縮不放。resize 設的是**結果尺寸**而非上限，寬度本來就小於 1280 的圖
+      // （截圖、網路存下的小圖）若照樣傳進去會被放大：檔案變大，細節一點沒多。
+      const actions = srcWidth > MAX_WIDTH ? [{ resize: { width: MAX_WIDTH } }] : [];
+      const out = await ImageManipulator.manipulateAsync(uri, actions, {
+        compress: QUALITY,
+        format: ImageManipulator.SaveFormat.JPEG,
+        base64: true,
+      });
+      if (out.base64) {
+        // 實機驗收用：確認送出去的確實是這組參數壓過的結果。
+        // 離線實驗（compress_images.py）只證明「這個等級夠辨識」，
+        // 證明「App 真的有壓」要看這行。
+        console.log(`[compress] ${srcWidth}px → ${out.width}px, `
+          + `base64 ${(out.base64.length / 1024).toFixed(0)}KB`);
+        onImageCaptured(out.base64);
+      }
+    } catch (e: any) {
+      console.error('影像壓縮失敗', e);
+      Alert.alert('影像處理失敗', '請再試一次，或改用其他照片');
+    }
+  };
 
   const takePhoto = async () => {
     const { granted } = await ImagePicker.requestCameraPermissionsAsync();
@@ -23,11 +63,10 @@ export default function PackageImageScanner({ onImageCaptured, images = [], onRe
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: false,
-        quality: 0.8,
-        base64: true,
+        // quality／base64 交給 ImageManipulator，見 processAndCompressImage
       });
-      if (!result.canceled && result.assets[0].base64) {
-        onImageCaptured(result.assets[0].base64);
+      if (!result.canceled && result.assets[0].uri) {
+        await processAndCompressImage(result.assets[0].uri, result.assets[0].width);
       }
     } finally {
       setLoading(null);
@@ -45,12 +84,11 @@ export default function PackageImageScanner({ onImageCaptured, images = [], onRe
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: false,
-        quality: 0.8,
-        base64: true,
         allowsMultipleSelection: false,
+        // quality／base64 交給 ImageManipulator，見 processAndCompressImage
       });
-      if (!result.canceled && result.assets[0].base64) {
-        onImageCaptured(result.assets[0].base64);
+      if (!result.canceled && result.assets[0].uri) {
+        await processAndCompressImage(result.assets[0].uri, result.assets[0].width);
       }
     } finally {
       setLoading(null);
