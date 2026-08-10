@@ -29,8 +29,11 @@ MANIFEST = os.path.join(HERE, 'manifest.json')
 
 _EXTS = ('.jpg', '.jpeg', '.png', '.webp', '.heic')
 
-VALID_DIFFICULTY = {'glare', 'curved', 'crease', 'low_light',
-                    'angled', 'small_text', 'occluded'}
+# 刻意只留四個（2026-08-10 自七個縮減）：特徵要少到每個都養得起樣本——
+# 10 張新案例攤給七種條件是每種 n=1，切片無判讀價值。被移除者的去處見
+# README「困難食品」一節（small_text 由品項軸涵蓋、low_light 由 blurry 承接、
+# angled/occluded 待切片顯示需要再加回）。
+VALID_DIFFICULTY = {'glare', 'curved', 'crease', 'blurry'}
 VALID_CATEGORY = {'beverage', 'prepared_meal', 'snack', 'instant_noodle',
                   'canned_food', 'supplement_food', 'non_food'}
 
