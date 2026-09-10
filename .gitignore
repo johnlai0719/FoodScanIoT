@@ -142,3 +142,24 @@ scratch/
 # 抓取原文的本機存檔（38 MB）。不進版控：來源網址已隨資料存於資料庫的
 # description_sources 欄位，此處僅為抓取當下的快取，需要時可依網址重新取得。
 添加物資料庫整理/03_llm_ingestion/source_archive/
+
+# ── vlcrop 研究管線（PPOCR_TEST）─────────────────────────────────────────
+# **白名單，不是黑名單。** 同 `測試/量化測試/review_server.py` 的理由：
+# 這個目錄有 30 GB，其中程式碼只有 960 KB，而剩下的包含
+#   output/  20 GB   訓練輸出（checkpoint、optimizer state）
+#   out/    7.8 GB   模型輸出與中間產物，含 `_contaminated_*`
+#                    ——那是**刻意用測試集污染過**的實驗殘留，外流會毀掉保留集
+#   _models/ 1.1 GB、pretrain/ 551 MB、_pi/ 107 MB、_croppreview/ 107 MB
+# 黑名單漏一條就是把 1 GB 權重推上 GitHub，白名單漏一條只是少收一支程式。
+PPOCR_TEST/*
+!PPOCR_TEST/*.py
+!PPOCR_TEST/*.md
+!PPOCR_TEST/*.sh
+!PPOCR_TEST/configs/
+!PPOCR_TEST/configs/*.yml
+!PPOCR_TEST/data/
+!PPOCR_TEST/data/*.json
+# 備份檔（`*.py.bak-0907`、`*.py.bak3`）結尾不是 .py，白名單自然擋掉，
+# 這一行只是把意圖寫明。venv 內嵌絕對路徑，換機器一定要重建，也不收。
+PPOCR_TEST/*.bak*
+PPOCR_TEST/.venv_*/

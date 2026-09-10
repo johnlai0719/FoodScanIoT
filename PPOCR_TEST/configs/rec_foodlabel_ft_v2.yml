@@ -1,0 +1,172 @@
+# PP-OCRv5_server_rec 在食品標示合成資料上的 fine-tune 設定。
+#
+# 由 PaddleOCR/configs/rec/PP-OCRv5/PP-OCRv5_server_rec.yml 改來。
+# 只列出與原檔不同之處的理由，其餘保持一致——動愈少愈能歸因。
+#
+# 執行（在 PaddleOCR repo 根目錄）：
+#   cd D:/FoodScanIot/PaddleOCR
+#   python tools/train.py -c ../PPOCR_TEST/configs/rec_foodlabel_ft.yml
+#
+# 驗收**不是**看這裡的 val acc。合成資料上的 acc 再高也不代表真實表現，
+# 分布本來就不同。真正的驗收是把訓練出的模型轉成推論格式後，
+# 跑 score_ocr.py --compare v5_hires <新preset>，看 58 案真實照片上
+# 「繁簡 227 字」與「鈉→納 / 櫚→欄」那組誤判有沒有下降。
+
+Global:
+  model_name: PP-OCRv5_server_rec
+  debug: false
+  use_gpu: true
+  # 原檔 75 epoch 是從頭訓練的規模。fine-tune 只是把既有模型往領域上推，
+  # 跑太久反而會在通用文字上退步（災難性遺忘）。先跑 20，看曲線再決定。
+  # v2：降到 4。上一輪跑 20 epoch，完全命中隨 epoch 單調下降
+  # （582@ep2 → 567@ep6 → 535@ep19），而合成 val acc 在 ep10 就飽和到 ~1.0，
+  # best_accuracy 這個 checkpoint 機制挑到最差的那個。每個 epoch 都存，
+  # 用真實 58 案選，不要信合成 val。
+  epoch_num: 4
+  log_smooth_window: 20
+  print_batch_step: 20
+  save_model_dir: ../PPOCR_TEST/output/rec_foodlabel_ft_v2
+  save_epoch_step: 1
+  eval_batch_step: [0, 500]
+  cal_metric_during_train: true
+  calc_epoch_interval: 1
+  # 訓練權重（.pdparams），不是 ~/.paddlex 裡的推論模型。副檔名要省略。
+  pretrained_model: ../PPOCR_TEST/pretrain/PP-OCRv5_server_rec_pretrained
+  checkpoints:
+  save_inference_dir:
+  use_visualdl: false
+  infer_img: doc/imgs_words/ch/word_1.jpg
+  # 沿用官方字典。實測 8000 行語料的 487 種字元 100% 被它涵蓋，
+  # 不需要自製字典——換字典會讓分類頭整層失效，預訓練權重就白費了。
+  character_dict_path: ./ppocr/utils/dict/ppocrv5_dict.txt
+  max_text_length: &max_text_length 25
+  infer_mode: false
+  use_space_char: true
+  distributed: false          # 單卡
+  save_res_path: ../PPOCR_TEST/output/rec_foodlabel_ft/predicts.txt
+  d2s_train_image_shape: [3, 48, 320]
+
+Optimizer:
+  name: Adam
+  beta1: 0.9
+  beta2: 0.999
+  lr:
+    name: Cosine
+    # 原檔 5e-4 是從頭訓練的學習率。fine-tune 用它會把預訓練學到的東西沖掉，
+    # 取十分之一是常見起點。若 loss 不降再往上調，先寧可保守。
+    learning_rate: 0.00005
+    warmup_epoch: 1
+  regularizer:
+    name: L2
+    factor: 3.0e-05
+
+Architecture:
+  model_type: rec
+  algorithm: SVTR_HGNet
+  Transform:
+  Backbone:
+    name: PPHGNetV2_B4
+    text_rec: True
+  Head:
+    name: MultiHead
+    head_list:
+      - CTCHead:
+          Neck:
+            name: svtr
+            dims: 120
+            depth: 2
+            hidden_dims: 120
+            kernel_size: [1, 3]
+            use_guide: True
+          Head:
+            fc_decay: 0.00001
+      - NRTRHead:
+          nrtr_dim: 384
+          max_text_length: *max_text_length
+
+Loss:
+  name: MultiLoss
+  loss_config_list:
+    - CTCLoss:
+    - NRTRLoss:
+
+PostProcess:
+  name: CTCLabelDecode
+
+Metric:
+  name: RecMetric
+  main_indicator: acc
+
+Train:
+  dataset:
+    name: MultiScaleDataSet
+    ds_width: false
+    data_dir: ../FoodScanData/train_rec/synth_v2
+    ext_op_transform_idx: 1
+    label_file_list:
+    - ../FoodScanData/train_rec/synth_v2/train_list.txt
+    # 之後補真實 crop 與通用中文資料時，在這裡加檔案並設 ratio_list。
+    # 官方建議 真實:合成:通用 ≈ 1:1:1；只餵合成資料會在非食品文字上退步。
+    # ratio_list: [1.0, 1.0, 1.0]
+    transforms:
+    - DecodeImage:
+        img_mode: BGR
+        channel_first: false
+    # RecAug 是官方的資料增強。我們的合成圖已經自己做過退化
+    # （lowres/curved/crease/glare/blurry/jpeg），兩層疊加會過頭，
+    # 但先保留與原檔一致，等第一輪結果出來再決定要不要關。
+    - RecAug:
+    - MultiLabelEncode:
+        gtc_encode: NRTRLabelEncode
+    - KeepKeys:
+        keep_keys:
+        - image
+        - label_ctc
+        - label_gtc
+        - length
+        - valid_ratio
+  sampler:
+    name: MultiScaleSampler
+    scales: [[320, 32], [320, 48], [320, 64]]
+    # 原檔 128 是多卡大顯存的設定，RTX 4060 只有 8GB 放不下。
+    # 實測 bs=16 只吃 2467 MB，太浪費；32 約 4-5 GB，對 MultiScaleSampler
+    # 最吃記憶體的 [320,64] 那檔仍有餘裕。OOM 的話往下砍回 16。
+    # 學習率維持 5e-5 沒有跟著放大：fine-tune 寧可慢一點也不要把預訓練沖掉。
+    first_bs: &bs 32
+    fix_bs: false
+    divided_factor: [8, 16]
+    is_training: True
+  loader:
+    shuffle: true
+    batch_size_per_card: *bs
+    drop_last: true
+    # 原檔 16。Windows 的 dataloader 子行程走 spawn，開太多容易卡住或
+    # 吃光記憶體。2 是 Windows 上的安全值。
+    num_workers: 2
+
+Eval:
+  dataset:
+    name: SimpleDataSet
+    data_dir: ../FoodScanData/train_rec/synth_v2
+    label_file_list:
+    - ../FoodScanData/train_rec/synth_v2/val_list.txt
+    transforms:
+    - DecodeImage:
+        img_mode: BGR
+        channel_first: false
+    - MultiLabelEncode:
+        gtc_encode: NRTRLabelEncode
+    - RecResizeImg:
+        image_shape: [3, 48, 320]
+    - KeepKeys:
+        keep_keys:
+        - image
+        - label_ctc
+        - label_gtc
+        - length
+        - valid_ratio
+  loader:
+    shuffle: false
+    drop_last: false
+    batch_size_per_card: 32
+    num_workers: 2

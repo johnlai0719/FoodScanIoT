@@ -1,0 +1,172 @@
+# PP-OCRv6_medium_rec 在食品標示合成資料上的 fine-tune。
+#
+# 由 PaddleOCR/configs/rec/PP-OCRv6/PP-OCRv6_medium_rec.yml 改來，
+# 只改必要處，其餘保持一致——動愈少愈能歸因。
+#
+# ⚠ **與前三版最大的差別：微調的是 v6_medium，不是 v5_server。**
+# 08-18 那次微調的是 `PP-OCRv5_server_rec`，但評估管線跑的是 PP-OCRv6_medium
+# （preset `v6_hires__boxth0.4` / `v6_best`）。也就是說那組微調結果**接不回
+# 實際的管線**——它量到的 583→602 是在另一個模型上。這次直接對齊。
+#
+# 訓練資料 `synth_v3` 與前兩版的差別（都經過 synth_corpus.py check，0 行洩漏）：
+#   詞彙   380 → 978 個（gen_vocab.py 用 Gemini 補 598 個，多為長化學名）
+#   字元集 428 → 724 種
+#   背景   純色 → 程序化材質（印刷網點／鋁箔異向反光／亮面高光／紙纖維）
+#   新增   badcrop 退化：切頭尾、鄰行滲入、左右切半字
+#          （由來是把真實裁圖攤開看 out/_real_crops.png——det 在小字密集區
+#            框不準，rec 拿到的本來就不是乾淨單行）
+#
+# **驗收不是看這裡的 val acc。** 合成資料上的 acc 再高也不代表真實表現。
+# 真正的驗收是轉成推論格式後跑
+#     python score_ocr.py --preset=<新preset>
+# 看 58 案真實照片上的「完全命中 / 沒讀到 / 繁簡」有沒有改善，
+# 而且**營養那一欄不能變差**——08-18 的 v2 ep4 就是敗在這裡
+# （成分 583→602、繁簡 234→0，但營養漏 65→90，淨值是取捨不是改善）。
+#
+# 執行（在 PaddleOCR repo 根目錄）：
+#   cd D:/FoodScanIot/PaddleOCR
+#   python tools/train.py -c ../PPOCR_TEST/configs/rec_foodlabel_v6_ft.yml
+
+Global:
+  model_name: PP-OCRv6_medium_rec
+  debug: false
+  use_gpu: true
+  epoch_num: 5
+  log_smooth_window: 20
+  print_batch_step: 10
+  save_model_dir: ./output/rec_foodlabel_v6_ft
+  save_epoch_step: 1
+  eval_batch_step: [0, 2000]
+  cal_metric_during_train: true
+  pretrained_model: ../PPOCR_TEST/pretrain/PP-OCRv6_medium_rec_pretrained.pdparams
+  checkpoints:
+  save_inference_dir:
+  use_visualdl: false
+  infer_img: doc/imgs_words/ch/word_1.jpg
+  character_dict_path: ppocr/utils/dict/ppocrv6_dict.txt
+  max_text_length: &max_text_length 25
+  infer_mode: false
+  use_space_char: true
+  distributed: true
+  save_res_path: ./output/rec/predicts_ppocrv6_medium.txt
+  d2s_train_image_shape: [3, 48, 320]
+
+
+Optimizer:
+  name: Adam
+  beta1: 0.9
+  beta2: 0.999
+  lr:
+    name: Cosine
+    learning_rate: 0.00005
+    warmup_epoch: 5
+  regularizer:
+    name: L2
+    factor: 3.0e-05
+
+
+Architecture:
+  model_type: rec
+  algorithm: SVTR_LCNet
+  Transform:
+  Backbone:
+    name: PPLCNetV4
+    model_size: medium
+  Head:
+    name: MultiHead
+    head_list:
+      - CTCHead:
+          Neck:
+            name: lightsvtr
+            dims: 192
+            depth: 2
+            mlp_ratio: 4.0
+            local_kernel: 7
+            use_guide: false
+          Head:
+            fc_decay: 0.00001
+      - NRTRHead:
+          nrtr_dim: 512
+          max_text_length: *max_text_length
+
+Loss:
+  name: MultiLoss
+  loss_config_list:
+    - CTCLoss:
+    - NRTRLoss:
+
+PostProcess:
+  name: CTCLabelDecode
+
+Metric:
+  name: RecMetric
+  main_indicator: acc
+
+Train:
+  dataset:
+    name: MultiScaleDataSet
+    ds_width: false
+    data_dir: D:/FoodScanIot/FoodScanData/train_rec/synth_v3
+    ext_op_transform_idx: 1
+    label_file_list:
+    - D:/FoodScanIot/FoodScanData/train_rec/synth_v3/train_list.txt
+    ratio_list:
+    - 0.5
+    transforms:
+    - DecodeImage:
+        img_mode: BGR
+        channel_first: false
+    - RecConAug:
+        prob: 0.5
+        ext_data_num: 2
+        image_shape: [48, 320, 3]
+        max_text_length: *max_text_length
+    - RecAug:
+    - MultiLabelEncode:
+        gtc_encode: NRTRLabelEncode
+    - KeepKeys:
+        keep_keys:
+        - image
+        - label_ctc
+        - label_gtc
+        - length
+        - valid_ratio
+  sampler:
+    name: MultiScaleSampler
+    scales: [[320, 32], [320, 48], [320, 64]]
+    first_bs: &bs 64
+    fix_bs: false
+    divided_factor: [8, 16]
+    is_training: True
+  loader:
+    shuffle: true
+    batch_size_per_card: *bs
+    drop_last: true
+    num_workers: 8
+
+Eval:
+  dataset:
+    name: SimpleDataSet
+    data_dir: D:/FoodScanIot/FoodScanData/train_rec/synth_v3
+    label_file_list:
+    - D:/FoodScanIot/FoodScanData/train_rec/synth_v3/val_list.txt
+    transforms:
+    - DecodeImage:
+        img_mode: BGR
+        channel_first: false
+    - MultiLabelEncode:
+        gtc_encode: NRTRLabelEncode
+    - RecResizeImg:
+        image_shape: [3, 48, 320]
+    - KeepKeys:
+        keep_keys:
+        - image
+        - label_ctc
+        - label_gtc
+        - length
+        - valid_ratio
+  loader:
+    shuffle: false
+    drop_last: false
+    batch_size_per_card: 128
+    num_workers: 4
