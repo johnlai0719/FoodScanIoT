@@ -120,6 +120,8 @@ export default function HomeScreen() {
   const [serverEndpoint, setServerEndpoint] = useState<'fog' | 'cloud'>('fog');
 
   const [advancedVisible, setAdvancedVisible] = useState(false);
+  // 其他成分預設收合：使用者要看的是添加物，其餘配料是備查用的
+  const [othersExpanded, setOthersExpanded] = useState(false);
   const [scannerVisible, setScannerVisible] = useState(false);
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -243,7 +245,28 @@ export default function HomeScreen() {
    * 「查過無事」也顯示為正面資訊，需先讓 Cloud 明確回報這兩種狀態的差別。
    */
   const hasSafetyEvents = safeFoodSafetyEvents.length > 0;
-  const totalAdditivesCount = allIngredients.filter(i => i.isAdditive === true || i.isAdditive === 'true').length;
+
+  /**
+   * 添加物與其他成分分開呈現。
+   *
+   * 使用者真正要看的是「添加物是什麼、有什麼作用」，其餘配料（水、糖、麵粉）
+   * 不需要解釋。原本兩者混在同一份清單、只用徽章區分，25 項裡有 5 項要緊的
+   * 資訊就被稀釋掉。
+   *
+   * ⚠ **但那條分界線本身是會錯的**，而錯的代價不對稱：
+   *   把真添加物歸進「其他成分」＝主動告訴使用者「這不是添加物」
+   *   把非添加物列進「添加物」＝多解釋一項，使用者自己看得出來
+   * 2026-09-10 以 177 案量測（`PPOCR_TEST/實驗設計/16`）：
+   *   分欄新增的錯誤是 30／521 ＝ 5.8%，集中在長化學名的比對失敗
+   * 因此「其他成分」的標題**必須寫成「未比對到添加物資料庫」而不是
+   * 「非添加物」**——同一份資料、同樣的錯誤率，但一個是誠實的缺口、
+   * 一個是錯誤陳述。
+   */
+  const isAdditive = (i: typeof allIngredients[number]) =>
+    i.isAdditive === true || i.isAdditive === 'true';
+  const additiveIngredients = allIngredients.filter(isAdditive);
+  const otherIngredients = allIngredients.filter(i => !isAdditive(i));
+  const totalAdditivesCount = additiveIngredients.length;
   const highRiskCount = allIngredients.filter(i => {
     if (!(i.isAdditive === true || i.isAdditive === 'true')) return false;
     return (i.groupRisks ?? []).some(r => r.riskLevel >= 3);
@@ -788,7 +811,55 @@ export default function HomeScreen() {
                             </View>
                           ))}
                         </View>
-                        <IngredientsList ingredients={allIngredients} />
+                        {additiveIngredients.length > 0 ? (
+                          <IngredientsList ingredients={additiveIngredients} />
+                        ) : (
+                          /* ⚠ 空清單**不等於**「本產品不含添加物」。
+                           *
+                           * 2026-09-10 以 177 案量測：添加物為 0 的案子有 42 個，
+                           * 其中 11 個是「標示上有、我們沒讀到」。而系統**分不出來**
+                           * ——兩組的成分項數分布幾乎完全重疊（危險組中位 10 項、
+                           * 乾淨組中位 9 項），任何門檻都是抓到少數、誤傷一堆
+                           * （成分項數 <10 只抓到 5/11，卻誤傷 19/31）。
+                           *
+                           * 既然分不出來，畫面就不能宣稱任何一邊。這與 2026-08-05
+                           * 把食安事件從「未查詢卻顯示為安全」改掉是同一條原則：
+                           * 對食安 App 而言，把「沒查到」呈現成「沒問題」有風險。 */
+                          <View style={[s.tipBox, s.row, { alignItems: 'flex-start' }]}>
+                            <AlertTriangle size={14} color="#b45309" style={{ marginTop: 2 }} />
+                            <View style={{ flex: 1, gap: 4 }}>
+                              <Text style={[s.tipText, { fontWeight: '800', color: TEXT_DARK }]}>
+                                未偵測到添加物
+                              </Text>
+                              <Text style={s.tipText}>
+                                這可能是產品確實未使用，也可能是成分標示沒有辨識成功。
+                                系統無法分辨這兩種情況，
+                                <Text style={{ fontWeight: '800' }}>請以包裝上的成分欄為準</Text>。
+                              </Text>
+                            </View>
+                          </View>
+                        )}
+
+                        {otherIngredients.length > 0 && (
+                          <View style={{ marginTop: 12 }}>
+                            <Pressable
+                              onPress={() => setOthersExpanded(v => !v)}
+                              style={[s.row, { justifyContent: 'space-between', paddingVertical: 6 }]}
+                            >
+                              {/* ⚠ 標題不可寫成「非添加物」。這一欄是「沒有比對到
+                               *    添加物資料庫」，不是「確定不是添加物」——實測
+                               *    有 5.8% 的真添加物會落在這裡（見上方 derived 區註解）。*/}
+                              <Text style={[s.cardTitle, { fontSize: 13 * fontScale }]}>
+                                其他成分（{otherIngredients.length}）
+                                <Text style={s.cardSubtitle}>　未比對到添加物資料庫</Text>
+                              </Text>
+                              {othersExpanded
+                                ? <ChevronUp size={14} color={TEXT_MID} />
+                                : <ChevronDown size={14} color={TEXT_MID} />}
+                            </Pressable>
+                            {othersExpanded && <IngredientsList ingredients={otherIngredients} />}
+                          </View>
+                        )}
                       </View>
                       <View style={[s.tipBox, s.row, { alignItems: 'flex-start' }]}>
                         <Info size={14} color={TEXT_MID} style={{ marginTop: 2 }} />
