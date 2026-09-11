@@ -40,6 +40,68 @@ def mask_sensitive_data(payload: dict) -> dict:
     return clean_payload
 
 
+# 上游沒有回出一次分析結果時，能辨認出來的形狀。
+# 這些鍵任何一個出現，就表示 Cloud 真的跑完了分析。
+_ANALYSIS_KEYS = ("product_info", "final_health_diagnosis", "name", "ingredients",
+                  "ingredients_list", "nutrition", "nutrition_facts", "health_score")
+# 上游明確表示「這不是分析結果」的 status。
+_NOT_ANALYSIS_STATUS = ("error", "rejected", "not_found", "degraded")
+
+
+def looks_like_analysis(result) -> bool:
+    """這份 payload 是不是一次**真的分析結果**。
+
+    存在的理由：`normalize_result()` 會替沒有分數的結果補上預設 75 分
+    （骨架注入 ＋ 第 3 段的 `or 75`）。那對「Cloud 算完但只缺欄位」是合理的，
+    對「Cloud 根本沒算」是**把錯誤呈現成一個分數**。實測（2026-09-12）：
+
+        FastAPI 的 500        {'detail': 'Internal Server Error'}  → health_score=75
+        Cloudflare JSON 錯誤   {'errors':[{'code':1033}]}           → health_score=75
+        Cloud 回 error        {'status':'error','message':'x'}     → health_score=75
+
+    而 `CLAUDE.md` 訂的判準是「**判定結果是否有效請看有沒有 health_score**」
+    ——上面這三種都會通過那個判準。
+
+    這與 2026-08-05 把食安事件從「未查詢卻顯示為安全」改掉是同一條原則：
+    **對食安 App 而言，把「沒算到」呈現成一個數字有風險。**
+    """
+    if not isinstance(result, dict):
+        return False
+    if result.get("status") in _NOT_ANALYSIS_STATUS:
+        return False
+    if result.get("status") == "success" and isinstance(result.get("data"), dict):
+        return True
+    return any(k in result for k in _ANALYSIS_KEYS)
+
+
+def build_upstream_error_response(result, status_code=None) -> dict:
+    """上游沒回出分析結果時，轉成 App 認得的錯誤形狀。
+
+    **刻意不含 health_score**——App 據此進錯誤頁顯示 message，
+    與降階回應（`build_degraded_local_response`）同一條原則。
+    原始 payload 收在 `upstream` 供除錯，不放進頂層以免被誤當成結果欄位。
+    """
+    msg = None
+    if isinstance(result, dict):
+        for k in ("message", "detail", "error", "reason"):
+            v = result.get(k)
+            if isinstance(v, str) and v.strip():
+                msg = v.strip()
+                break
+    if not msg:
+        msg = "雲端分析暫時無法完成，請稍後再試。"
+    out = {
+        "status": (result.get("status") if isinstance(result, dict) else None) or "error",
+        "message": msg,
+        "cached": False,
+    }
+    if status_code is not None:
+        out["upstream_status"] = status_code
+    if isinstance(result, dict) and result:
+        out["upstream"] = result
+    return out
+
+
 def normalize_result(result: dict):
     """將 Cloud 回應正規化為 App 期望的格式（與使用者無關）。
 
@@ -51,6 +113,12 @@ def normalize_result(result: dict):
       4. overall_summary / additives_summary / safety_events_summary 雙向映射（App 直接讀這三個）
     """
     print(f"[DEBUG] Processing result from Cloud. Keys: {list(result.keys())}")
+
+    # --- 0. 上游沒回出分析結果就原樣轉成錯誤，**不要補分數** ---
+    #     見 looks_like_analysis 的說明：往下走會讓任何錯誤長出 75 分。
+    if not looks_like_analysis(result):
+        print("[WARN] 上游未回出分析結果，不注入分數")
+        return build_upstream_error_response(result)
 
     # --- 1. 格式標準化 (Unwrapping) ---
     target = {}
@@ -72,14 +140,27 @@ def normalize_result(result: dict):
                 "nutrition_facts": result.get("nutrition") or result.get("nutrition_facts", {}),
                 "ingredients_detail": result.get("ingredients_detail", [])
             }
+            # ⚠ **包好要放回 result，否則整段白做。** 本函式結尾是 `return result`，
+            #    而這裡的 `target` 是**新建的 dict**——不合併回去的話，
+            #    `product_info`／`nutrition_facts`／`ingredients_detail` 全部遺失，
+            #    呼叫端只會拿到原本的扁平鍵。
+            #    （2026-09-12 實測：扁平輸入只回 name／ingredients_list／health_score／
+            #    risk_level，包裝結果從未離開這個函式。真實 Cloud 不走這條路，
+            #    所以一直沒人發現。）
+            result.update(target)
         else:
             target = result
 
     # --- 2. 確保診斷區塊存在 ---
+    # ⚠ **score 留 None，不要放 75。** 這個骨架的用途是讓 App 拿得到結構，
+    #    不是提供一個分數。真實的 Cloud 一定會回 health_score
+    #    （Nutri-Score 必然算得出數字），所以走到這裡就表示上游沒給——
+    #    那時候填 75 就是憑空造一個健康分數出來。
+    #    grade 同理：沒有分數就沒有等級。
     if "final_health_diagnosis" not in target:
         target["final_health_diagnosis"] = {
-            "score": 75,
-            "grade": "B",
+            "score": None,
+            "grade": None,
             "summary": "AI 解析完成。",
             "score_breakdown": []
         }
@@ -89,13 +170,27 @@ def normalize_result(result: dict):
         target["product_info"] = {"name": result.get("name"), "brand": result.get("brand", "")}
 
     # --- 3. 取得並回填 Cloud 端計算之客觀 Nutri-Score 分數與等級 ---
-    objective_score = result.get("health_score") or target["final_health_diagnosis"].get("score", 75)
-    objective_grade = result.get("risk_level") or target["final_health_diagnosis"].get("grade") or result.get("grade") or "C"
+    # ⚠ `target` 也要找。Cloud 的 `{status, data:{...}}` 形狀會把分數放在 data 裡，
+    #    只看 `result` 頂層會找不到，於是落到骨架的預設 75——**真的算出來的 82
+    #    會被換成捏造的 75**（2026-09-12 實測）。骨架是在第 2 段才注入的，
+    #    所以它的 score 一定是 75，不能當成上游給的值。
+    objective_score = (result.get("health_score") or target.get("health_score")
+                       or target["final_health_diagnosis"].get("score"))
+    objective_grade = (result.get("risk_level") or target.get("risk_level")
+                       or target["final_health_diagnosis"].get("grade")
+                       or result.get("grade"))
 
-    result["health_score"] = objective_score
-    result["risk_level"] = objective_grade
-    target["final_health_diagnosis"]["score"] = objective_score
-    target["final_health_diagnosis"]["grade"] = objective_grade
+    # ⚠ **只有真的拿到分數才寫回去。** 上游沒給就讓 health_score 保持不存在，
+    #    App 據此把它當成「不是有效結果」（CLAUDE.md 的判準），
+    #    而不是看到一個沒人算過的數字。已辨識出來的成分與品名照樣留在 payload，
+    #    之後 App 若要呈現「有內容但無評分」的部分結果，資料是齊的。
+    if objective_score is not None:
+        result["health_score"] = objective_score
+        result["risk_level"] = objective_grade or "C"
+        target["final_health_diagnosis"]["score"] = objective_score
+        target["final_health_diagnosis"]["grade"] = objective_grade or "C"
+    else:
+        print("[WARN] 上游未提供 health_score，不補預設值")
 
     # --- 4. 雙向相容映射：確保三個 summary 在 result 最外層 ---
     if "overall_summary" not in result or not result["overall_summary"]:
