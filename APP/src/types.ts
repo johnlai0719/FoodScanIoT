@@ -100,6 +100,31 @@ export interface AnalysisResponse {
   };
 }
 
+/**
+ * Fog 本機降階回應：Cloud 連不上且無快取時，Fog 以本機 OCR 產出的部分結果。
+ * 產生處是 fog/transforms.py 的 build_degraded_local_response()，
+ * 欄位集合由 tests/contract/test_degraded_local_contract.py 與本型別比對。
+ *
+ * 沒有 health_score 是刻意的：現行解包邏輯遇到沒有 health_score 的回應會顯示 message，
+ * 所以尚未支援降階的版本會安全地顯示說明文字，不會出現沒算過的分數。
+ * 要呈現部分結果時，以 status === 'degraded' && degraded_mode === 'local_ocr' 判斷；
+ * unavailable_fields 列出的區塊要顯示成「離線時無法提供」，不可當成 0 或「沒有」。
+ * ingredients_detail 與 AnalysisResponse 的同名欄位同形，可共用同一套元件。
+ */
+export interface DegradedLocalResponse {
+  status: 'degraded';
+  degraded_mode: 'local_ocr';
+  message: string;
+  barcode: string | null;
+  ingredients_detail: IngredientDetail[];
+  unavailable_fields: string[];
+  engine: Record<string, string>;
+  processed_at: string;
+  elapsed_s: number;
+  /** Node 層（fog/queryHandler.ts）轉發時加上 */
+  cached?: boolean;
+}
+
 export interface UserConditions {
   group: 'adult' | 'pregnant' | 'child' | 'hypertension' | 'diabetes';
   allergens: string[];

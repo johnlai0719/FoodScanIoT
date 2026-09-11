@@ -78,6 +78,7 @@ docker compose up -d
 | 族群風險詞彙 | `server/module_a/ingredient_matching.py` 的 `GROUP_ZH_TO_EN` | `tests/contract/test_group_vocabulary.py`（跨層比對 `APP/src/constants/groupVocabulary.ts`） |
 | 三層串接後欄位存活 | 上述兩者 ＋ `fog/transforms.py` | `tests/contract/test_layer_chain.py` |
 | App 個人化行為 | `APP/src/utils/personalization.ts` | `APP/src/utils/__tests__/personalization.test.ts` |
+| Fog 本機降階回應 | `fog/transforms.py` 的 `build_degraded_local_response()` | `tests/contract/test_degraded_local_contract.py`（跨層比對 `APP/src/types.ts` 的 `DegradedLocalResponse`） |
 
 **設計原則：契約測試一律是純函式測試**，不啟動伺服器、不連資料庫、不需要 API
 key。這樣它們才能在 CI 上每次 push 都跑。加新測試時請維持這個性質——需要外部
@@ -104,6 +105,14 @@ key。這樣它們才能在 CI 上每次 push 都跑。加新測試時請維持�
 Cloud 回 `{status:"rejected"|"not_found"|"error", message}`，Fog 回
 `{status:"degraded", message}`，四種都沒有 `health_score`。判定結果是否有效請看
 **有沒有 `health_score`**，不要只看 `response.ok`。
+Fog 另有一種 `{status:"degraded", degraded_mode:"local_ocr", ingredients_detail, …}`：
+Cloud 連不上且無快取時的本機 OCR 部分結果，同樣**刻意沒有** `health_score`，
+所以現行 App 會顯示它的 `message`。它不可再經過 `normalize_result()`，那會補上預設 75 分。
+
+**Fog 本機降階依賴 `PPOCR_TEST/`，而它目前只在 `feat/vlcrop-pipeline` 分支。**
+`fog/local_ocr.py` 啟動時找不到它就停用降階（`/health` 的 `local_ocr` 會顯示原因），
+行為退回原本的 504。另外 `deploy-fog.yml` 會在 Pi 上 `git reset --hard origin/main`，
+在 Pi 的 repo 目錄裡開發時，未 commit 的修改會被清掉。
 
 **Node 與 Python 共用同一個 `fog_cache.db`**，但寫入語義不同（TTL 不同、
 時機不同，Node 的 `INSERT OR REPLACE` 會覆蓋 Python 先寫入的那筆）。動快取邏輯

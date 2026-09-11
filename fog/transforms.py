@@ -7,6 +7,7 @@ tests/contract/ 可以直接 import，也才能把 Cloud → Fog → App 三層�
 （Cloud 端已用同樣的方式處理過，見 server/module_a ~ module_d 的抽出。）
 """
 import copy
+from datetime import datetime
 
 
 def mask_sensitive_data(payload: dict) -> dict:
@@ -127,3 +128,59 @@ def normalize_result(result: dict):
         target["final_health_diagnosis"]["safety_events_summary"] = result["safety_events_summary"]
 
     return result
+
+
+# ─── Fog 本機降階：Cloud 連不上時，以本機 OCR 產出的部分結果 ──────────────────────
+# 契約由 tests/contract/test_degraded_local_contract.py 強制，App 端型別是
+# APP/src/types.ts 的 DegradedLocalResponse。
+DEGRADED_LOCAL_MODE = "local_ocr"
+
+# 降階結果刻意不提供的欄位。App 據此把對應區塊顯示成「離線時無法提供」，
+# 而不是把缺值當成 0、當成「沒有」。
+DEGRADED_LOCAL_UNAVAILABLE = (
+    "health_score", "risk_level", "score_breakdown", "nutrition_facts",
+    "daily_reference", "product_info", "allergen_warnings",
+    "food_safety_events", "overall_summary", "additives_summary",
+    "safety_events_summary",
+)
+
+
+def build_degraded_local_response(barcode, ingredients_detail, elapsed_s, engine,
+                                  processed_at=None) -> dict:
+    """降階回應的唯一組裝點。
+
+    **刻意不含 health_score**：現行 App 只看 health_score 決定是否渲染結果頁，沒有它就
+    進錯誤頁並顯示 message。所以還沒支援降階的 App 會顯示這段說明，不會把沒算過的
+    分數呈現給使用者。也因此這份結果**不可再經過 normalize_result()**——它會替缺分數
+    的結果補上預設 75 分。
+
+    ingredients_detail 的每一項直接取自 module_a.match_ingredients() 的 chemical ＋
+    basic_detail，與 Cloud 回應的同名欄位同形，App 可共用同一套元件。
+    """
+    # 依正式名去重：抽取器常把同一項切出兩個版本（「維生素C (抗氧化劑)」與「維生素C」），
+    # 各自配到同一筆添加物。訊息裡的數字要算物質數，不是項目數。
+    n_additives = len({it.get("officialName") or it.get("name")
+                       for it in ingredients_detail if it.get("isAdditive") is True})
+    if not ingredients_detail:
+        message = ("雲端分析暫時無法連線，本機離線辨識也未能從照片讀出成分。"
+                   "請對準成分表重新拍攝，或稍後再試。")
+    elif n_additives == 0:
+        # 與 App 的空狀態同一條原則（commit 6b57132）：沒比對到 ≠ 不含。
+        message = ("雲端分析暫時無法連線，已改用本機離線辨識，但沒有比對到添加物。"
+                   "離線辨識可能漏讀，這不代表本產品不含添加物，請以包裝標示為準，"
+                   "並稍後重試以取得完整分析。")
+    else:
+        message = (f"雲端分析暫時無法連線，已改用本機離線辨識，找到 {n_additives} 項添加物。"
+                   "離線辨識可能有遺漏，且不含健康評分、營養與食安資訊，"
+                   "請稍後重試以取得完整分析。")
+    return {
+        "status": "degraded",
+        "degraded_mode": DEGRADED_LOCAL_MODE,
+        "message": message,
+        "barcode": barcode,
+        "ingredients_detail": ingredients_detail,
+        "unavailable_fields": list(DEGRADED_LOCAL_UNAVAILABLE),
+        "engine": engine,
+        "processed_at": processed_at or datetime.now().isoformat(),
+        "elapsed_s": round(float(elapsed_s), 2),
+    }

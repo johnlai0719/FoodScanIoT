@@ -25,6 +25,7 @@
 | Cloud 回應欄位集合 | `server/module_d/response_builder.py` 的 `build_response()` | `tests/contract/test_cloud_response_contract.py`（欄位集合已凍結） |
 | 族群風險詞彙 | `server/module_a/ingredient_matching.py` 的 `GROUP_ZH_TO_EN` | `tests/contract/test_group_vocabulary.py`（跨層比對 App 的 `CLOUD_GROUP_CODES`） |
 | App 個人化行為 | `APP/src/utils/personalization.ts` | `APP/src/utils/__tests__/personalization.test.ts` |
+| Fog 本機降階回應（Cloud 連不上且無快取） | `fog/transforms.py` 的 `build_degraded_local_response()` | `tests/contract/test_degraded_local_contract.py`（欄位集合已凍結，並與 `src/types.ts` 的 `DegradedLocalResponse` 逐欄比對） |
 
 改動任一邊而未同步另一邊，`pytest` 或 `npm test` 會直接轉紅。
 
@@ -45,6 +46,7 @@
 
 - `barcode` 和 `label_images` 至少提供其一
 - `ingredients_detail` 每項的 `isAdditive` 影響 APP 顯示紅色警示框
+- Fog 回 `status: "degraded"` 且 `degraded_mode: "local_ocr"` 時，是 Cloud 連不上時本機離線辨識的部分結果：只有 `ingredients_detail`，**刻意沒有 `health_score`**，`unavailable_fields` 列出其餘不提供的欄位。整合方式見 `src/types.ts` 的 `DegradedLocalResponse`
 - `groupRisks[].riskLevel >= 3` 才會被標記為高風險
 - `food_safety_events[].sources` 分三層：`official`、`news`、`social`
 - 後端 IP 目前為 placeholder，串接時替換 `HomeScreen.tsx` 第 123 行

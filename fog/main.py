@@ -13,6 +13,10 @@ from dotenv import load_dotenv
 # 純轉換函式抽至 transforms.py（2026-08-05），讓契約測試不必安裝 FastAPI 即可載入
 from transforms import mask_sensitive_data, normalize_result
 from version import get_commit
+# local_ocr 在模組層只用標準函式庫，OCR 等依賴延遲到 warm_up() 才載入——CI 會載入本檔
+import local_ocr
+import threading
+from starlette.concurrency import run_in_threadpool
 
 # 加載環境變數
 load_dotenv()
@@ -70,6 +74,9 @@ def check_cloud_functionality():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global cloud_online
+    # 背景暖機：載入模型要數秒（第一次還要下載），不能擋住啟動——
+    # deploy-fog.yml 重啟後只等 5 秒就打 /health。
+    threading.Thread(target=local_ocr.warm_up, name="local-ocr-warmup", daemon=True).start()
     cloud_online = check_cloud_functionality()
     if not cloud_online:
         print("="*60)
@@ -114,6 +121,8 @@ def health(deep: bool = False):
         payload["status"] = "degraded"
 
     payload["cloud_url_configured"] = bool(CLOUD_URL)
+    # 本機降階是附加能力，停用時 status 仍是 ok——理由與 Cloud 不可用相同（見 docstring）
+    payload["local_ocr"] = local_ocr.status()
 
     if deep:
         if not CLOUD_URL:
@@ -167,7 +176,10 @@ async def query(request: Request, response: Response):
                     CLOUD_URL, 
                     data=masked_data_bytes, 
                     headers={"Content-Type": "application/json"},
-                    timeout=90.0
+                    # 連線 5 秒、讀取 90 秒分開算：Cloud 對端離線時 TCP 連線會一直卡住，
+                    # 合在一起就要等滿 90 秒，而 Node 層 60 秒就放棄，本機降階的結果送不到 App。
+                    # 連上之後的慢分析（視覺辨識）照舊可以等 90 秒。
+                    timeout=(5.0, 90.0)
                 )
                 result = cloud_resp.json()
                 
@@ -195,6 +207,15 @@ async def query(request: Request, response: Response):
                     result["_offline_mode"] = True
                     result["_cache_age_seconds"] = age
                     return result
+                # 本機降階：Cloud 連不上、也沒有這個條碼的快取時，以本機 OCR 回部分結果。
+                # 格式見 transforms.build_degraded_local_response()。不寫入快取，也不可經過
+                # normalize_result()——它會替沒有分數的結果補上預設 75 分。
+                if has_images and local_ocr.is_ready():
+                    print(f"[LOCAL] {barcode} -> Cloud 不可用且無快取，改用本機 OCR")
+                    try:
+                        return await run_in_threadpool(local_ocr.analyze, label_images, barcode)
+                    except Exception as le:
+                        print(f"[ERROR] Local OCR Error: {barcode} -> {le}")
                 raise HTTPException(status_code=504, detail=f"Cloud 不可用且無快取資料: {str(e)}")
 
         # 🛠️ 如果是測試模式且沒照片，直接從快取回傳上次的成功結果 (取代 Cloud 查詢)
