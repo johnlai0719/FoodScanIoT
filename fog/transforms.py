@@ -40,6 +40,44 @@ def mask_sensitive_data(payload: dict) -> dict:
     return clean_payload
 
 
+# 「Cloud 掛了」的狀態碼。5xx 是伺服器端問題，52x/530 是 Cloudflare 特有：
+#   502 origin unreachable（cloudflared 連不到我們的服務）
+#   520-527 Cloudflare 與來源站之間的各種失敗
+#   530 包著 1xxx 錯誤，最常見的是 1033「隧道未連線」
+CLOUD_DOWN_CODES = frozenset({502, 503, 504, 520, 521, 522, 523, 524, 525, 526, 527, 530})
+
+
+class CloudUnavailable(Exception):
+    """上游明確表示自己不可用。與連線失敗走同一條退路（陳舊快取 → 本機降階）。"""
+
+
+def should_degrade(status_code=None, exc=None) -> bool:
+    """這次呼叫 Cloud 的結果，算不算「Cloud 不可用」。
+
+    **為什麼要抽出來**：原本這個判定寫在 FastAPI 的 handler 裡，測不了，
+    而 `CLAUDE.md` 的慣例是「契約測試一律是純函式測試」。
+
+    ⚠ **Cloudflare Tunnel 會改變「連不上」的形狀。** 直連時 Cloud 掛掉就是
+       TCP 連不上，會拋例外；但隧道在前面時，**Cloudflare 的邊緣永遠活著**，
+       Fog 會成功完成一次 HTTP 對話並拿回一個錯誤狀態碼：
+
+           Cloud 服務掛了（cloudflared 還在跑）   502
+           cloudflared 掛了／斷線                 530（內含 1033）
+           Cloudflare 與來源站之間出問題           520-527
+
+       四種失效裡只有「Pi 完全沒網路」會拋例外。**只看例外的話，
+       切到 Tunnel 之後降階會在最常見的情境下失效。**
+
+    ⚠ **4xx 不算。** 400／401／422 是我們送錯了，降階或重試都沒有意義，
+       應該讓錯誤照實回去。
+    """
+    if exc is not None:
+        return True
+    if status_code is None:
+        return False
+    return status_code in CLOUD_DOWN_CODES
+
+
 # 上游沒有回出一次分析結果時，能辨認出來的形狀。
 # 這些鍵任何一個出現，就表示 Cloud 真的跑完了分析。
 _ANALYSIS_KEYS = ("product_info", "final_health_diagnosis", "name", "ingredients",

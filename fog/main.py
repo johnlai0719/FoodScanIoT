@@ -11,7 +11,8 @@ import os
 from dotenv import load_dotenv
 
 # 純轉換函式抽至 transforms.py（2026-08-05），讓契約測試不必安裝 FastAPI 即可載入
-from transforms import mask_sensitive_data, normalize_result
+from transforms import (mask_sensitive_data, normalize_result,
+                        should_degrade, CloudUnavailable)
 from version import get_commit
 # local_ocr 在模組層只用標準函式庫，OCR 等依賴延遲到 warm_up() 才載入——CI 會載入本檔
 import local_ocr
@@ -181,6 +182,12 @@ async def query(request: Request, response: Response):
                     # 連上之後的慢分析（視覺辨識）照舊可以等 90 秒。
                     timeout=(5.0, 90.0)
                 )
+                # ⚠ 不能只靠 `.json()` 解析失敗來察覺 Cloud 掛了。
+                #    Cloudflare 的錯誤頁是 HTML，解析確實會拋例外；但它在某些
+                #    設定下會回 JSON，那時就會被當成一次成功的分析往下走。
+                #    判定收斂到 transforms.should_degrade()，見該函式的說明。
+                if should_degrade(status_code=cloud_resp.status_code):
+                    raise CloudUnavailable(f"上游回 {cloud_resp.status_code}")
                 result = cloud_resp.json()
                 
                 # 修復：存入正確的 barcode，而不是固定為 "TEST"
@@ -254,6 +261,10 @@ async def query(request: Request, response: Response):
                 headers={"Content-Type": "application/json"},
                 timeout=50.0
             )
+            # 對端明確表示不可用時，交給下面的 except 走陳舊快取那條退路，
+            # 而不是把 5xx 當成「請求有問題」直接回錯誤。
+            if should_degrade(status_code=cloud_resp.status_code):
+                raise CloudUnavailable(f"上游回 {cloud_resp.status_code}")
             if cloud_resp.status_code == 200:
                 result = cloud_resp.json()
                 # 🛠️ 修正：只有當 Cloud 回傳 status 為 success 時才寫入快取
