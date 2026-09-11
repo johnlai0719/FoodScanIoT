@@ -1482,6 +1482,42 @@ c58  魚露粉(魚露(鯷魚、食鹽)、麥芽糊精、食鹽)                2
 還缺的是 1:1:1 的第一個 1（真實裁圖），但那要收新照片
 （不能用評估集），而且以添加物層 ±6 點的判別力，做完也證明不了。
 
+## 模型備份位置
+
+程式碼進版控，**權重不進**（`.gitignore` 的白名單只放行 `*.py` / `*.md` /
+`configs/*.yml` / `data/*.json`）。但「不進版控」不等於「可以不管」——
+那份權重是 25 分鐘訓練 ＋ 弱標註管線的成果，硬碟壞掉就要重來，
+而且**重訓不保證得到同一份**（資料順序、CUDA 非決定性）。
+
+出自 2026-08-16 教授回饋建議 5：*hashes verify integrity but not availability*。
+測試集是這個問題的另一半，見 `測試/量化測試/README.md`。
+
+| 位置 | 檔案 | zip 的 SHA256 |
+|---|---|---|
+| `G:\我的雲端硬碟\學校資料\專題\食安IoT\模型備份` | `linecls_bert_v4.0_2026-09-11.zip`（362.3 MB） | `428e3713a6350af23f338834c8dfe4e0ff87f482e4b7e22d2e17602a7e9997e8` |
+
+內含推論需要的四個檔（`model.safetensors` 390 MB、`config.json`、
+兩個 tokenizer 檔）＋ `_模型清單.json`（逐檔 SHA256）。
+**不含** optimizer/scheduler/rng state——那是訓練狀態，7.3 GB 的絕大部分。
+取的是 `checkpoint-528`（`trainer_state` 標的 best，ing_f1 0.7358）。
+
+```bash
+python model_backup.py            # 本地有什麼、雲端有什麼
+python model_backup.py pack       # 打包最佳 checkpoint → 雲端
+python model_backup.py verify     # 逐檔比對 SHA256
+python model_backup.py restore    # 從雲端取回（拒絕覆蓋，需 --force）
+```
+
+⚠ **`train_linecls.py train` 會覆蓋 `out/linecls_model/` 的頂層權重。**
+2026-09-11 跑 `--epochs=2` 煙霧測試時就這樣蓋掉了原本的 best，
+靠 `checkpoint-528` 才救回來。**跑 train 之前先確認頂層那份已經備份過。**
+
+⚠ `best_checkpoint()` 要**依步數排序**而非字串排序：`checkpoint-88` 的字串
+排在 `checkpoint-528` 之後（`8` > `5`），而每個 checkpoint 的 `trainer_state`
+記的是**當下為止**的最佳——取字串最後一個會拿到第 1 epoch 的狀態。
+
+---
+
 ## 待辦
 - [ ] 成本與離線性評估：Vision 是雲端付費，PP-OCR 是本地免費。
       若要保留離線路徑，PP-OCR 仍是必要的後備
