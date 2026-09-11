@@ -46,6 +46,16 @@ def normalize_text(text: str) -> str:
     if not text: return ""
     text = "".join([chr(ord(c) - 0xfee0) if 0xff01 <= ord(c) <= 0xff5e else c for c in text])
     text = "".join(_PUNCT_CANON.get(c, c) for c in text)
+    # ⚠ **撇號一律去掉，兩邊都去。**
+    #    核苷酸類調味劑寫作 `5'-次黃嘌呤核苷磷酸二鈉`，而 OCR 對那一撇時有時無
+    #    ——同一批照片裡 `5'-次黃` 出現 13 次、`5-次黃` 出現 5 次，後者配不到。
+    #    它**不帶任何區辨資訊**：庫內不存在「5-次黃」與「5'-次黃」兩種添加物。
+    #    以知識庫自身驗證（2026-09-12，804 筆）：去撇號前後，會撞號的鍵都是 39 個，
+    #    未新增任何混淆；`L-麩酸鈉`／`DL-蘋果酸`／`D-山梨醇`／`碳酸鈉`／`碳酸鉀` 皆不受影響。
+    #    `_PUNCT_CANON` 只把彎撇統一成直撇，不會去掉它，所以要另外處理。
+    #    ⚠ 這一段與 `PPOCR_TEST/sim_match.py` 的 `normalize_text` 必須一致
+    #      ——那邊 2026-09-11 先改，此處 09-12 補上（見 文件與程式落差對照表 六之二）。
+    text = re.sub(r"['’‘′`ˊ]", '', text)
     return re.sub(r'\(.*?\)|（.*?）|\s+', '', text)
 
 
