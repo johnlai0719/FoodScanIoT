@@ -11,3 +11,8 @@ tavily-python
 bcrypt
 PyJWT
 scikit-learn
+
+# 添加物比對的繁簡摺疊。辨識層會吐簡體字而知識庫是繁體，
+# 沒有它「柠檬酸」配不到「檸檬酸」（module_a/ingredient_parser.py）。
+# 缺席時退回不摺疊，不會讓服務掛掉，但會漏配。
+opencc-python-reimplemented

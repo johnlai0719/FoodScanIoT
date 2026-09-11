@@ -26,3 +26,7 @@ python-dotenv
 # init, which is why main.py warms it up at startup instead of on first use.
 rapidocr
 onnxruntime
+
+# 本機降階呼叫 server/module_a 比對添加物，而它的繁簡摺疊需要 opencc。
+# 缺席時退回不摺疊——降階走 RapidOCR，吐簡體字的機率比 Gemini 高，影響更大。
+opencc-python-reimplemented

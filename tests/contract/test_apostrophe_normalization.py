@@ -75,3 +75,25 @@ def test_two_implementations_agree():
         # ⚠ 評估台另外做繁簡摺疊（OpenCC），所以不能直接比字串，
         #    只比「撇號有沒有被去掉」這個本測試關心的性質。
         assert ("'" in a) == ("'" in b), f'{v}: 線上 {a!r} vs 評估台 {b!r}'
+
+
+# ── 繁簡摺疊：辨識層吐簡體字時仍要配得到 ──────────────────────────────
+@pytest.mark.parametrize('simplified,traditional', [
+    ('柠檬酸', '檸檬酸'),
+    ('L-麸酸钠', 'L-麩酸鈉'),
+    ('碳酸氢钠', '碳酸氫鈉'),
+])
+def test_simplified_folds_to_the_same_key(simplified, traditional):
+    """知識庫是繁體，而辨識層會吐簡體字（`trad-decode-finding` 記錄過混雜 33 案）。
+
+    2026-09-12 實測，未摺疊時簡體輸入 3 個只配到 0 個。
+    降階路徑走 RapidOCR，吐簡體的機率比 Gemini 高，影響更大。
+    """
+    assert normalize_text(simplified) == normalize_text(traditional)
+
+
+def test_folding_is_present_in_the_shipped_parser():
+    """防止有人把 opencc 拿掉——缺席時只印警告不會報錯，很容易沒發現。"""
+    src = open(os.path.join(ROOT, 'server', 'module_a', 'ingredient_parser.py'),
+               encoding='utf-8').read()
+    assert 'OpenCC' in src and '_FOLD' in src
