@@ -127,3 +127,33 @@ def test_flat_format_wrapping_is_returned():
     assert len(out['ingredients_detail']) == 1
     # 而且仍然不得憑空補分數
     assert out.get('health_score') is None
+
+
+# ── 0 是合法分數，null 不可留著 ────────────────────────────────────────
+@pytest.mark.parametrize('score', [0, -3, -15])
+def test_zero_and_negative_scores_survive(score):
+    """**0 分是固體食品的 A 級邊界**，不是缺值。
+
+    health_score 是 Nutri-Score 的原始值（points_n − points_p），
+    `nutriscore_v7.get_grade` 明寫 `score <= 0 → "A"`，負分也存在。
+    先前用 `result.get("health_score") or ...`，`0 or X` 取 X，
+    於是一個滿分產品的分數被丟掉——修掉「補 75 分」之後，
+    後果從「顯示錯的分數」變成「完全沒有分數、App 進錯誤頁」。
+    """
+    out = normalize_result({'status': 'success', 'health_score': score,
+                            'risk_level': 'A', 'product_info': {'name': '綠茶'}})
+    assert out['health_score'] == score
+
+
+def test_null_score_is_removed_not_left_as_null():
+    """App 用 `health_score === undefined` 判斷有效性，再用 `?? 100` 取值。
+
+    `null` **通不過第一關**（它不是 undefined）**卻會觸發第二關的預設值**，
+    於是顯示一個假的 100 分。所以不能只是「不設定」，還要把既有的 null 拿掉。
+
+    上游若送 `{"health_score": null}`，`looks_like_analysis` 會因為鍵存在
+    而判成分析結果，一路走到這裡——這條路徑是真的到得了的。
+    """
+    out = normalize_result({'health_score': None, 'product_info': {'name': '綠茶'}})
+    assert 'health_score' not in out, 'null 會讓 App 顯示假的 100 分'
+    assert 'risk_level' not in out

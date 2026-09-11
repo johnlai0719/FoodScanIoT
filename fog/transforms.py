@@ -51,6 +51,20 @@ class CloudUnavailable(Exception):
     """上游明確表示自己不可用。與連線失敗走同一條退路（陳舊快取 → 本機降階）。"""
 
 
+def _first_not_none(*vals):
+    """取第一個**不是 None** 的值——不是第一個 truthy 的。
+
+    這兩者在數值欄位上差很多：`0 or X` 取 X，而 0 在本專案是合法值
+    （Nutri-Score 的 0 分是固體食品的 A 級邊界；營養素含量 0 也是真的 0，
+    `CLAUDE.md` 寫著「值可能是 null，**不可當成 0**」，反過來也成立
+    ——**0 不可當成 null**）。
+    """
+    for v in vals:
+        if v is not None:
+            return v
+    return None
+
+
 def should_degrade(status_code=None, exc=None) -> bool:
     """這次呼叫 Cloud 的結果，算不算「Cloud 不可用」。
 
@@ -212,8 +226,16 @@ def normalize_result(result: dict):
     #    只看 `result` 頂層會找不到，於是落到骨架的預設 75——**真的算出來的 82
     #    會被換成捏造的 75**（2026-09-12 實測）。骨架是在第 2 段才注入的，
     #    所以它的 score 一定是 75，不能當成上游給的值。
-    objective_score = (result.get("health_score") or target.get("health_score")
-                       or target["final_health_diagnosis"].get("score"))
+    # ⚠ **不能用 `or`：0 是合法而且很好的分數。**
+    #    health_score 是 Nutri-Score 的原始值（points_n − points_p），
+    #    `nutriscore_v7.get_grade` 明寫固體食品 `score <= 0 → "A"`
+    #    ——0 分是最高等級的邊界，負分也存在。
+    #    `0 or X` 會取 X，於是一個滿分產品的分數被當成缺值丟掉
+    #    （修掉「補 75 分」之後，後果從「顯示錯的分數」變成「完全沒有分數、
+    #    App 進錯誤頁」——更明顯，但同樣是錯的）。
+    objective_score = _first_not_none(result.get("health_score"),
+                                      target.get("health_score"),
+                                      target["final_health_diagnosis"].get("score"))
     objective_grade = (result.get("risk_level") or target.get("risk_level")
                        or target["final_health_diagnosis"].get("grade")
                        or result.get("grade"))
@@ -228,7 +250,15 @@ def normalize_result(result: dict):
         target["final_health_diagnosis"]["score"] = objective_score
         target["final_health_diagnosis"]["grade"] = objective_grade or "C"
     else:
+        # ⚠ **不能只是「不設定」，還要把既有的 null 拿掉。**
+        #    App 用 `health_score === undefined` 判斷結果有不有效，接著
+        #    `health_score ?? 100` 取值——`null` 通不過第一關（它不是 undefined）
+        #    卻會觸發第二關的預設值，於是顯示一個**假的 100 分**。
+        #    上游若送 `{"health_score": null}`，`looks_like_analysis` 也會因為
+        #    鍵存在而判成分析結果，一路走到這裡。
         print("[WARN] 上游未提供 health_score，不補預設值")
+        result.pop("health_score", None)
+        result.pop("risk_level", None)
 
     # --- 4. 雙向相容映射：確保三個 summary 在 result 最外層 ---
     if "overall_summary" not in result or not result["overall_summary"]:
