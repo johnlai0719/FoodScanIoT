@@ -71,6 +71,12 @@ NUT_SEEDS = ["熱量", "蛋白質", "飽和脂肪", "反式脂肪", "碳水化�
 # 旋鈕保留為環境變數是為了讓上面這些結果可以重現，**不是建議去調它**。
 NUT_SEED_MIN = int(os.environ.get("RC_SEED_MIN") or 3)
 
+# 種子詞退路（2026-09-10，換 RapidOCR 定位器時發現）：只認單位「字」不認裸數字，
+# 因為裸數字到處都是（條碼、日期、電話），會把裁切邏輯拖去抓錯地方。
+# RC_FALLBACK_MIN=0 可整個關掉退路，回到與 PP-OCR 基準線相同的行為。
+FALLBACK_UNIT = re.compile(r"大卡|公克|毫克|公毫|毫升|克|卡")
+FALLBACK_MIN = int(os.environ.get("RC_FALLBACK_MIN") or 6)
+
 # 分成分區與營養表的主訊號是「行有多長」：成分是橫貫整個標示面的長行，
 # 營養表是一格一格的短行。實測中位數 c38 853 vs 136、c09 1782 vs 274、
 # c44 2260 vs 335。c58 是例外（營養表整列被框成一長條），所以長度只當
@@ -227,6 +233,26 @@ def find_regions(lines, k=None):
         out["nutrition"] = nb
         out["why"]["nutrition"] = f"種子詞 {len(seen_words)} 種：{'、'.join(sorted(seen_words))}"
         nut_taken |= set(seeds)
+    elif FALLBACK_MIN:
+        # ── 退路：關鍵字種子不夠時，改用「短行＋單位字」的格子密度找營養表 ──
+        # 動機：辨識品質差的引擎（如 RapidOCR mobile）常把「熱量」「蛋白質」
+        # 這種多字詞讀爛，但「克」「卡」這種單字單位字活下來的機率高得多
+        # （2026-09-10 實測 c13：8 個種子詞全滅，但「克」「卡」這類單字
+        # 在營養表區域反覆正確出現）。只用單位字而非泛用的 `\d`——純數字
+        # 到處都是（條碼、日期、電話），會把整條裁切邏輯拖去抓錯地方。
+        cell_idx = [i for i in idx if i not in nut_taken
+                    and length(lines[i]["box"]) < thr
+                    and FALLBACK_UNIT.search(lines[i]["text"])]
+        if len(cell_idx) >= FALLBACK_MIN:
+            groups2 = cluster([lines[i] for i in cell_idx], k)
+            best2 = max(groups2, key=len) if groups2 else []
+            if len(best2) >= FALLBACK_MIN:
+                members2 = [cell_idx[j] for j in best2]
+                seed_box2 = union([bbox(lines[i]["box"]) for i in members2])
+                nb2, taken2 = grow(seed_box2, lines, idx, unit, thr)
+                out["nutrition"] = nb2
+                out["why"]["nutrition"] = f"退路：格子密度 {len(members2)} 行（種子詞未達門檻）"
+                nut_taken |= set(members2) | taken2
 
     # ── 成分區：扣掉營養表之後的長行 ──
     rest = [i for i in idx if i not in nut_taken]

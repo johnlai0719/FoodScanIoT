@@ -31,7 +31,13 @@ from collections import Counter
 sys.stdout.reconfigure(encoding="utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-EVAL_ROOT = os.path.abspath(
+# ⚠ 寫死會讓「換一版測試集」變成整批腳本要各改一次。下游（region_crop／
+# bench_ingredients／sim_match／table_geometry 的評分）全都繼承這一個值，
+# 所以覆寫點只需要這裡一個。用法：
+#   EVAL_ROOT=/path/to/量化測試集_v4.0 python region_crop.py
+# 2026-09-11：repo 內建的是 v2.2 的 48 案，而 README 與各檔註解引用的數字
+# 多半是 177 案（v4.0）的——母體不同不可相比，換版時務必連同數字一起換。
+EVAL_ROOT = os.environ.get("EVAL_ROOT") or os.path.abspath(
     os.path.join(HERE, "..", "測試", "量化測試")
 )
 

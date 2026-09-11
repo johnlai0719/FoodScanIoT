@@ -65,6 +65,58 @@ def _numbers(text):
     return out
 
 
+# ── 單位複核（2026-09-11）────────────────────────────────────────────────
+# `_by_rank` 的護欄是「標籤數 == 各值欄的項目數」，但**兩邊同時各少一個時
+# 這個護欄會被巧合滿足**，整排錯開一列而不報錯。
+# 實測 c43_藤椒風味烤雞便當（RapidOCR v6small）：OCR 沒讀到「熱量」這個標籤
+# （少 1），鈉的數值又落在欄外（少 1），7 對 7 通過護欄，七個欄位全部錯位——
+# 蛋白質拿到 483（那是熱量）、碳水化合物拿到 0（那是反式脂肪）。
+# 每個值都是標示上真實存在的數字，看起來完全合理，**不會有任何錯誤訊號**。
+#
+# ⚠ **不要改用「y 最近鄰」來複核。** 那會殺掉名次配對存在的理由：
+#    c28 的表格傾斜 14 度，正確的值離標籤 107px，而錯位一列只差 50px——
+#    用距離當判準會把傾斜案例的正確結果判成錯的。
+# 單位則完全不受幾何影響：「大卡」只可能是熱量、「毫克」只可能是鈉。
+UNIT_FIELDS = {
+    'kcal': {'calories'},
+    'mg': {'sodium'},
+    'g': {'protein', 'fat', 'saturated_fat', 'trans_fat',
+          'carbohydrates', 'sugar', 'fiber'},
+}
+# ⚠ 順序有意義：「毫克」「公克」都含「克」，先比長的才不會把毫克判成公克。
+UNIT_RE = (
+    ('kcal', re.compile(r'大卡|千卡|kcal', re.I)),
+    ('mg', re.compile(r'毫克|亳克|豪克')),
+    ('g', re.compile(r'公克|公剋')),
+)
+
+
+def _unit_of(text):
+    """這一格帶的單位。判不出來回 None——沒有單位就不做複核，不猜。"""
+    for u, pat in UNIT_RE:
+        if pat.search(text):
+            return u
+    return None
+
+
+def _unit_conflicts(srcs):
+    """名次配對的結果裡，有幾個欄位拿到了單位不相容的值。
+
+    只在**讀得到單位**時才判定：OCR 常把數字與單位切成兩框（實測 c13
+    讀成 '0公' + '克'），那種情況 unit 是 None，一律視為無從判斷而放過。
+    """
+    bad = 0
+    for key, items in srcs.items():
+        for it in items:
+            if not it:
+                continue
+            u = it.get('unit')
+            if u and key not in UNIT_FIELDS[u]:
+                bad += 1
+                break
+    return bad
+
+
 def _cluster_1d(vals, gap):
     """把一維座標分群。gap 是「超過這個距離就算不同群」。"""
     if not vals:
@@ -88,7 +140,7 @@ def _by_rank(labels, nums, vertical):
     前提是標籤與各值欄的項目數一致；不一致就放棄，交回帶狀比對處理。
     """
     if len(labels) < 4 or not nums:
-        return {}, 0
+        return {}, 0, {}
     # 主軸：橫排表格的「欄」沿 x 分布，直排表格沿 y
     axis = (lambda it: it['cy']) if vertical else (lambda it: it['cx'])
     cross = (lambda it: it['cx']) if vertical else (lambda it: it['cy'])
@@ -116,15 +168,17 @@ def _by_rank(labels, nums, vertical):
             continue
         cols.append(members)
     if not cols:
-        return {}, 0
+        return {}, 0, {}
     cols.sort(key=lambda c: sum(axis(m) for m in c) / len(c))
     ordered = sorted(labels, key=lambda kv: cross(kv[1]))
-    out = {}
+    out, srcs = {}, {}
     for i, (key, _) in enumerate(ordered):
-        v = [c[i]['nums'][0] for c in cols[:2] if c[i]['nums']]
-        if v:
+        picked = [c[i] for c in cols[:2] if c[i]['nums']]
+        if picked:
+            v = [p['nums'][0] for p in picked]
             out[key] = (v[0], v[1] if len(v) > 1 else None)
-    return out, len(cols)
+            srcs[key] = picked          # 供單位複核用，見 _unit_conflicts
+    return out, len(cols), srcs
 
 
 ANCHOR = re.compile(r'營養標示|营养标示|每一份量|本包裝含|本包装含')
@@ -198,7 +252,7 @@ def parse_boxes(lines, debug=False):
             continue
         cx, cy, w, h = _geom(box)
         items.append({'t': _norm(text), 'cx': cx, 'cy': cy, 'w': w, 'h': h,
-                      'nums': _numbers(text)})
+                      'nums': _numbers(text), 'unit': _unit_of(_norm(text))})
     if not items:
         return {}
 
@@ -250,8 +304,15 @@ def parse_boxes(lines, debug=False):
     # y=656，它的兩個值在 y=549 與 y=447，差了 107 和 209 像素。
     # 但各欄由上往下的**順序**是對的——標籤欄第 n 個，就對應值欄第 n 個。
     # 只用相對名次、不用絕對座標，所以拍歪了也不影響。
-    ranked, ncols = _by_rank(labels, nums, vertical)
+    ranked, ncols, ranked_srcs = _by_rank(labels, nums, vertical)
     parse_boxes.last_cols = ncols      # 供呼叫端當信心訊號用
+    # 單位複核：不相容就整組丟掉，改走下面的帶狀比對。理由見 UNIT_FIELDS。
+    # **整組丟掉而不是只丟衝突的那個欄位**——錯位是整排一起發生的，
+    # 留下沒被單位抓到的那幾個等於留下一半的錯值，比全丟更糟。
+    nbad = _unit_conflicts(ranked_srcs)
+    parse_boxes.last_unit_conflicts = nbad
+    if nbad:
+        ranked = {}
     if ranked:
         for k, v in ranked.items():
             direct.setdefault(k, v)
