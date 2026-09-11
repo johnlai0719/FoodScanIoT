@@ -735,7 +735,9 @@ async def analyze_image_with_gemini(base64_images: list, barcode: str = "Unknown
         # [DEBUG] 記錄原始回傳，幫助診斷失敗原因
         try:
             print(f"[DEBUG] Gemini Raw Response: {response.text[:200]}...")
-        except:
+        except Exception:
+            # 裸 except 會連 KeyboardInterrupt/SystemExit 一起吞掉，
+            # 而這裡只是想擋 response.text 在被 safety filter 擋下時的取值失敗。
             print("[DEBUG] Gemini Raw Response: <Blocked or Empty>")
 
         match = re.search(r'(\{.*\})', response.text, re.DOTALL)

@@ -137,8 +137,11 @@ Cloud 連不上且無快取時的本機 OCR 部分結果，同樣**刻意沒有*
 **App 硬編碼 Tailscale IP**（`HomeScreen.tsx` 內 `100.86.249.39:3001` 與
 `100.119.217.100:3003`）。換環境要改程式碼。
 
-**已知壞掉**：進階設定的「清除 Fog 快取」按鈕打 `POST :3001/cache/clear`，
-但 Node 層只有 `DELETE /cache` 和 `DELETE /cache/:barcode`，該路由不存在 → 404。
+~~**已知壞掉**：進階設定的「清除 Fog 快取」按鈕打 `POST :3001/cache/clear`，
+但 Node 層只有 `DELETE /cache` 和 `DELETE /cache/:barcode`，該路由不存在 → 404。~~
+**2026-08-05 已移除該按鈕**（`HomeScreen.tsx:955` 留有原因註解），2026-09-12 查核確認。
+路由本身的錯位還在：`POST /cache/clear` 只存在於 Python 層（`fog/main.py:339`，埠 3002），
+Node 層（3001）只有 `DELETE /cache`。要重做這個功能的話，打 3001 的 `DELETE /cache`。
 
 **`npx tsc --noEmit` 目前有 28 個既有錯誤**（缺 `expo-image` 等套件、`@/` 路徑
 別名未設定），與新改動無關。判斷有沒有引入新錯誤請比對**錯誤集合**而非數量。
