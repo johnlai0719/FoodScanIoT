@@ -83,6 +83,44 @@ def load():
     return out
 
 
+def load_reader(preset):
+    """從**任一讀取器**的輸出建出同格式的列，弱標註沿用 `make_linecls.label`。
+
+    為什麼要有這個：分類器是在 PP-OCR 的行上訓練的，但管線真正拿去抽成分的
+    是 HunyuanOCR 的文字。2026-09-11 實測，**同一個模型套到 Hunyuan 的行上
+    召回反而更高**（0.843 vs 0.696 @0.5）——因為它讀的是裁切區，沒有整頁的
+    食譜／廣告／地址當干擾，而且不會把長行切碎。
+
+    ⚠ 預測 Hunyuan 的行必須**照同一折**做：模型若在該案的 PP-OCR 行上訓練過，
+       再去預測同一案的 Hunyuan 行就是洩漏（同樣的標示內容換個讀取器而已）。
+    """
+    import make_linecls as ML
+    import score_ocr as _S
+    cases = json.load(io.open(os.path.join(_S.EVAL_ROOT, 'cases.json'),
+                              encoding='utf-8'))['cases']
+    out = []
+    for c in cases:
+        cid = c['case_id']
+        gt = _S.load_gt(cid, c.get('category') or '')
+        if not gt or not gt.get('is_food_label', True):
+            continue
+        fp = os.path.join(HERE, 'out', preset, cid + '.json')
+        if not os.path.exists(fp):
+            continue
+        d = json.load(io.open(fp, encoding='utf-8'))
+        texts = [t for im in (d.get('images') or [])
+                 for t in ((ln.get('text') or '').strip()
+                           for ln in (im.get('lines') or []))
+                 if len(_S.normalize(t)) >= 2]
+        for i, t in enumerate(texts):
+            tag, r = ML.label(t, gt)
+            out.append({'case_id': cid, 'brand': brand_of(cid), 'text': t,
+                        'prev': texts[i - 1] if i else '',
+                        'next': texts[i + 1] if i + 1 < len(texts) else '',
+                        'label': tag, 'dist': r})
+    return out
+
+
 def split(rows, frac=0.25, seed=42):
     """照品牌分組切分。回傳 (train, val)。"""
     brands = sorted({r['brand'] for r in rows})
@@ -272,7 +310,14 @@ def cmd_cv(a):
             e['labels'] = L2I[r['label']]
             return {k: torch.tensor(v) for k, v in e.items()}
 
+    # 同一折也對其他讀取器的行做預測，寫到 linecls_pred_<preset>/
+    extra = {}
+    for pre in (a.also or []):
+        extra[pre] = load_reader(pre)
+        os.makedirs(os.path.join(HERE, 'out', 'linecls_pred_' + pre), exist_ok=True)
+        print('另外預測 %s：%d 行' % (pre, len(extra[pre])))
     prob = {}
+    prob_extra = {pre: {} for pre in extra}
     for f, va_brands in enumerate(folds, 1):
         tr = [r for r in rows if r['brand'] not in va_brands]
         va = [r for r in rows if r['brand'] in va_brands]
@@ -299,10 +344,31 @@ def cmd_cv(a):
                         padding=True, return_tensors='pt')
                 if torch.cuda.is_available():
                     e = {k: v.cuda() for k, v in e.items()}
-                p = torch.softmax(model(**e).logits, -1)[:, L2I['成分']].tolist()
-                for r, x in zip(b, p):
+                # ⚠ **十一類的機率全部存下來，不是只存 P(成分)。**
+                #    2026-09-11 之前只存 `p`，於是品名／廠商／過敏原那幾類
+                #    的機率被丟掉——想用它們挑行時得整個重跑 CV（25 分鐘）。
+                #    `p` 保留原名以相容既有讀取端（`bench_ingredients._linecls_text`、
+                #    `run_vlcrop._linecls_probs`、`crop_linecls.py`）。
+                all_p = torch.softmax(model(**e).logits, -1).tolist()
+                for r, row in zip(b, all_p):
                     prob.setdefault(r['case_id'], []).append(
-                        {'text': r['text'], 'p': round(x, 4)})
+                        {'text': r['text'], 'p': round(row[L2I['成分']], 4),
+                         'ps': {lb: round(row[L2I[lb]], 4) for lb in LABELS}})
+            # 同一折的保留品牌，其他讀取器的行也一起預測（維持折外）
+            for pre, rs in extra.items():
+                vb = [r for r in rs if r['brand'] in va_brands]
+                for i in range(0, len(vb), 64):
+                    b = vb[i:i + 64]
+                    e = tok([r['prev'] + ' [SEP] ' + r['text'] + ' [SEP] ' + r['next']
+                             for r in b], truncation=True, max_length=MAXLEN,
+                            padding=True, return_tensors='pt')
+                    if torch.cuda.is_available():
+                        e = {k: v.cuda() for k, v in e.items()}
+                    ap = torch.softmax(model(**e).logits, -1).tolist()
+                    for r, row in zip(b, ap):
+                        prob_extra[pre].setdefault(r['case_id'], []).append(
+                            {'text': r['text'], 'p': round(row[L2I['成分']], 4),
+                             'ps': {lb: round(row[L2I[lb]], 4) for lb in LABELS}})
         del model
         torch.cuda.empty_cache()
 
@@ -310,6 +376,12 @@ def cmd_cv(a):
         json.dump(v, io.open(os.path.join(outdir, cid + '.json'), 'w',
                              encoding='utf-8'), ensure_ascii=False)
     print('\n折外預測寫出 %d 案 → %s' % (len(prob), outdir))
+    for pre, pv in prob_extra.items():
+        od = os.path.join(HERE, 'out', 'linecls_pred_' + pre)
+        for cid, v in pv.items():
+            json.dump(v, io.open(os.path.join(od, cid + '.json'), 'w',
+                                 encoding='utf-8'), ensure_ascii=False)
+        print('折外預測寫出 %d 案 %s %s' % (len(pv), chr(0x2192), od))
 
 
 if __name__ == '__main__':
@@ -320,5 +392,7 @@ if __name__ == '__main__':
     c = sub.add_parser('cv')
     c.add_argument('--k', type=int, default=4)
     c.add_argument('--epochs', type=int, default=6)
+    c.add_argument('--also', nargs='*', default=[],
+                   help='同一折另外預測哪些讀取器的行，例：--also vlcrop_hy_v4')
     a = ap.parse_args()
     {'train': cmd_train, 'eval': cmd_eval, 'cv': cmd_cv}[a.cmd](a)

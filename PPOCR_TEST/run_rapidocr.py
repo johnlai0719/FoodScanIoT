@@ -47,7 +47,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--out', default='rapid_v1')
     ap.add_argument('--limit', type=int, default=0)
-    ap.add_argument('--cfg', default='v6', choices=('v6', 'cht'))
+    ap.add_argument('--cfg', default='v6', choices=('v6', 'v6s', 'cht'))
     ap.add_argument('--gpu', action='store_true', help='用 CUDA 跑（只影響速度）')
     ap.add_argument('--threads', type=int, default=0, help='限制執行緒數（Pi 5 為 4）')
     ap.add_argument('--side', type=int, default=2048,
@@ -62,7 +62,7 @@ def main():
     #    的 enum_params 會擋），但 `lang_type` 只能傳字串——LangDet 列舉裡
     #    根本沒有 chinese_cht，而解析器接受字串。兩者規則相反，很容易寫錯。
     V4, V6 = OCRVersion.PPOCRV4, OCRVersion.PPOCRV6
-    MOBILE, MEDIUM = ModelType.MOBILE, ModelType.MEDIUM
+    MOBILE, MEDIUM, SMALL = ModelType.MOBILE, ModelType.MEDIUM, ModelType.SMALL
 
     # ⚠ 繁體那顆非常重要——`trad-decode-finding` 記錄過簡體模型會讓繁簡混雜，
     #    而且「指標沒動」不等於「沒傷害」。所以兩組組態都指定 chinese_cht。
@@ -73,6 +73,11 @@ def main():
     #    真正的繁體專用權重只存在於 v4 那一組（rec 是 v3 的，10.6 MB）。
     CFGS = {
         # 最接近本專案 production（PP-OCRv6 ＋ 2048 邊長 ＋ box_thresh 0.4）
+        # Fog 降階候選：v6 small。比 medium 小、快，準確度代價待量。
+        'v6s': {'Det.ocr_version': V6, 'Det.model_type': SMALL,
+                'Det.lang_type': 'chinese_cht',
+                'Rec.ocr_version': V6, 'Rec.model_type': SMALL,
+                'Rec.lang_type': 'chinese_cht'},
         'v6': {'Det.ocr_version': V6, 'Det.model_type': MEDIUM,
                'Det.lang_type': 'chinese_cht',
                'Rec.ocr_version': V6, 'Rec.model_type': MEDIUM,

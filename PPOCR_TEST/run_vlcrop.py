@@ -36,6 +36,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import region_crop as RC   # noqa: E402
+import score_ocr as S      # noqa: E402  （_linecls_probs 的過濾規則要用 normalize）
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 EVAL_ROOT = os.path.abspath(
@@ -46,6 +47,45 @@ EVAL_ROOT = os.path.abspath(
 # **靜默只處理舊案例**——這支還會逐案印「缺 xxx 輸出，跳過」，但 177 案
 # 只跑了 58 案仍以 exit 0 結束，不看輸出就發現不了。
 BOXES = os.environ.get("PPOCR_BOXES") or "v6_best"
+# 成分框改用逐行分類器的機率。0 ＝ 關閉，行為與 2026-09-11 之前完全相同。
+LINECLS_TH = float(os.environ.get("VL_LINECLS") or 0)
+LINECLS_DIR = os.environ.get("VL_LINECLS_DIR") or "linecls_pred"
+
+
+def _linecls_probs(cid, ppocr):
+    """把折外預測接回 OCR 行序，回傳與所有行等長的機率序列。
+
+    ⚠ `make_linecls.py` 丟掉「正規化後不足 2 字」的行，所以預測筆數比 OCR
+       行數少（177 案：12383 vs 14098）。接回去必須**套同一條過濾規則**
+       ——沒套的話 176 案裡有 172 案會對不齊（2026-09-11 實際踩過）。
+       對不齊就回 None，讓呼叫端整案退回規則，不要用錯位的機率去框。
+    """
+    p = os.path.join(HERE, "out", LINECLS_DIR, f"{cid}.json")
+    if not os.path.exists(p):
+        return None
+    pr = json.load(open(p, encoding="utf-8"))
+    flat = [l for im in ppocr.get("images") or [] for l in (im.get("lines") or [])]
+    ok = [l for l in flat
+          if len(S.normalize((l.get("text") or "").strip())) >= 2]
+    if len(ok) != len(pr):
+        return None
+    it = iter(pr)
+    out = []
+    for l in flat:
+        if len(S.normalize((l.get("text") or "").strip())) >= 2:
+            out.append(next(it)["p"])
+        else:
+            out.append(-1.0)
+    return out
+
+
+def _box_from(lines, ps, th):
+    bs = [RC.bbox(l["box"]) for l, q in zip(lines, ps)
+          if l.get("box") and q >= th]
+    if not bs:
+        return None
+    return (min(b[0] for b in bs), min(b[1] for b in bs),
+            max(b[2] for b in bs), max(b[3] for b in bs))
 URL = "http://localhost:1234/v1/chat/completions"   # 由 --backend 覆寫
 
 # 可換的讀字模型。**提示詞必須跟著模型換** —— `OCR:` / `Table Recognition:`
@@ -417,9 +457,26 @@ def main():
         rec = {"case_id": cid, "preset": a.preset,
                "set_version": c.get("set_version"),
                "category": c.get("category"), "images": []}
+        probs = _linecls_probs(cid, ppocr) if LINECLS_TH else None
+        pi = 0
         for im in ppocr["images"]:
             lines = im.get("lines") or []
             r = RC.find_regions(lines)
+            # ── 成分框改由逐行分類器決定（VL_LINECLS=<門檻> 啟用）──────────
+            # 代理指標實測（`crop_linecls.py`，176 案 219 張圖，折外預測）：
+            #   規則        成分留存 98.4%　面積 58%
+            #   P(成分)≥0.10 成分留存 101.1%　面積 33%
+            # 留存超過 100% 不是筆誤：移除中間夾雜的行會讓被打斷的成分字串
+            # 重新接起來，模糊比對因此配得上（見 c101）。
+            # ⚠ 分類器一行都沒選中時**退回規則**，否則那幾張圖會整個變空。
+            if probs is not None:
+                n = len(lines)
+                ps = probs[pi:pi + n]
+                pi += n
+                nb = _box_from(lines, ps, LINECLS_TH)
+                if nb is not None:
+                    r = dict(r)
+                    r["ingredients"] = nb
             img = Image.open(os.path.join(
                 EVAL_ROOT, _img(im["path"]).replace("/", os.sep))).convert("RGB")
 

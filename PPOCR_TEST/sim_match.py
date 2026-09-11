@@ -87,6 +87,14 @@ def normalize_text(text):
     text = "".join(chr(ord(c) - 0xfee0) if 0xff01 <= ord(c) <= 0xff5e else c
                    for c in text)
     text = "".join(_PUNCT_CANON.get(c, c) for c in text)
+    # ⚠ **撇號一律去掉，兩邊都去。**
+    #    核苷酸類調味劑寫作 `5'-次黃嘌呤核苷磷酸二鈉`，而 PP-OCR 對那一撇
+    #    時有時無——同一批照片裡 `5'-次黃` 出現 13 次、`5-次黃` 也出現 5 次。
+    #    沒有那一撇就配不到，而它**不帶任何區辨資訊**：資料庫裡不存在
+    #    「5-次黃」與「5'-次黃」兩種不同的添加物。
+    #    以資料庫自身驗證：去撇號前後，會撞號的鍵都是 39 個（未新增任何混淆）。
+    #    含直撇、彎撇、prime(′)、重音符——OCR 這幾種都輸出過。
+    text = re.sub(r"['’‘′`ˊ]", '', text)
     text = re.sub(r'\(.*?\)|（.*?）|\s+', '', text)
     return _FOLD(text) if _FOLD else text
 
