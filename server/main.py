@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+import secrets
 import os
 from dotenv import load_dotenv
 load_dotenv()
@@ -516,6 +517,35 @@ if not os.path.exists(ADMIN_UI_DIR):
     os.makedirs(ADMIN_UI_DIR)
 app.mount("/admin", StaticFiles(directory=ADMIN_UI_DIR), name="admin")
 
+# ── /api/analyze 的共享密鑰 ──────────────────────────────────────────────────
+# 這個端點會呼叫計費的 Gemini API，而 Cloudflare Tunnel 給的是**公開 HTTPS 網址**
+# （Tailscale 是私有網路，只有 tailnet 成員連得到，所以先前沒有這道）。
+#
+# ⚠ **未設定時放行**，理由是不能讓既有的 Tailscale 佈署一升級就全斷。
+#    但「環境變數沒設就靜默走寬鬆路徑」正是本專案踩過九次的坑，所以：
+#      · 啟動時印警告
+#      · `/health` 明確回報 `auth: "disabled"`
+#    切到 Tunnel 之前務必設定——見 `專案管理/工程待辦.md` A4。
+#
+# ⚠ 這**不是**給 App 直連用的。把密鑰嵌進手機 App 等於公開它；
+#    正式路徑是 App → Fog → Cloud，只有 Fog 需要持有密鑰。
+API_SHARED_SECRET = os.getenv("API_SHARED_SECRET", "").strip()
+API_KEY_HEADER = "X-API-Key"
+if not API_SHARED_SECRET:
+    print("[WARNING] 未設定 API_SHARED_SECRET，/api/analyze 未受保護。"
+          "公開端點（Cloudflare Tunnel）上線前必須設定。")
+
+
+def require_api_key(request: Request):
+    """驗證共享密鑰。未設定密鑰時放行（見上方說明）。"""
+    if not API_SHARED_SECRET:
+        return
+    got = request.headers.get(API_KEY_HEADER) or ""
+    # compare_digest：避免用字串比較洩漏前綴資訊
+    if not secrets.compare_digest(got, API_SHARED_SECRET):
+        raise HTTPException(status_code=401, detail="缺少或錯誤的 API 金鑰")
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -566,6 +596,11 @@ def health():
         "database": "unknown",
         "gemini_key_configured": bool(os.getenv("GEMINI_API_KEY")),
         "safety_events_enabled": SAFETY_EVENTS_ENABLED,
+        # ⚠ `/api/analyze` 有沒有受保護。未設 API_SHARED_SECRET 時放行，
+        #    那在 Tailscale（私有網路）下可以接受，在 Cloudflare Tunnel
+        #    （公開 HTTPS）下不行——這個欄位就是要讓它**看得見**，
+        #    而不是變成又一個「沒設就靜默走寬鬆路徑」。
+        "analyze_auth": "enabled" if API_SHARED_SECRET else "disabled",
     }
 
     try:
@@ -758,7 +793,7 @@ def _is_valid_food_scan(vision_data) -> tuple:
 
 @app.post("/query")
 @app.post("/analyze")
-@app.post("/api/analyze")
+@app.post("/api/analyze", dependencies=[Depends(require_api_key)])
 async def analyze(request: Request, background_tasks: BackgroundTasks):
     try:
         # 1. 取得原始請求內容供簽章驗證

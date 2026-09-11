@@ -30,6 +30,25 @@ CLOUD_URL = os.getenv("CLOUD_API_URL")
 if not CLOUD_URL:
     print("[!] 警告: 未在環境變數或 .env 中偵測到 CLOUD_API_URL！")
 
+# Cloud 的共享密鑰。Cloudflare Tunnel 把 /api/analyze 變成公開端點，
+# 而它會呼叫計費的 Gemini API。兩邊都未設定時行為與先前完全相同。
+API_SHARED_SECRET = os.getenv("API_SHARED_SECRET", "").strip()
+
+
+# 讀取逾時。Cloudflare 的 524 是 **100 秒硬上限**（免費方案改不了），
+# 所以不能設得比它更長——否則判斷權落到 Cloudflare 手上，而 524 比自己的
+# 逾時更難診斷。Node 層 60 秒放棄，連線 5 + 讀取 45 = 50 秒，
+# 留 10 秒給本機降階跑完並回傳。
+CLOUD_READ_TIMEOUT = float(os.getenv("CLOUD_READ_TIMEOUT", "45"))
+
+
+def cloud_headers() -> dict:
+    """轉發給 Cloud 的標頭。密鑰只存在於 Fog，不會下發到 App。"""
+    h = {"Content-Type": "application/json"}
+    if API_SHARED_SECRET:
+        h["X-API-Key"] = API_SHARED_SECRET
+    return h
+
 cloud_online = True
 
 def get_stale_from_db(barcode: str) -> tuple[dict | None, int]:
@@ -176,11 +195,19 @@ async def query(request: Request, response: Response):
                 cloud_resp = requests.post(
                     CLOUD_URL, 
                     data=masked_data_bytes, 
-                    headers={"Content-Type": "application/json"},
-                    # 連線 5 秒、讀取 90 秒分開算：Cloud 對端離線時 TCP 連線會一直卡住，
-                    # 合在一起就要等滿 90 秒，而 Node 層 60 秒就放棄，本機降階的結果送不到 App。
-                    # 連上之後的慢分析（視覺辨識）照舊可以等 90 秒。
-                    timeout=(5.0, 90.0)
+                    headers=cloud_headers(),
+                    # 連線 5 秒、讀取 45 秒分開算：Cloud 對端離線時 TCP 連線會一直卡住，
+                    # 合在一起就要等滿讀取逾時，而 Node 層 60 秒就放棄，
+                    # 本機降階的結果送不到 App。
+                    #
+                    # ⚠ 讀取逾時 2026-09-12 由 90 秒縮為 45 秒，兩個理由：
+                    #   1. **Cloudflare 的 524 是 100 秒硬上限，免費方案改不了。**
+                    #      等到 90 秒才放棄，等於把判斷權交給 Cloudflare，
+                    #      而它回的 524 會比我們自己的逾時更難診斷。
+                    #   2. 90 秒原本是為了「對端離線時 TCP 卡住」，而隧道在前面時
+                    #      那個情境消失了——Cloudflare 會即時回 502／530。
+                    # Node 層 60 秒放棄，45 + 5 = 50 秒留了 10 秒讓降階跑完並回傳。
+                    timeout=(5.0, CLOUD_READ_TIMEOUT)
                 )
                 # ⚠ 不能只靠 `.json()` 解析失敗來察覺 Cloud 掛了。
                 #    Cloudflare 的錯誤頁是 HTML，解析確實會拋例外；但它在某些
@@ -258,8 +285,10 @@ async def query(request: Request, response: Response):
             cloud_resp = requests.post(
                 CLOUD_URL, 
                 data=masked_data_bytes, 
-                headers={"Content-Type": "application/json"},
-                timeout=50.0
+                headers=cloud_headers(),
+                # 無圖路徑：同樣分開連線與讀取，理由見帶圖那條的註解
+                # （Cloudflare 524 是 100 秒硬上限）。
+                timeout=(5.0, CLOUD_READ_TIMEOUT)
             )
             # 對端明確表示不可用時，交給下面的 except 走陳舊快取那條退路，
             # 而不是把 5xx 當成「請求有問題」直接回錯誤。

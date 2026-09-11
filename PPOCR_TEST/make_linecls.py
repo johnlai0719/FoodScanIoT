@@ -35,6 +35,8 @@ import re
 import sys
 
 sys.stdout.reconfigure(encoding='utf-8')
+# stderr 也要設，否則 sys.exit 的中止訊息在 Windows 主控台會變亂碼
+sys.stderr.reconfigure(encoding='utf-8')
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import score_ocr as S      # noqa: E402
@@ -91,6 +93,66 @@ def label(line, gt):
     return ('其他', 1.0)
 
 
+def _is_reader_output(d, gts):
+    """這個目錄裝的是讀取器輸出（有 images[].lines）還是別的東西。"""
+    for cid in list(gts)[:5]:
+        p = os.path.join(d, f'{cid}.json')
+        if not os.path.exists(p):
+            continue
+        try:
+            j = json.load(io.open(p, encoding='utf-8'))
+        except Exception:
+            return False
+        return isinstance(j, dict) and isinstance(j.get('images'), list)
+    return False
+
+
+def _check_preset(preset, gts):
+    """這個 preset 的輸出蓋不蓋得到全部案例。蓋不滿就**中止**。
+
+    ⚠ **2026-09-11 踩到**：`--preset` 的預設是 `v6_hires__boxth0.4`，那是 58 案
+       時代的目錄。直接跑只產出 3600 行而不是 177 案的 12383 行，
+       而且**不會報錯**——只是標籤少了三分之二，訓練出來的分類器照樣能用，
+       只是它沒看過那 119 案。
+
+    這是本專案第九次踩同型的坑（`EVAL_IMAGE_ROOT` 讓 PP-OCR 讀 0 行仍回報成功、
+    `EMIT_BOXES` 讓交付檔的成分來源一直是 PP-OCR、`EMIT_READERS` 讓 119 案的
+    過敏原被靜默丟掉、`NUTRI_OUT` 讓 119 案的營養變成 null…）。
+    `emit_json.py` 已經加過這道，這裡照同一個形狀：
+    **蓋不滿就停下來並列出可用的替代目錄**，要硬跑得明講。
+    """
+    have = sum(1 for cid in gts
+               if os.path.exists(os.path.join(HERE, 'out', preset, f'{cid}.json')))
+    print('   來源 %-24s 蓋到 %d/%d 案' % (preset, have, len(gts)))
+    if have >= len(gts):
+        return
+    outdir = os.path.join(HERE, 'out')
+    alts = []
+    for d in sorted(os.listdir(outdir)):
+        if not os.path.isdir(os.path.join(outdir, d)) or d == preset:
+            continue
+        # ⚠ 只建議**真的是讀取器輸出**的目錄。`out/` 底下還有 `json*`
+        #    那些交付檔（emit_json 的產物），它們每案也有一個同名 .json，
+        #    案數一樣蓋得滿，但裡面沒有 `images[].lines`——拿來當 --preset
+        #    會產出 0 行標籤，而且一樣不報錯。
+        if not _is_reader_output(os.path.join(outdir, d), gts):
+            continue
+        n = sum(1 for cid in gts
+                if os.path.exists(os.path.join(outdir, d, f'{cid}.json')))
+        if n >= len(gts):
+            alts.append(d)
+    print()
+    print('✗ %s 只蓋到 %d/%d 案。' % (preset, have, len(gts)))
+    for d in alts[:8]:
+        print('   → 改用 --preset=%s（%d/%d 案）' % (d, len(gts), len(gts)))
+    if os.environ.get('LINECLS_ALLOW_PARTIAL') == '1':
+        print('\nLINECLS_ALLOW_PARTIAL=1，仍繼續——標籤會少掉未涵蓋的案例。')
+        return
+    sys.exit('\n已中止。缺的案例不會報錯，只是標籤少掉那些案子，'
+             '而訓練出來的分類器看起來照樣正常。\n'
+             '確定要用不完整的來源，請設 LINECLS_ALLOW_PARTIAL=1。')
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--preset', default='v6_hires__boxth0.4')
@@ -101,6 +163,8 @@ def main():
     gts = {}
     for f in glob.glob(os.path.join(S.EVAL_ROOT, 'ground_truth', '*', '*.json')):
         gts[os.path.basename(f)[:-5]] = json.load(io.open(f, encoding='utf-8'))
+
+    _check_preset(a.preset, gts)
 
     rows = []
     for cid, gt in sorted(gts.items()):
