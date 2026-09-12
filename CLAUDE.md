@@ -44,7 +44,11 @@ python reader/service.py         # 再起 :8180，暖機約 43 秒
 curl localhost:8180/health       # model_servers 兩個都要 true
 ```
 
-Fog 的兩個行程由 PM2 管理（`fog/ecosystem.config.js`），部署在 Raspberry Pi 上。
+~~Fog 的兩個行程由 PM2 管理（`fog/ecosystem.config.js`）~~
+**2026-09-13 更正：Pi 上實際是 systemd，不是 PM2**（部署時當場發現）。
+重啟用 `systemctl restart`，不是 `pm2 restart`。
+`fog/ecosystem.config.js` 仍在版控裡但**不是現行部署方式**——改它不會影響 Pi。
+（依「文件不刪、只加註」保留原文。）
 
 **埠號：對外一律 3003。** 容器內部是 8000（`server/.env` 的 `CLOUD_PORT`
 與 Dockerfile 的 uvicorn），但 compose 發布成 `'3003:8000'`，所以外面看到的
