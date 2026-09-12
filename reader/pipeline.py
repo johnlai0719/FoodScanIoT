@@ -48,6 +48,12 @@ PRESET_LF = "_online_lf"
 
 os.environ.setdefault("EVAL_ROOT", str(WORK))
 os.environ.setdefault("PPOCR_BOXES", PRESET_BOXES)
+# ⚠ emit_json 用的是 **EMIT_BOXES**，不是 PPOCR_BOXES——名字不同的兩個變數
+# 指的是同一件事。2026-09-13 只設了後者，emit_json 去讀 out/vlcrop_hy_v4/
+# 找不到檔就 return None，**成分欄靜默變空**（端到端拿得到分數與品名，
+# 只有添加物是 0，看起來像「這張沒有成分表」）。這是本專案第十次踩
+# 「環境變數沒設就靜默走舊路」。成分是從 VL 輸出切出來的，所以指 VL。
+os.environ.setdefault("EMIT_BOXES", PRESET_VL)
 os.environ.setdefault("NUTRI_BASE", PRESET_VL)
 os.environ.setdefault("NUTRI_OUT", PRESET_NUTRI)
 os.environ.setdefault("LF_OUT", PRESET_LF)
@@ -181,6 +187,7 @@ def read(base64_images, barcode="unknown"):
             t["qwen_fields"] = round(time.time() - _t, 2)
             _t = time.time()
             out = _mods["EJ"].build(cid)
+            _assert_sources(out)
             t["assemble"] = round(time.time() - _t, 2)
         out.setdefault("_meta", {})["reader"] = "vlcrop_hy (PP-OCR→HunyuanOCR→Qwen)"
         out["_meta"]["stage_secs"] = t
@@ -188,6 +195,25 @@ def read(base64_images, barcode="unknown"):
         return out
     finally:
         _cleanup(cid, rels)
+
+
+def _assert_sources(out):
+    """組裝完成後檢查「每一層真的讀到了自己的輸入」。
+
+    emit_json 的每個讀取層找不到檔案時一律回 None 而不報錯（批次跑時那是對的，
+    缺一案不該中斷整批），線上卻會變成靜默的空欄位。`_check_sources()` 是
+    emit_json 自己的同類防護，但它只在 main() 裡呼叫，build() 沒有。
+
+    這裡只擋**設定錯誤**，不擋「這張圖真的沒有成分表」：
+    前者的表徵是 ocr_preset 指向別的目錄，後者 ocr_preset 是對的、只是沒字。
+    """
+    m = out.get("_meta") or {}
+    got = m.get("ocr_preset")
+    if got != PRESET_VL:
+        raise RuntimeError(
+            "emit_json 讀的是 out/%s/ 而不是本次的 out/%s/——"
+            "八成是某個環境變數沒設到（它們名字不一致：PPOCR_BOXES／EMIT_BOXES／"
+            "NUTRI_BASE／EMIT_READERS／LF_READERS）。成分會靜默變空。" % (got, PRESET_VL))
 
 
 def _ppocr(cid, rels):
