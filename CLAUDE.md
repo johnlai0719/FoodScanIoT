@@ -46,9 +46,16 @@ curl localhost:8180/health       # model_servers 兩個都要 true
 
 Fog 的兩個行程由 PM2 管理（`fog/ecosystem.config.js`），部署在 Raspberry Pi 上。
 
-**注意埠號有兩套**：`server/main.py` 獨立執行時預設 `CLOUD_PORT=3003`，但
-`docker-compose.yml` 與 `server/.env.example` 用的是 **8000**。App 目前硬編碼打
-`:3003`。改動前先確認目標環境用哪個。
+**埠號：對外一律 3003。** 容器內部是 8000（`server/.env` 的 `CLOUD_PORT`
+與 Dockerfile 的 uvicorn），但 compose 發布成 `'3003:8000'`，所以外面看到的
+永遠是 3003——Windows 防火牆規則（"Cloud Fog Port 3003"）、Fog 的
+`CLOUD_API_URL`、App 的 `constants/endpoints.ts` 三處一致。
+
+⚠ 2026-09-13 之前 compose 發布 8000 而其餘全是 3003，**Pi 打不進來、每一次
+都降階，而且看起來像「Cloud 掛了」**——從本機打 `/health` 一直是好的，因為
+loopback 不經防火牆，這正是它能潛伏到現在的原因。
+`tests/contract/test_app_endpoints.py` 現在會比對 App 的常數與 compose
+實際發布的埠。
 
 ---
 
