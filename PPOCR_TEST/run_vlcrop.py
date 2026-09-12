@@ -39,7 +39,9 @@ import region_crop as RC   # noqa: E402
 import score_ocr as S      # noqa: E402  （_linecls_probs 的過濾規則要用 normalize）
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-EVAL_ROOT = os.path.abspath(
+# 2026-09-13：加上 EVAL_ROOT 覆寫，與 score_ocr.py:40 的慣例一致。
+# 線上推論（reader/service.py）要把工作區指到別處，不能碰測試集目錄。
+EVAL_ROOT = os.environ.get("EVAL_ROOT") or os.path.abspath(
     os.path.join(HERE, "..", "測試", "量化測試")
 )
 # ⚠ 第六支寫死 OCR 目錄的腳本（2026-09-07）。前五支是 bench_ingredients／

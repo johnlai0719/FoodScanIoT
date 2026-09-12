@@ -1,6 +1,15 @@
 """
 Module A — 成分正規化、比對添加物知識庫
 
+⚠ 另有一份**平行實作**：`PPOCR_TEST/sim_match.py`（評估與實驗用，不連資料庫）。
+   兩份分岔過，方向是那邊落後於這邊：
+
+     類別詞不得比對物質庫（甜味劑→阿斯巴甜）  這邊 2026-07-30 修，那邊 2026-09-10 才補
+     `調味劑(A、B、C)` 展開成三項            這邊有（`_expand_generic_items`），那邊沒有
+
+   後果：**評估報告的添加物數字一直低估這支的實際能力**（177 案少算 173 個）。
+   動這裡的比對規則時，順手到那邊看一眼要不要一起改。
+
 從 main.py 抽出(2026-07-24)。邏輯與原本逐字相同,僅一處必要調整:
 
   原本以 `'vision_data' in locals()` 判斷「本次分析是否有圖片辨識結果」,
@@ -58,8 +67,10 @@ NOT_IN_DB_LABEL = "本系統未收錄"
 # 有收錄、但該欄位本身沒有內容時用這個。與「未收錄」是兩件事：
 # 前者是我們沒有這個品項，後者是有品項但缺這一項資料。兩者都不等於「無風險」。
 NO_FIELD_DATA_LABEL = "資料庫未載明"
-# 兩個資料庫都沒命中時的一般成分說明。刻意只陳述**本系統的狀態**，不描述該項目是什麼——
+# 添加物庫沒命中時的一般成分說明。刻意只陳述**本系統的狀態**，不描述該項目是什麼——
 # 判為「非添加物」不等於已確認是食品原料，它也可能是配不到的添加物（2026-08-03 定調）。
+# 2026-08-06 範圍限縮後，原料清單不再比對，本句涵蓋的項目大幅增加（原先命中原料庫者
+# 全數落入此類）。措辭維持不變仍然成立：它講的是「本系統沒有這項資料」，而非「這是什麼」。
 NOT_IN_DB_DESC_INGREDIENT = "標示成分，本系統無收錄資料。"
 # 類別統稱專用說明。與「未收錄」必須分開——兩者的成因與責任歸屬完全不同：
 #   未收錄 → 本系統資料庫的缺口
@@ -69,12 +80,8 @@ GENERIC_TERM_DESC = (
     "標示僅載明類別名稱「{term}」，未指出實際使用的品項，故無法對應到具體物質。"
     "此為食品標示法規允許之寫法，非本系統資料缺漏。")
 NOT_IN_DB_DESC = "此項未收錄於本系統添加物資料庫，無法提供說明。未收錄不代表安全或不安全。"
-# 列於食藥署「未確認安全性尚不得使用之原料」清單者專用。
-# 只陳述它列於哪一份官方清單，不判斷該產品是否違規——標示寫法、同名異物、
-# 辨識誤差都可能造成命中，是否違規為主管機關職權，非本系統可認定。
-RESTRICTED_RAW_DESC = (
-    "此名稱列於食藥署「未確認安全性尚不得使用之原料」清單。"
-    "本系統僅陳述此一官方紀錄，不就本產品是否合規作判斷，實際情形請以主管機關認定為準。")
+# RESTRICTED_RAW_DESC（「未確認安全性尚不得使用之原料」警示）於 2026-08-06 隨範圍
+# 限縮一併移除，見 match_ingredients 內原料比對段落之已知限制說明。
 
 
 # 食品標示上的「類別統稱」。法規允許業者只寫類別而不列出實際品項
@@ -312,91 +319,13 @@ def _candidate_names(ing: str) -> list[str]:
     return out
 
 
-def _load_raw_material_names(cursor) -> list[str]:
-    """
-    載入食藥署原料清單的可比對名稱(中文名／外文名／學名,已拆開並列的別名)。
-
-    中文名欄位常以「；」並列多個俗名(如「栝樓；天花粉」),需拆開才不會漏比對。
-    """
-    try:
-        # 必須排除「未確認安全性尚不得使用之原料」（2026-08-03 修）。
-        #
-        # 該清單共 1,702 筆，其中 532 筆屬此分類——那是**禁用清單**，不是可食清單。
-        # 原本未加條件全部載入，導致標示上出現大麻、罌粟、大麻二酚時，系統顯示
-        # 「食藥署食品原料清單收錄之原料」，把「不得使用」講成了「官方收錄」，
-        # 意思完全相反。此類名稱改由 _load_restricted_raw_material_names 另行載入。
-        cursor.execute(
-            "SELECT name_zh, name_foreign, name_sci FROM raw_materials "
-            "WHERE category_minor IS NULL OR category_minor NOT LIKE %s",
-            ("%不得使用%",))
-        rows = cursor.fetchall()
-    except Exception:
-        return []  # 表不存在(尚未匯入)時靜默降級,不影響既有流程
-
-    names = set()
-    for r in rows:
-        for field in ("name_zh", "name_foreign", "name_sci"):
-            val = r.get(field)
-            if not val:
-                continue
-            for piece in re.split(r"[;；,，\n]", str(val)):
-                piece = normalize_text(piece)
-                if len(piece) >= 2:
-                    names.add(piece)
-    # 由長到短:先試較長的名稱,避免短名先命中造成過度寬鬆的比對
-    return sorted(names, key=len, reverse=True)
-
-
-def _load_restricted_raw_material_names(cursor) -> list[str]:
-    """
-    載入食藥署原料清單中「未確認安全性尚不得使用之原料」的可比對名稱。
-
-    與可食原料清單分開處理（2026-08-03）：命中此清單**不是**正面依據，不可計入
-    涵蓋率，也不可沿用「清單收錄之原料」的說明——那會把禁用講成核准。
-    命中時據實陳述它列於哪一份清單即可，仍不對該產品作合規與否的判斷。
-    """
-    try:
-        cursor.execute(
-            "SELECT name_zh, name_foreign, name_sci FROM raw_materials "
-            "WHERE category_minor LIKE %s", ("%不得使用%",))
-        rows = cursor.fetchall()
-    except Exception:
-        return []
-
-    names = set()
-    for r in rows:
-        for field in ("name_zh", "name_foreign", "name_sci"):
-            val = r.get(field)
-            if not val:
-                continue
-            for piece in re.split(r"[;；,，\n]", str(val)):
-                piece = normalize_text(piece)
-                if len(piece) >= 2:
-                    names.add(piece)
-    return sorted(names, key=len, reverse=True)
-
-
-def _match_raw_material(norm: str, names: list[str]) -> str | None:
-    """
-    比對原料清單。**先精確相等,再子字串且名稱須達 3 字**。
-
-    這個兩段式規則是實測決定的(2026-07-26,以資料庫內 6 筆真實商品共 22 種
-    相異成分測試):
-    - 只用子字串且門檻 2 字 → 「檸檬酸」會命中原料「檸檬」,屬誤判
-    - 只用子字串且門檻 3 字 → 「蔗糖」只有兩字,會被漏掉
-    - 先精確相等再子字串≥3 → 蔗糖、麥芽糊精、棕櫚油、葡萄柚皆正確命中,
-      且該批資料中零誤判
-
-    註:本函式只在添加物側完全沒命中時才會被呼叫,故「檸檬酸」這類本就會先
-    命中添加物庫者不受影響;此規則防的是添加物庫漏掉時的二次誤判。
-    """
-    for n in names:
-        if n == norm:
-            return n
-    for n in names:
-        if len(n) >= 3 and n in norm:
-            return n
-    return None
+# 原料清單比對相關的三個函式（_load_raw_material_names、
+# _load_restricted_raw_material_names、_match_raw_material）於 2026-08-06 移除，
+# 系統範圍限縮為只查食品添加物。`raw_materials` 資料表與其匯入腳本
+# （database_scripts/import_raw_materials.py）保留未動，日後要恢復可從版控取回；
+# 移除的僅是查詢路徑。原料側自有一套「先精確相等、再子字串且名稱須達 3 字」的
+# 門檻（2026-07-26 以 22 種相異成分實測校準），該規則連同其校準紀錄一併退場。
+# 決策與代價見 match_ingredients 內原料比對段落。
 
 
 def _best_additive_match(norm: str, knowledge: list):
@@ -411,10 +340,19 @@ def _best_additive_match(norm: str, knowledge: list):
     同源錯誤還有「醋酸鈉(無水)→醋酸」「活性乳酸菌→乳酸」。
 
     改為收集所有命中者，再依可信度排序取最佳：
-      1. 正式名或別名與成分名**完全相等** —— 最可信，直接採用
-      2. INS／E 編號相符 —— 官方編號，可信度次之
-      3. 子字串命中 —— 取**匹配長度最長**者（比對到越多字，偶然吻合的機率越低）
+      優先序 0：正式名或別名與成分名**完全相等** —— 最可信，直接採用
+      優先序 2：子字串命中 —— 取**匹配長度最長**者（比對到越多字，偶然吻合的機率越低）
     同級之間取匹配字串較長者。完全沒有命中則回傳 None。
+
+    優先序 1 原為「INS／E 編號相符」，2026-08-06 移除。理由：48 案 1,092 個標示項目
+    實測，該層命中 **0 次**——我國標示法規要求以品名或通用名稱標示，包裝上不寫 INS
+    編號（寫 E 編號是歐盟產品的習慣）。本檔其餘規則（比例門檻、生物字尾、DL-）皆由
+    實測誤配案例掙來，此層無任何命中案例佐證，故依同一標準移除。日後若納入進口品
+    掃描，再依證據加回。
+    （移除時另曾主張「庫內編號若為裸數字，『咖啡因150mg』會誤命中 INS 150」，核對
+    backup.sql 後確認不成立：ins_or_e_number 一律帶前綴（`INS 331`、`E518`），標示需
+    寫出「INS 150」字樣才會觸發，故此層是死碼而非地雷。移除仍以「0 命中」為據。）
+    優先序編號保留空號 1，使 0／2 與既有紀錄、稽核腳本的語義維持一致。
     """
     # 子字串命中時，匹配部分至少要佔成分名的一定比例，否則視為偶然吻合而不採用。
     # 依據（2026-07-26 實測）：
@@ -454,8 +392,6 @@ def _best_additive_match(norm: str, knowledge: list):
             hit = (0, len(norm))
         elif any(al == norm for al in a['_n_aliases']):
             hit = (0, len(norm))
-        elif a['_n_ins'] and a['_n_ins'] in norm:
-            hit = (1, len(a['_n_ins']))
         elif a['_n_zh'] and a['_n_zh'] in norm:
             hit = (2, len(a['_n_zh']))
         elif any(p and p in norm for p in a['_n_zh_parts']):
@@ -541,10 +477,12 @@ def match_ingredients(ing_list_raw, vision_data, cursor, vector_rag,
     """
     比對成分清單與添加物知識庫,輸出分類結果。
 
-    2026-07-26 新增涵蓋率統計(coverage):原本「比對不上添加物庫就當成一般
+    2026-07-26 新增判定依據統計(coverage):原本「比對不上添加物庫就當成一般
     成分」是預設而非確認,導致「真的是原料」與「其實是添加物只是寫法對不上」
     混在同一堆,無從得知一張成分表實際涵蓋多少。現在額外記錄每項成分的判定
-    依據,使涵蓋率成為可量測的數字。
+    依據,使其成為可量測的筆數。
+    (2026-08-06:其中的 coverage_rate 百分比已移除,只留筆數與未收錄清單。
+     理由見 _build_coverage ——那個比率量的是商品配方,不是系統能力。)
 
     注意:此統計**不改變** calculated_ingredient_types 的值(仍只有
     additive / ingredient),既有回傳格式與 Fog 端相容性不受影響。
@@ -567,7 +505,7 @@ def match_ingredients(ing_list_raw, vision_data, cursor, vector_rag,
       chemical: 添加物詳細資訊列表
       calculated_ingredient_types: {成分名稱: "additive" | "ingredient"}
       parse: 本次成分來源與解析結果(見 _items_from_raw_text)
-      coverage: 分類涵蓋率統計(見 _build_coverage)
+      coverage: 各判定依據的筆數與未收錄項目清單(見 _build_coverage;無百分比)
     """
     ing_list = ing_list_raw
     if isinstance(ing_list, str):
@@ -588,7 +526,8 @@ def match_ingredients(ing_list_raw, vision_data, cursor, vector_rag,
         a['_n_zh_parts'] = [x for x in
                             (normalize_text(p) for p in re.split(r"[;；、]", a.get('name_zh') or ''))
                             if x]
-        a['_n_ins'] = normalize_text(a.get('ins_or_e_number') or '')
+        # 不再預先正規化 ins_or_e_number：編號比對層已移除（見 _best_additive_match）。
+        # 欄位本身仍取用於呈現，只是不參與比對。
         _al = a.get('aliases')
         if isinstance(_al, str):
             try:
@@ -611,12 +550,10 @@ def match_ingredients(ing_list_raw, vision_data, cursor, vector_rag,
 
     _load_generic_terms(cursor)    # 由官方 category 衍生類別統稱（快取）
     _load_substance_names(cursor)  # 添加物庫物質名，供括號語意判斷佐證（快取）
-    raw_material_names = _load_raw_material_names(cursor)
-    restricted_raw_names = _load_restricted_raw_material_names(cursor)
 
     calculated_ingredient_types = {}
     # 每項成分的判定依據,供涵蓋率統計:
-    #   additive_db / vector / raw_material_db / water / none
+    #   additive_db / vector / water / generic_term / none
     match_basis = {}
 
     # 成分來源:優先解析標示原文,原文缺漏才退回模型整理的清單（2026-07-30）
@@ -677,16 +614,19 @@ def match_ingredients(ing_list_raw, vision_data, cursor, vector_rag,
                         matched_by = "vector"
                         break
 
-        # 原料庫正面比對：僅在添加物側完全沒命中時才查，添加物判定優先度不變
-        # （同一名稱兩邊都收錄時仍以添加物為準，行為與本次新增前一致）。
-        if not match and matched_by is None:
-            if any(_match_raw_material(c, raw_material_names) for c in candidates):
-                matched_by = "raw_material_db"
-            elif any(_match_raw_material(c, restricted_raw_names) for c in candidates):
-                # 列於「未確認安全性尚不得使用」清單。刻意排在可食清單之後判斷，
-                # 且**不計入涵蓋率**（見 _build_coverage 的 covered_bases）——
-                # 這不是「查到了所以有依據」，而是查到了一份性質相反的紀錄。
-                matched_by = "restricted_raw_material"
+        # 原料清單比對（可食清單與「不得使用」清單兩者）已於 2026-08-06 全部移除，
+        # 系統範圍限縮為「只查食品添加物」。
+        #
+        # 移除理由：本系統要回答的是「這張標示裡有哪些食品添加物、各自的風險資訊為何」。
+        # 為了替糖、鹽、棕櫚油這類基礎食材蓋一個「已確認為原料」的章，就得維護第二套
+        # 名稱解析規則（原料側自有的「精確相等，再子字串且≥3 字」門檻），承擔第二套
+        # 誤配風險，而該結論對使用者的決策沒有影響——知道「蔗糖是原料」不改變任何事。
+        # 範圍縮小後，非添加物一律僅回報為非添加物，不再宣稱它是什麼。
+        #
+        # **已知限制（範圍限縮的代價，刻意記錄）**：「未確認安全性尚不得使用之原料」
+        # 清單（532 筆，如大麻、罌粟、大麻二酚）的警示一併移除。該類成分現與其他
+        # 未收錄項目顯示相同，使用者無從區別。此為明示的範圍決定，非疏漏；日後若
+        # 要恢復，應作為獨立的警示功能，而非併回涵蓋率判定。
 
         # 純類別統稱（如成分只寫「香料」）：法規允許不列出實際品項，任何資料庫
         # 都不可能比對到。標記為 generic_term，涵蓋率計算時排除於分母之外，
@@ -737,11 +677,12 @@ def match_ingredients(ing_list_raw, vision_data, cursor, vector_rag,
         # （見 A1 對 ingredient_types 停止評估之說明）。
         #
         # 判定順序：
-        #   1. 添加物庫命中（精確／別名／編號／向量）→ additive
+        #   1. 添加物庫命中（精確／別名／向量）→ additive
         #   2. 其餘一律 → ingredient
         # 注意「ingredient」在此僅表示「非添加物」，不代表已確認為食品原料；
-        # 是否確認為原料、或根本未收錄，另由 match_basis 與 basic_detail 區分
-        # （generic_term／raw_material_db／none 三態），呈現端據此誠實標示。
+        # 它也可能是配不到的添加物。範圍限縮後（2026-08-06）系統不再嘗試確認它是
+        # 什麼，match_basis 於此側只剩 water／generic_term／none 三態，呈現端據此
+        # 誠實標示——差別在「標示只給類別名」與「本系統沒有這項資料」。
         is_additive = bool(match)
         calculated_ingredient_types[ing] = "additive" if is_additive else "ingredient"
 
@@ -825,10 +766,6 @@ def match_ingredients(ing_list_raw, vision_data, cursor, vector_rag,
             # 未命中項目的無依據宣稱——系統並不知道它是不是天然的。
             if matched_by == "water":
                 basic_desc = "水。"
-            elif matched_by == "raw_material_db":
-                basic_desc = "食藥署食品原料清單收錄之原料。"
-            elif matched_by == "restricted_raw_material":
-                basic_desc = RESTRICTED_RAW_DESC
             elif matched_by == "generic_term":
                 basic_desc = GENERIC_TERM_DESC.format(
                     term=normalize_text(_strip_brackets(ing)))
@@ -838,7 +775,7 @@ def match_ingredients(ing_list_raw, vision_data, cursor, vector_rag,
                 "name": ing,
                 "sourceLabel": source_label,   # 由哪一項標示展開而來（未展開者為 None）
                 "isAdditive": False,
-                "inDatabase": matched_by in ("raw_material_db", "water"),
+                "inDatabase": matched_by == "water",
                 # 標示僅給類別名，無法判定為添加物或原料——這是第三種狀態，
                 # 不應歸入任一邊（見 GENERIC_TERM_DESC）。
                 "isGenericTerm": matched_by == "generic_term",
@@ -879,20 +816,32 @@ def match_ingredients(ing_list_raw, vision_data, cursor, vector_rag,
 
 def _build_coverage(match_basis: dict) -> dict:
     """
-    統計本張成分表的分類涵蓋率。
+    統計本張成分表各判定依據的**筆數**，並列出未收錄項目清單。
 
-    「已涵蓋」定義為**有本系統資料庫的正面依據**（添加物庫、向量比對、原料庫、
-    水類），不包含只靠 Gemini 分類或完全無依據者——把 LLM 的判斷算進涵蓋率
+    「已涵蓋」定義為**有本系統資料庫的正面依據**（添加物庫、向量比對、水類），
+    不包含只靠 Gemini 分類或完全無依據者——把 LLM 的判斷算進來
     等於自己給自己灌水，那個數字就失去意義了。
 
-    unknown_items 保留原始名稱，這是後續要補哪些資料的直接清單。
+    **`coverage_rate` 已於 2026-08-06 移除，且不應再加回來。**
+    該比率的分母是整張標示的成分數，但本系統刻意只負責其中的添加物，故它實際上
+    量的是「這張標示裡添加物佔多少」——那是**商品配方的屬性，不是系統能力的屬性**。
+    A2 的分類數字即為證據：飲料 50–62%、便當飯類 15–25%、鮮乳 **0%**。鮮乳得 0
+    並非系統在鮮乳上失敗，而是鮮乳沒有添加物——系統表現完美卻得零分。一個「完美
+    表現得 0 分」的指標，量的不是它宣稱要量的東西。範圍限縮為只查添加物後，該比率
+    幾乎等同「添加物佔比」的同義詞，更無保留價值。
+
+    比對品質改看三個可行動的數字，皆不需要比率：
+      1. 誤配筆數（安全指標，須守住）——`測試/量化測試/audit_additive_matches.py`
+      2. 官方名稱探針偵測率（能力指標，可重跑）——`eval_official_name_coverage.py`
+      3. 未收錄項目**清單**（工作清單，用絕對筆數與名稱，不用百分比）——即下方
+         unknown_items，這是後續要補哪些資料的直接清單，也是本函式真正的產出。
     """
     total = len(match_basis)
     by_basis = {}
     for b in match_basis.values():
         by_basis[b] = by_basis.get(b, 0) + 1
 
-    covered_bases = ("additive_db", "vector", "raw_material_db", "water")
+    covered_bases = ("additive_db", "vector", "water")
     covered = sum(by_basis.get(b, 0) for b in covered_bases)
     unknown_items = [k for k, v in match_basis.items() if v == "none"]
 
@@ -906,8 +855,9 @@ def _build_coverage(match_basis: dict) -> dict:
         "total": total,
         "covered": covered,
         "unknown": len(unknown_items),
-        # 分母已排除類別統稱；欲還原成「佔全部成分」請用 covered / total
-        "coverage_rate": round(covered / denominator, 3) if denominator else None,
+        # denominator 保留（total 扣除類別統稱）：它說明「有多少項是可評估的」，
+        # 是一個筆數而非比率。要不要拿它去除，由讀數字的人自行決定並自負口徑說明
+        # 之責——本函式不再代為算出一個會被到處引用的百分比。
         "denominator": denominator,
         "by_basis": by_basis,
         "unknown_items": unknown_items,

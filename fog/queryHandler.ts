@@ -4,7 +4,10 @@ import { getCache, setCache, getStaleCache } from './cache';
 
 // 使用 127.0.0.1 代替 localhost 以提高穩定性
 const CLOUD_API_URL = process.env.PYTHON_API_URL || 'http://127.0.0.1:3002/query';
-const CLOUD_TIMEOUT = 60000; // 提高到 60 秒超時，對應視覺分析
+// 2026-09-13：60 → 105 秒。這一層要比 Python 層的 CLOUD_READ_TIMEOUT（90 秒）
+// 長，否則 Node 會先放棄，Python 層的降階邏輯根本沒機會跑到。
+// 改用 vlcrop 後 Cloud 端單張就要 55 秒（實測），60 秒是不夠的。
+const CLOUD_TIMEOUT = 105000;
 
 export async function handleQuery(reqData: FogQueryRequest): Promise<{ status: number, data: any, cacheHeader: string }> {
   const { barcode } = reqData;

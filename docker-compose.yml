@@ -20,5 +20,16 @@ services:
       - '8000:8000'
     environment:
       - DATABASE_URL=postgresql+psycopg2://postgres:password@db:5432/product_db
+      # ⚠ 這兩行不可省。`server/.env` 裡 DB_HOST=localhost 是給本機直跑用的，
+      # 但 main.py:571 與 admin_api.py 走 psycopg2 直連、只讀 DB_HOST，
+      # 在容器內 localhost 會指向容器自己 → 比對添加物時連不上資料庫。
+      # compose 的 environment 優先於 env_file，在此覆蓋。
+      - DB_HOST=db
+      - DB_PORT=5432
+      # 同理，帳密也要覆蓋成 db service 實際初始化的那組（見上方 POSTGRES_*），
+      # 否則 .env 裡給本機用的密碼會讓容器內認證失敗。
+      - DB_NAME=product_db
+      - DB_USER=postgres
+      - DB_PASSWORD=password
     depends_on:
       - db

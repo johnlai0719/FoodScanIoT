@@ -20,9 +20,28 @@ FOG — Node.js 層  :3001   快取、驗證、轉發
 FOG — Python 層   :3002   資料脫敏、格式正規化
   │  POST /api/analyze    （脫敏後的 payload）
   ▼
-CLOUD (FastAPI)   :3003   Gemini 視覺辨識、添加物比對、Nutri-Score、AI 摘要
+CLOUD (FastAPI)   :3003   視覺辨識、添加物比對、Nutri-Score、AI 摘要
+  │  POST /read           （VISION_BACKEND=vlcrop 時）
   ▼
+READER (FastAPI)  :8180   vlcrop：PP-OCR → HunyuanOCR → Qwen
+  │                        **跑在主機上，不在容器裡**（要 GPU 與 paddle）
+  ├─ HunyuanOCR :8177  llama-server
+  └─ Qwen3.5-2B :8179  llama-server
+
 PostgreSQL        :5432
+```
+
+**視覺辨識 2026-09-13 起預設走 vlcrop，不是 Gemini。**
+切換在 `server/vision_backend.py`，環境變數 `VISION_BACKEND`（`vlcrop`／`gemini`）。
+Gemini 那條路徑留著作 ABBA 對照與手動退路，**但失敗時不會自動回退**——
+兩者失效模式相反（Gemini 會憑常識補完，添加物精確度 40.2%），靜默回退等於
+「系統偶爾會編造而且沒人知道是哪幾次」。reader 掛掉就讓 Fog 走降階。
+
+起 reader：
+```bash
+python reader/start_models.py    # 先起 :8177 與 :8179（llama-server）
+python reader/service.py         # 再起 :8180，暖機約 43 秒
+curl localhost:8180/health       # model_servers 兩個都要 true
 ```
 
 Fog 的兩個行程由 PM2 管理（`fog/ecosystem.config.js`），部署在 Raspberry Pi 上。
@@ -142,6 +161,19 @@ Cloud 連不上且無快取時的本機 OCR 部分結果，同樣**刻意沒有*
 **2026-08-05 已移除該按鈕**（`HomeScreen.tsx:955` 留有原因註解），2026-09-12 查核確認。
 路由本身的錯位還在：`POST /cache/clear` 只存在於 Python 層（`fog/main.py:339`，埠 3002），
 Node 層（3001）只有 `DELETE /cache`。要重做這個功能的話，打 3001 的 `DELETE /cache`。
+
+**vlcrop 的延遲是 55 秒／張（實測穩態），而且是逐張累加的。**
+Gemini 時代是 13～16 秒，所以整條逾時鏈都重設過（2026-09-13）：
+
+| 層 | 逾時 | 備註 |
+|---|---|---|
+| Fog Node → Fog Python | 105s | `queryHandler.ts` 的 `CLOUD_TIMEOUT` |
+| Fog Python → Cloud | 90s | `main.py` 的 `CLOUD_READ_TIMEOUT`（原 45） |
+| Cloud → reader | 120s | `vision_backend.py` 的 `READER_TIMEOUT` |
+
+⚠ **多張圖片仍然會超時。** 2 張約 110 秒，而 Cloudflare Tunnel 的 524 是
+**100 秒硬上限**，超過不是我們能控制的。單張塞得進，兩張塞不進——
+所以 Tunnel 切換（工程待辦 E）在 vlcrop 之下需要重新評估。Tailscale 沒有這個上限。
 
 **`npx tsc --noEmit` 目前有 28 個既有錯誤**（缺 `expo-image` 等套件、`@/` 路徑
 別名未設定），與新改動無關。判斷有沒有引入新錯誤請比對**錯誤集合**而非數量。

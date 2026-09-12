@@ -13,6 +13,8 @@ from datetime import datetime, timedelta
 import re
 import time
 from google import genai
+
+import vision_backend
 from google.genai import types
 import numpy as np
 
@@ -595,6 +597,8 @@ def health():
         "commit": get_commit(),
         "database": "unknown",
         "gemini_key_configured": bool(os.getenv("GEMINI_API_KEY")),
+        # 現在實際在用哪個讀取器。看 log 才知道會漏掉重啟後的切換。
+        "vision_backend": vision_backend.backend_name(),
         "safety_events_enabled": SAFETY_EVENTS_ENABLED,
         # ⚠ `/api/analyze` 有沒有受保護。未設 API_SHARED_SECRET 時放行，
         #    那在 Tailscale（私有網路）下可以接受，在 Cloudflare Tunnel
@@ -903,9 +907,13 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
         if label_images and len(label_images) > 0:
             print(f"[INFO] [Analyze] Starting AI vision analysis for barcode: {barcode or 'NEW'}...")
             _t_vision_start = time.time()
-            vision_data = await analyze_image_with_gemini(label_images, barcode or "NEW")
+            # 2026-09-13：辨識後端可切換（VISION_BACKEND，預設 vlcrop）。
+            # vlcrop 走主機上的 reader 服務，Gemini 留作 ABBA 對照與手動退路。
+            # 失敗刻意不回退 Gemini——理由見 vision_backend.py 檔頭。
+            vision_data = await vision_backend.analyze(
+                label_images, barcode or "NEW", analyze_image_with_gemini)
             _t_vision_end = time.time()
-            print(f"[PERF] Gemini-2.5-flash Vision: {(_t_vision_end - _t_vision_start)*1000:.0f}ms")
+            print(f"[PERF] Vision[{vision_backend.backend_name()}]: {(_t_vision_end - _t_vision_start)*1000:.0f}ms")
             
             # --- 核心連線邏輯：在分析完畢後才建立連線，防止超時 ---
             db = get_db_conn()

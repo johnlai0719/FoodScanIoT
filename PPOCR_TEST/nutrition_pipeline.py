@@ -153,16 +153,20 @@ def parse(text):
 
 
 # ─── 跑 OCR ──────────────────────────────────────────────────────────────────
-def run(device, only):
+def run(device, only, pp=None):
+    """pp：已建好的 PPStructureV3。批次跑不用傳（自己建一個用到底）；
+    線上推論（reader/pipeline.py）必須傳，否則每個請求都會重載模型。
+    2026-09-13 加，預設 None 時行為與原本逐字相同。"""
     os.makedirs(OUT, exist_ok=True)
     cases = json.load(open(os.path.join(S.EVAL_ROOT, 'cases.json'),
                            encoding='utf-8'))['cases']
     if only:
         cases = [c for c in cases if any(c['case_id'].startswith(o) for o in only)]
 
-    from paddleocr import PPStructureV3
-    pp = PPStructureV3(use_doc_orientation_classify=False,
-                       use_doc_unwarping=False, device=device)
+    if pp is None:
+        from paddleocr import PPStructureV3
+        pp = PPStructureV3(use_doc_orientation_classify=False,
+                           use_doc_unwarping=False, device=device)
 
     for n, c in enumerate(cases, 1):
         cid = c['case_id']

@@ -163,3 +163,5 @@ PPOCR_TEST/*
 # 這一行只是把意圖寫明。venv 內嵌絕對路徑，換機器一定要重建，也不收。
 PPOCR_TEST/*.bak*
 PPOCR_TEST/.venv_*/
+reader/_work/
+PPOCR_TEST/out/_online_*/

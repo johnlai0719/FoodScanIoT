@@ -78,6 +78,30 @@ def parse(s):
     return d if isinstance(d, dict) else None
 
 
+def run_one(cid):
+    """單一案例，供線上推論（reader/pipeline.py）呼叫。
+
+    2026-09-13 從 main() 的迴圈體抽出來——抽出而不是另寫一份，是因為
+    「同一份知識放兩個地方」在本專案已經造成過三次分岔（族群詞彙、
+    撇號正規化、添加物分母）。main() 現在也走這支。
+
+    回傳 (prediction, 秒數)。沒有 OCR 文字可讀時回 (None, None)——
+    與「模型答了但兩欄都空」（({}, 1.2)）意義不同，不可合併。
+    """
+    os.makedirs(OUT, exist_ok=True)
+    dst = os.path.join(OUT, cid + '.json')
+    L = ocr_lines(cid)
+    if not L:
+        return None, None
+    raw, dt = ask('\n'.join(L))
+    d = parse(raw)
+    json.dump({'case_id': cid, 'prediction': d or {}, 'raw': raw,
+               'elapsed_s': round(dt, 2), 'readers': list(READERS)},
+              io.open(dst, 'w', encoding='utf-8'),
+              ensure_ascii=False, indent=1)
+    return d, dt
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--only', nargs='*')
@@ -96,19 +120,14 @@ def main():
         dst = os.path.join(OUT, cid + '.json')
         if os.path.exists(dst):          # 續跑：已有輸出就跳過
             continue
-        L = ocr_lines(cid)
-        if not L:
+        d, dt = run_one(cid)
+        if dt is None:
             print('缺 OCR 輸出，跳過 %s' % cid)
             continue
-        raw, dt = ask('\n'.join(L))
         secs.append(dt)
-        d = parse(raw)
         n += 1
         if d is None:
             bad += 1
-        json.dump({'case_id': cid, 'prediction': d or {}, 'raw': raw,
-                   'elapsed_s': round(dt, 2), 'readers': list(READERS)},
-                  io.open(dst, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
         print('%-30s %6.1fs  %s' % (cid[:30], dt, json.dumps(d or {}, ensure_ascii=False)[:80]))
     if secs:
         print('\n%d 案｜中位 %.1f 秒｜JSON 解析失敗 %d' % (n, sorted(secs)[len(secs)//2], bad))
