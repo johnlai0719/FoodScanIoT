@@ -26,6 +26,7 @@ import DropdownEvent from '../components/DropdownEvent';
 import PackageImageScanner from '../components/PackageImageScanner';
 import BarcodeScanner from '../components/BarcodeScanner';
 import { analyzePersonalRisks, getProductAllergenWarnings } from '../utils/personalization';
+import { FOG_URL, CLOUD_URL, ANALYSIS_TIMEOUT_MS } from '../constants/endpoints';
 import { getDataFreshness } from '../utils/dataFreshness';
 import {
   getScoreBreakdownList,
@@ -166,18 +167,29 @@ export default function HomeScreen() {
     setView('result');
 
     try {
-      const API_URL = serverEndpoint === 'fog'
-        ? 'http://100.86.249.39:3001/query'
-        : 'http://100.119.217.100:3003/api/analyze';
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
-        // 個人化比對自 2026-08-04 起完全在本地進行，健康背景不再送往後端。
-        body: JSON.stringify({
-          barcode: barcodeInput,
-          label_images: uploadedImages,
-        }),
-      });
+      const API_URL = serverEndpoint === 'fog' ? FOG_URL : CLOUD_URL;
+      // 逾時：在這之前完全沒設，靠平台預設（各家不同），網路斷掉時畫面會一直轉。
+      // 120 秒比下游每一層都長，好讓後端寫好的錯誤訊息與降階結果送得到使用者
+      // 眼前，而不是被 App 自己先掐掉。數字的推導見 constants/endpoints.ts。
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), ANALYSIS_TIMEOUT_MS);
+      let response: Response;
+      try {
+        response = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
+          signal: ctrl.signal,
+          // 個人化比對自 2026-08-04 起完全在本地進行，健康背景不再送往後端。
+          body: JSON.stringify({
+            barcode: barcodeInput,
+            label_images: uploadedImages,
+          }),
+        });
+      } finally {
+        // 成功時也要清掉，否則這個 timer 會一直活到 120 秒後才觸發 abort()，
+        // 對已完成的請求沒作用但會讓測試環境留著未回收的計時器。
+        clearTimeout(timer);
+      }
       if (!response.ok) throw new Error(`伺服器代碼: ${response.status}`);
       const json = await response.json();
       // Fog 可能將結果包在 data 欄位內
@@ -213,7 +225,12 @@ export default function HomeScreen() {
 
       setAnalysisResult(result);
     } catch (err: any) {
-      setAnalysisError(err.message ?? '無法連線至後端分析節點，請確認伺服器有正常運作！');
+      // AbortError 要單獨講：「連不上」與「等太久」對使用者是不同的下一步，
+      // 前者去檢查網路或伺服器，後者重試或少拍幾張就好。
+      const msg = err?.name === 'AbortError'
+        ? `分析逾時（超過 ${ANALYSIS_TIMEOUT_MS / 1000} 秒）。請確認網路後重試，或減少照片張數。`
+        : err?.message ?? '無法連線至後端分析節點，請確認伺服器有正常運作！';
+      setAnalysisError(msg);
     } finally {
       setIsAnalyzing(false);
     }
