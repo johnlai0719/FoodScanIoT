@@ -164,8 +164,20 @@ Cloud 連不上且無快取時的本機 OCR 部分結果，同樣**刻意沒有*
 路由本身的錯位還在：`POST /cache/clear` 只存在於 Python 層（`fog/main.py:339`，埠 3002），
 Node 層（3001）只有 `DELETE /cache`。要重做這個功能的話，打 3001 的 `DELETE /cache`。
 
-**vlcrop 的延遲是 55 秒／張（實測穩態），而且是逐張累加的。**
-Gemini 時代是 13～16 秒，所以整條逾時鏈都重設過（2026-09-13）：
+**vlcrop 的延遲是 10.3 秒／張（2026-09-13 實測穩態，五次 ±0.1），逐張累加。**
+Gemini 時代是 13～16 秒，所以其實更快。但這個數字**完全取決於 VRAM 有沒有擠爆**：
+
+| 組態 | 單張 | 說明 |
+|---|---|---|
+| 原始 | 51.6s | paddle ＋ 兩個 llama-server 塞滿 8GB，llama.cpp 把層搬回 CPU |
+| 關掉 PPStructureV3 的公式／印章／圖表 | 17.2s | 省 1.5GB VRAM |
+| ＋ HunyuanOCR ctx 16384 → 8192 | **10.3s** | KV cache 是 VRAM 大戶 |
+
+⚠ **在 8GB 的卡上，「慢」的唯一原因幾乎都是 VRAM。** 同一支腳本、同一張圖，
+GPU 空的時候 HunyuanOCR 是 3.5 秒，擠的時候 29 秒——差 8 倍而程式一行沒改。
+新增任何常駐 GPU 的東西之前，先看 `nvidia-smi`。
+
+逾時鏈（2026-09-13 設，留了約 3 倍餘裕給多張與熱節流）：
 
 | 層 | 逾時 | 備註 |
 |---|---|---|
@@ -173,9 +185,8 @@ Gemini 時代是 13～16 秒，所以整條逾時鏈都重設過（2026-09-13）
 | Fog Python → Cloud | 90s | `main.py` 的 `CLOUD_READ_TIMEOUT`（原 45） |
 | Cloud → reader | 120s | `vision_backend.py` 的 `READER_TIMEOUT` |
 
-⚠ **多張圖片仍然會超時。** 2 張約 110 秒，而 Cloudflare Tunnel 的 524 是
-**100 秒硬上限**，超過不是我們能控制的。單張塞得進，兩張塞不進——
-所以 Tunnel 切換（工程待辦 E）在 vlcrop 之下需要重新評估。Tailscale 沒有這個上限。
+3 張約 31 秒，離 Cloudflare Tunnel 的 524（100 秒硬上限）還有餘裕。
+⚠ 但這個餘裕**建立在 VRAM 沒被別的東西吃掉**——見上表。
 
 **`npx tsc --noEmit` 目前有 28 個既有錯誤**（缺 `expo-image` 等套件、`@/` 路徑
 別名未設定），與新改動無關。判斷有沒有引入新錯誤請比對**錯誤集合**而非數量。

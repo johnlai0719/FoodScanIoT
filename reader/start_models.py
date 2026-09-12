@@ -33,16 +33,30 @@ SERVERS = [
                               "HunyuanOCR-1.5.gguf"),
         "mmproj": os.path.join(LMS, "tencent", "HunyuanOCR-1.5-GGUF",
                                "mmproj-HunyuanOCR-1.5.gguf"),
+        # ctx 從評估時的 16384 降到 8192：我們送的是**裁切區**不是整頁，
+        # 而 KV cache 是 VRAM 大戶。8GB 卡上 HunyuanOCR 只要擠不下就會把層
+        # 搬回 CPU，3.5 秒變 29 秒（2026-09-13 實測）。
+        # ⚠ 太小會截斷輸出：run_vlcrop 的 max_tokens 是 3072，加上視覺 token，
+        #   8192 是量過還沒撞到 finish_reason=length 的值。再降要重新驗。
+        "ctx": "8192",
     },
     {
         "name": "qwen",
         "port": 8179,
         "model": os.path.join(LMS, "lmstudio-community", "Qwen3.5-2B-GGUF",
                               "Qwen3.5-2B-Q4_K_M.gguf"),
-        # 品名／廠商是純文字任務（輸入是 OCR 文字，不是圖），
-        # 但掛著 mmproj 不影響，留著讓這支也能當視覺對照組用。
-        "mmproj": os.path.join(LMS, "lmstudio-community", "Qwen3.5-2B-GGUF",
-                               "mmproj-Qwen3.5-2B-BF16.gguf"),
+        # **不掛 mmproj。** 品名／廠商是純文字任務（輸入是 OCR 文字，不是圖），
+        # 而 2026-09-13 實測掛著它就算 -ngl 0 仍會吃掉約 2GB VRAM——
+        # 視覺投影層是獨立offload 的，不受 -ngl 管。
+        "mmproj": None,
+        # ⚠ **跑 CPU（-ngl 0）、context 開小。** 2026-09-13 實測：四個模型同時
+        # 常駐時 VRAM 用到 7824/8188 MiB（95.5%），PP-OCR 從 0.77 秒被拖到
+        # 6.5 秒、HunyuanOCR 從 10.3 秒被拖到 28 秒。評估時看不到這件事，
+        # 因為 run_hunyuan.py 是自己起 server、跑完自己關，一次只有一個模型。
+        # 這支的工作是純文字（輸入是 OCR 文字不是圖）且只佔 0.69 秒，
+        # 是四個裡面最該讓出 VRAM 的。
+        "ngl": "0",
+        "ctx": "8192",
     },
 ]
 
@@ -60,11 +74,15 @@ def start(s):
         print("[%s] 已在 :%d 執行，略過" % (s["name"], s["port"]))
         return None
     for f in (s["model"], s["mmproj"]):
-        if not os.path.exists(f):
+        if f and not os.path.exists(f):
             sys.exit("[%s] 缺檔案：%s" % (s["name"], f))
-    cmd = ["llama-server", "-m", s["model"], "--mmproj", s["mmproj"],
-           "-ngl", "99", "--host", "127.0.0.1", "--port", str(s["port"]),
-           "--ctx-size", "16384", "-fa", "on", "--alias", s["name"]]
+    cmd = ["llama-server", "-m", s["model"],
+           "-ngl", s.get("ngl", "99"), "--host", "127.0.0.1",
+           "--port", str(s["port"]),
+           "--ctx-size", s.get("ctx", "16384"), "-fa", "on",
+           "--alias", s["name"]]
+    if s["mmproj"]:
+        cmd[3:3] = ["--mmproj", s["mmproj"]]
     print("[%s] 啟動中 :%d …" % (s["name"], s["port"]))
     p = subprocess.Popen(cmd, stdout=subprocess.DEVNULL,
                          stderr=subprocess.STDOUT)

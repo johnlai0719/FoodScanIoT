@@ -99,10 +99,25 @@ def warm_up():
         import local_fields as LF
         import emit_json as EJ
 
+        # paddle 跑哪裡可切換（PADDLE_DEVICE，預設 gpu）。
+        # 2026-09-13 量到：paddle 常駐 GPU 時 HunyuanOCR 由 3.8 秒變 28.9 秒
+        # （同一張圖、同兩區，評估時的檔案裡查得到 3.8）。評估時 run_vlcrop
+        # 那個行程完全沒載 paddle，GPU 上只有 llama-server 一個房客。
+        dev = os.environ.get("PADDLE_DEVICE", "gpu")
         cfg = RB.PRESETS["v6_best"]
-        _ocr = PaddleOCR(device="gpu", **cfg["init"])
+        _ocr = PaddleOCR(device=dev, **cfg["init"])
+        # 關掉用不到的子管線。PPStructureV3 預設會載公式辨識
+        # （PP-FormulaNet_plus-L）、印章、圖表等模型，食品標示一個都用不到，
+        # 而它們吃的是最稀缺的東西：8GB 卡上的 VRAM。
+        # ⚠ use_table_recognition 必須留著——營養表的結構化就靠它
+        #   （[[07-營養表結構化解析實驗]]，營養格 2121 → 2347）。
+        # ⚠ use_region_detection 沒動：它會改變輸出結構，不是純粹的省資源。
         _pp = PPStructureV3(use_doc_orientation_classify=False,
-                            use_doc_unwarping=False, device="gpu")
+                            use_doc_unwarping=False,
+                            use_seal_recognition=False,
+                            use_formula_recognition=False,
+                            use_chart_recognition=False,
+                            device=dev)
         # 讀取器固定用 HunyuanOCR——vlcrop_hy 是已定案的組合
         # （決策單 #14，依據是佐證率與營養格，不是總分）。
         RV.CFG = RV.BACKENDS["hunyuan"]
@@ -149,12 +164,26 @@ def read(base64_images, barcode="unknown"):
                 rels.append(rel)
             _write_cases([{"case_id": cid, "category": "online",
                            "images": rels, "set_version": "online"}])
+            # 逐段計時。總時間看不出該優化哪一段——2026-09-13 第一次量到
+            # 單張 55 秒時，就是因為只有總數而無法判斷方向。
+            t = {}
+            _t = time.time()
             _ppocr(cid, rels)
+            t["ppocr"] = round(time.time() - _t, 2)
+            _t = time.time()
             _vlcrop(cid, rels, imgs)
+            t["vlcrop_hunyuan"] = round(time.time() - _t, 2)
+            _t = time.time()
             _nutrition(cid)
+            t["nutrition_structure"] = round(time.time() - _t, 2)
+            _t = time.time()
             _localfields(cid)
+            t["qwen_fields"] = round(time.time() - _t, 2)
+            _t = time.time()
             out = _mods["EJ"].build(cid)
+            t["assemble"] = round(time.time() - _t, 2)
         out.setdefault("_meta", {})["reader"] = "vlcrop_hy (PP-OCR→HunyuanOCR→Qwen)"
+        out["_meta"]["stage_secs"] = t
         out["_meta"]["barcode"] = barcode
         return out
     finally:
@@ -217,7 +246,7 @@ def _nutrition(cid):
     它自己會讀 cases.json 與 out/<NUTRI_BASE>/，兩者都已備妥。
     """
     # 必須把暖機時建好的 PPStructureV3 傳進去，否則每個請求都重載模型。
-    _mods["N"].run("gpu", [cid], pp=_pp)
+    _mods["N"].run(os.environ.get("PADDLE_DEVICE", "gpu"), [cid], pp=_pp)
 
 
 def _localfields(cid):
