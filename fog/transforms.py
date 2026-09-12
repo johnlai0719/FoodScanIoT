@@ -314,8 +314,11 @@ def build_degraded_local_response(barcode, ingredients_detail, elapsed_s, engine
 
     **刻意不含 health_score**：現行 App 只看 health_score 決定是否渲染結果頁，沒有它就
     進錯誤頁並顯示 message。所以還沒支援降階的 App 會顯示這段說明，不會把沒算過的
-    分數呈現給使用者。也因此這份結果**不可再經過 normalize_result()**——它會替缺分數
-    的結果補上預設 75 分。
+    分數呈現給使用者。
+
+    這份結果**不可再經過 normalize_result()**：status 是 "degraded"，
+    looks_like_analysis() 會把它判成「不是分析結果」並轉成錯誤回應，
+    ingredients_detail 會整份丟掉。
 
     ingredients_detail 的每一項直接取自 module_a.match_ingredients() 的 chemical ＋
     basic_detail，與 Cloud 回應的同名欄位同形，App 可共用同一套元件。

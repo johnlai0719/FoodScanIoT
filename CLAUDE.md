@@ -126,7 +126,9 @@ Cloud 回 `{status:"rejected"|"not_found"|"error", message}`，Fog 回
 **有沒有 `health_score`**，不要只看 `response.ok`。
 Fog 另有一種 `{status:"degraded", degraded_mode:"local_ocr", ingredients_detail, …}`：
 Cloud 連不上且無快取時的本機 OCR 部分結果，同樣**刻意沒有** `health_score`，
-所以現行 App 會顯示它的 `message`。它不可再經過 `normalize_result()`，那會補上預設 75 分。
+所以現行 App 會顯示它的 `message`。它不可再經過 `normalize_result()`：`status:"degraded"`
+會被 `looks_like_analysis()` 判成非分析結果、轉成錯誤回應，辨識出的成分會整份丟掉。
+（2026-09-13 更正：原寫「那會補上預設 75 分」，32bcac0 之後已不再如此。）
 
 **Fog 本機降階依賴 `PPOCR_TEST/`，而它目前只在 `feat/vlcrop-pipeline` 分支。**
 `fog/local_ocr.py` 啟動時找不到它就停用降階（`/health` 的 `local_ocr` 會顯示原因），

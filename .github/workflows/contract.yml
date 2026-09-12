@@ -33,11 +33,13 @@ jobs:
       # sqlalchemy / psycopg2-binary 為 test_safety_engine_contract.py 所需：
       # server/database.py 在 import 時就建立 engine，故即使測試跑在記憶體 SQLite 上，
       # 仍必須有 PostgreSQL 驅動才能載入 models。
+      # opencc-python-reimplemented 為 module_a 的繁簡摺疊所需（test_apostrophe_normalization.py）。
+      # 缺席時 module_a 只印警告、不摺疊，測試會以「柠檬酸 != 檸檬酸」失敗（858ffa4 起的紅燈即此）。
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install pytest fastapi requests python-dotenv httpx \
-                                sqlalchemy psycopg2-binary
+                                sqlalchemy psycopg2-binary opencc-python-reimplemented
 
       # 明確要求最低測試數，避免哪天收集不到測試卻回傳成功（例如 .gitignore 又把
       # 測試檔擋掉、或 importorskip 靜默跳過整個檔案）而「假綠」。

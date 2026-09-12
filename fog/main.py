@@ -202,17 +202,10 @@ async def query(request: Request, response: Response):
                     CLOUD_URL, 
                     data=masked_data_bytes, 
                     headers=cloud_headers(),
-                    # 連線 5 秒、讀取 45 秒分開算：Cloud 對端離線時 TCP 連線會一直卡住，
-                    # 合在一起就要等滿讀取逾時，而 Node 層 60 秒就放棄，
-                    # 本機降階的結果送不到 App。
-                    #
-                    # ⚠ 讀取逾時 2026-09-12 由 90 秒縮為 45 秒，兩個理由：
-                    #   1. **Cloudflare 的 524 是 100 秒硬上限，免費方案改不了。**
-                    #      等到 90 秒才放棄，等於把判斷權交給 Cloudflare，
-                    #      而它回的 524 會比我們自己的逾時更難診斷。
-                    #   2. 90 秒原本是為了「對端離線時 TCP 卡住」，而隧道在前面時
-                    #      那個情境消失了——Cloudflare 會即時回 502／530。
-                    # Node 層 60 秒放棄，45 + 5 = 50 秒留了 10 秒讓降階跑完並回傳。
+                    # 連線 5 秒、讀取 CLOUD_READ_TIMEOUT（預設 90 秒）分開算：Cloud 對端離線時
+                    # TCP 會一直卡住，不分開就要等滿讀取逾時。讀取逾時的取捨見 CLOUD_READ_TIMEOUT。
+                    # ⚠ 三個數字要一起看：5 + 90 + 本機降階約 5 秒 ≈ 100 秒，必須小於
+                    #    Node 層的 105 秒（fog/queryHandler.ts），降階結果才送得到 App。
                     timeout=(5.0, CLOUD_READ_TIMEOUT)
                 )
                 # ⚠ 不能只靠 `.json()` 解析失敗來察覺 Cloud 掛了。
@@ -249,7 +242,7 @@ async def query(request: Request, response: Response):
                     return result
                 # 本機降階：Cloud 連不上、也沒有這個條碼的快取時，以本機 OCR 回部分結果。
                 # 格式見 transforms.build_degraded_local_response()。不寫入快取，也不可經過
-                # normalize_result()——它會替沒有分數的結果補上預設 75 分。
+                # normalize_result()——status 為 degraded 會被轉成錯誤回應，辨識結果整份丟掉。
                 if has_images and local_ocr.is_ready():
                     print(f"[LOCAL] {barcode} -> Cloud 不可用且無快取，改用本機 OCR")
                     try:
