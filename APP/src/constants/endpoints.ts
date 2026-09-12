@@ -2,10 +2,10 @@
  * 後端端點與逾時。**這是 App 端唯一的來源**——原本硬編碼在
  * `HomeScreen.tsx` 的 fetch 裡，換環境要翻程式碼找。
  *
- * ⚠ 埠號有兩套，很容易搞錯（CLAUDE.md 也記過）：
- *   `server/main.py` 單獨執行時預設 `CLOUD_PORT=3003`，
- *   但 `docker-compose.yml` 與 `server/.env` 用的是 **8000**，
- *   而正式管線就是用 compose 起的。2026-09-13 之前這裡寫 3003，打不到。
+ * ⚠ 對外一律 **3003**。容器內部是 8000，但 compose 發布成 `'3003:8000'`，
+ *   所以外面看到的永遠是 3003——防火牆規則、Fog 的 CLOUD_API_URL、這裡，
+ *   三處一致。2026-09-13 之前 compose 發布 8000 而其餘是 3003，Pi 打不進來、
+ *   每次都降階。契約測試 test_app_endpoints.py 會比對這個檔與 compose。
  *
  * ⚠ IP 是 Tailscale 的。改走 Cloudflare Tunnel 時只要改這個檔。
  */
@@ -14,7 +14,7 @@
 export const FOG_URL = 'http://100.86.249.39:3001/query';
 
 /** Cloud 直連。繞過 Fog，用於比對「Fog 有沒有幫上忙」。 */
-export const CLOUD_URL = 'http://100.119.217.100:8000/api/analyze';
+export const CLOUD_URL = 'http://100.119.217.100:3003/api/analyze';
 
 /**
  * 分析請求的逾時（毫秒）。

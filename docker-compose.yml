@@ -17,7 +17,12 @@ services:
     env_file:
       - ./server/.env
     ports:
-      - '8000:8000'
+      # 對外 3003、容器內 8000。**不要改成 8000:8000。**
+      # 2026-09-13：專案對外一直是 3003（防火牆規則 "Cloud Fog Port 3003"、
+      # App 的常數、Fog 的 CLOUD_API_URL 都是），只有 compose 是 8000，
+      # 於是 Pi 打不進來、每次都降階。統一成對外 3003 之後就沒有「兩套埠號」
+      # 這件事了——容器內部用什麼與外面無關。
+      - '3003:8000'
     environment:
       - DATABASE_URL=postgresql+psycopg2://postgres:password@db:5432/product_db
       # ⚠ 這兩行不可省。`server/.env` 裡 DB_HOST=localhost 是給本機直跑用的，
