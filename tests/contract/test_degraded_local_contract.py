@@ -7,7 +7,10 @@
 這個檔案要擋下四件事：
   1. 降階結果被現行 App 當成完整結果渲染，顯示一個沒算過的分數。
      App 只要看到 health_score 就渲染結果頁（APP/src/screens/HomeScreen.tsx），
-     所以降階結果絕不可帶它。沒有它時 App 會顯示 message，這是刻意的安全退路。
+     所以降階結果絕不可帶它。~~沒有它時 App 會顯示 message，這是刻意的安全退路。~~
+     **2026-09-13 更新**：App 已接上 `DegradedLocalResponse`，改為渲染第三種狀態
+     （成分與添加物清單 ＋ 明確列出拿不到什麼），不再只顯示那段文字。
+     「不可顯示分數」這條不變，而且現在由本檔末尾的測試直接檢查 JSX。
   2. Node 層把降階結果寫進快取，之後被當成正式結果重播。
      Node 只快取 status === 'success' 的回應（fog/queryHandler.ts）。
   3. Fog 與 App 對欄位的認知分岔。App 的 DegradedLocalResponse 型別在此逐欄比對。
@@ -136,3 +139,88 @@ def test_app_type_matches_fog_keys():
     assert app_keys == EXPECTED_KEYS | NODE_ADDED_KEYS, (
         f"只有 Fog 有：{sorted(EXPECTED_KEYS - app_keys)}；"
         f"只有 App 有：{sorted(app_keys - EXPECTED_KEYS - NODE_ADDED_KEYS)}")
+
+
+# ── App 端的降階畫面（2026-09-13 接上 DegradedLocalResponse 後新增）──────────
+HOMESCREEN = Path(__file__).resolve().parents[2] / "APP" / "src" / "screens" / "HomeScreen.tsx"
+
+
+def _screen() -> str:
+    return HOMESCREEN.read_text(encoding="utf-8")
+
+
+def _degraded_jsx() -> str:
+    """只取降階那一段 JSX，並**去掉註解**。
+
+    ⚠ 不去註解的話，寫「這份回應沒有 health_score」這種說明本身就會讓
+    下面那條測試紅掉——第一版就是這樣（同一個錯誤在 test_timing_headers.py
+    也犯過一次）。要檢查的是**畫面會渲染什麼**，不是原始碼提到什麼。
+    """
+    src = _screen()
+    i = src.index("{!isAnalyzing && !analysisError && degradedResult && (")
+    j = src.index("{/* Results */}", i)
+    jsx = src[i:j]
+    B = chr(92)
+    jsx = re.sub(B + "{/" + B + "*.*?" + B + "*/" + B + "}", "", jsx, flags=re.S)  # JSX 註解
+    jsx = re.sub("//[^" + B + "n]*", "", jsx)                                      # 行註解
+    return jsx
+
+
+def test_app_recognises_the_degraded_mode():
+    """靠 `degraded_mode === 'local_ocr'` 而不是只看 status。
+
+    `status: degraded` 也可能來自別的路徑，而只有本機 OCR 這一種帶著
+    ingredients_detail。認錯會渲染一個空的清單。
+    """
+    src = _screen()
+    assert "degraded_mode === 'local_ocr'" in src
+    assert "setDegradedResult" in src
+
+
+def test_degraded_view_never_renders_a_score():
+    """這份回應沒有 health_score，畫面上出現任何分數就是編造出來的。
+
+    `normalize_result` 憑空補 75 分那次（A1）正是這個形狀，
+    差別只在那次發生在 Fog、這次會發生在畫面。
+    """
+    jsx = _degraded_jsx()
+    for banned in ["health_score", "risk_level", "Gauge", "nutrition_facts"]:
+        assert banned not in jsx, f"降階畫面不該出現 {banned}"
+
+
+def test_normal_result_view_is_excluded_when_degraded():
+    """兩段都會渲染的話，使用者會同時看到「離線部分結果」與一個完整結果頁。"""
+    src = _screen()
+    assert "!isAnalyzing && !analysisError && !degradedResult && analysisResult" in src
+
+
+def test_every_unavailable_field_has_a_chinese_label():
+    """`unavailable_fields` 是要給使用者看的。少一個標籤就會漏列一項
+    「拿不到的東西」，而那正是這個畫面存在的理由。"""
+    src = _screen()
+    BS = chr(92)
+    pat = "const UNAVAILABLE_LABELS[^{]*" + BS + "{(.*?)" + BS + "n};"
+    m = re.search(pat, src, re.S)
+    assert m, "找不到 UNAVAILABLE_LABELS"
+    labelled = set(re.findall(BS + "w+(?=:)", m.group(1)))
+    from transforms import DEGRADED_LOCAL_UNAVAILABLE
+    missing = set(DEGRADED_LOCAL_UNAVAILABLE) - labelled
+    assert not missing, f"這些欄位沒有中文標籤：{sorted(missing)}"
+
+
+def test_degraded_view_keeps_the_allergen_check():
+    """過敏原偵測只需要 ingredients_detail，降階跑得起來，
+    而它是 Cloud 掛掉時最該保留的一塊。"""
+    src = _screen()
+    assert "degradedRisks" in src
+    assert "matchedAllergens" in _degraded_jsx()
+
+
+def test_degraded_view_does_not_claim_absence():
+    """純 OCR 漏讀機率比雲端高，所以「沒偵測到」不可寫成「不含」。
+
+    與 `NOT_IN_DB_LABEL`（"本系統未收錄"，刻意不用「無」「安全」）同一條原則。
+    """
+    jsx = _degraded_jsx()
+    assert "不代表" in jsx, "降階畫面缺少「未列出不代表不含」這類但書"
+    assert "未比對到添加物資料庫" in jsx,         "其他成分的標題必須是「未比對到添加物資料庫」，不可寫成「非添加物」"

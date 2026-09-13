@@ -19,7 +19,7 @@ import {
 import { Sparkles, Sliders, Database, ShoppingBag, AlertOctagon, RotateCcw, Layers, ShieldCheck, Grid, ChevronRight, Zap, ChevronUp, ChevronDown, ArrowLeft, AlertTriangle, CheckCircle2, Info, ScanLine, Activity, Settings2, X } from 'lucide-react-native';
 
 import { useFontScale } from '../contexts/FontScaleContext';
-import { UserConditions, AnalysisResponse } from '../types';
+import { UserConditions, AnalysisResponse, DegradedLocalResponse } from '../types';
 import { MOCK_RESULTS } from '../mockResultData';
 import Gauge from '../components/Gauge';
 import IngredientsList from '../components/IngredientsList';
@@ -130,6 +130,11 @@ export default function HomeScreen() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResponse | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  // Fog 在 Cloud 連不上且無快取時，用本機 OCR 回的部分結果。
+  // **與 analysisResult 分開存**：它刻意沒有 health_score，混在一起會讓
+  // 結果頁的 `health_score ?? 100` 顯示一個不存在的分數
+  // （`normalize_result` 憑空補 75 分那次就是這樣來的）。
+  const [degradedResult, setDegradedResult] = useState<DegradedLocalResponse | null>(null);
   const [activeDetailView, setActiveDetailView] = useState<'additives' | 'history' | 'breakdown' | null>(null);
   const [isScoreExpanded, setIsScoreExpanded] = useState(false);
 
@@ -166,6 +171,7 @@ export default function HomeScreen() {
     setIsAnalyzing(true);
     setAnalysisResult(null);
     setAnalysisError(null);
+    setDegradedResult(null);
     setView('result');
 
     // ── 實驗埋點 ────────────────────────────────────────────────────────
@@ -223,6 +229,16 @@ export default function HomeScreen() {
       // 這些形狀都沒有 health_score。若只看 response.ok 就會把它們當成有效結果，
       // 結果頁的 `health_score ?? 100` 會顯示一個假的 100 分，而後端寫好的引導訊息
       // （「請對準成分表重新拍攝」等）永遠不會被看到。
+      // Fog 的本機降階：**有部分結果，不是失敗。**
+      // 它刻意沒有 health_score（見 fog/transforms.build_degraded_local_response），
+      // 所以不能跟下面那個「沒有分數就是失敗」的判斷混在一起。
+      // degraded_mode 是它與「Cloud 診斷降級」的區別——後者仍有分數。
+      if (result?.status === 'degraded' && result?.degraded_mode === 'local_ocr') {
+        recResult = result;
+        setDegradedResult(result as DegradedLocalResponse);
+        return;
+      }
+
       if (result?.health_score === undefined) {
         throw new Error(
           result?.message ?? json?.message ?? '無法完成分析，請確認條碼或照片後再試一次',
@@ -323,6 +339,7 @@ export default function HomeScreen() {
     setView('scan');
     setAnalysisResult(null);
     setAnalysisError(null);
+    setDegradedResult(null);
     setActiveDetailView(null);
     setIsScoreExpanded(false);
   };
@@ -391,6 +408,23 @@ export default function HomeScreen() {
     allergens: [...allergens, ...(customAllergen.trim() ? [customAllergen.trim()] : [])],
     chronicConditions: chronicDiseases,
   });
+
+  // ── 降階結果的本地比對 ──────────────────────────────────────────────────
+  // 過敏原偵測與族群添加物風險**只吃 ingredients_detail**，降階資料就跑得起來
+  // （checkNutritionThresholds 需要營養值，降階沒有，它會安全地回空陣列）。
+  // 這一塊是安全關鍵：Cloud 掛掉時最該保留的正是過敏原示警。
+  const degradedRisks = analyzePersonalRisks(
+    // 只帶 ingredients_detail：刻意不偽造成完整的 AnalysisResponse，
+    // 免得日後有人把它當成真的分析結果往下傳。
+    degradedResult ? ({ ingredients_detail: degradedResult.ingredients_detail } as AnalysisResponse) : null,
+    {
+      group: targetGroup,
+      allergens: [...allergens, ...(customAllergen.trim() ? [customAllergen.trim()] : [])],
+      chronicConditions: chronicDiseases,
+    },
+  );
+  const degradedAdditives = (degradedResult?.ingredients_detail ?? []).filter(isAdditive);
+  const degradedOthers = (degradedResult?.ingredients_detail ?? []).filter(i => !isAdditive(i));
 
   // 已設定的健康條件數量，顯示在齒輪上——否則設定被收起來後，使用者無從得知
   // 自己到底有沒有設過、設了什麼。
@@ -650,8 +684,108 @@ export default function HomeScreen() {
                 </View>
               )}
 
+              {/* ── 離線降階（Fog 本機 OCR）────────────────────────────────
+                  刻意做成第三種狀態，不是「成功」也不是「失敗」：
+                  - **絕不顯示分數。** 這份回應沒有 health_score，硬填一個就是
+                    編造（`normalize_result` 補 75 分那次的教訓）。
+                  - **明確列出拿不到什麼**，而不是安靜省略。理由同
+                    `NOT_IN_DB_LABEL` 那條：「沒有資料」不可呈現成「沒有問題」。
+                  - 過敏原與族群風險照樣比對——那是安全關鍵，且只需要成分清單。 */}
+              {!isAnalyzing && !analysisError && degradedResult && (
+                <>
+                  <View style={[s.row, s.resultNav]}>
+                    <Pressable style={s.btnSecondary} onPress={handleBackToScan}>
+                      <RotateCcw size={13} color="#757575" />
+                      <Text style={s.btnSecondaryText}>重新檢測</Text>
+                    </Pressable>
+                  </View>
+
+                  <View style={[s.card, s.degradedBox]}>
+                    <View style={s.row}>
+                      <AlertTriangle size={20} color={DEGRADED_FG} />
+                      <Text style={s.degradedTitle}>離線模式・部分結果</Text>
+                    </View>
+                    <Text style={s.degradedMsg}>{degradedResult.message}</Text>
+                    <Text style={s.degradedNote}>
+                      本機辨識：{degradedResult.engine?.ocr ?? '—'}・
+                      {degradedResult.elapsed_s} 秒
+                    </Text>
+                  </View>
+
+                  {/* 過敏原：Cloud 掛掉時最該保留的一塊 */}
+                  {degradedRisks.matchedAllergens.length > 0 && (
+                    <View style={[s.card, s.errorBox]}>
+                      <AlertOctagon size={22} color="#dc2626" />
+                      <Text style={s.errorTitle}>符合你設定的過敏原</Text>
+                      <Text style={s.errorMsg}>
+                        {degradedRisks.matchedAllergens.join('、')}
+                      </Text>
+                      {/* 誠實的但書：降階用的是純 OCR，漏讀的機率比雲端高。
+                          「沒偵測到」在這個模式下不等於「不含」。 */}
+                      <Text style={s.degradedNote}>
+                        離線辨識可能漏讀，未列出的項目不代表不含。
+                      </Text>
+                    </View>
+                  )}
+
+                  {degradedRisks.additiveRisks.length > 0 && (
+                    <View style={s.card}>
+                      <Text style={s.cardTitle}>與你的健康條件相關</Text>
+                      {degradedRisks.additiveRisks.map((r, i) => (
+                        <Text key={`${r.name}-${i}`} style={s.degradedMsg}>
+                          {r.name}：{r.reason}
+                        </Text>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* 添加物清單。教授的定位是「使用者主要看添加物攤開後的解釋」，
+                      所以降階模式也以這一塊為主體。 */}
+                  <View style={s.card}>
+                    <Text style={s.cardTitle}>
+                      添加物（{degradedAdditives.length}）
+                    </Text>
+                    {degradedAdditives.length > 0 ? (
+                      <IngredientsList ingredients={degradedAdditives} />
+                    ) : (
+                      <Text style={s.degradedMsg}>
+                        本次未比對到添加物。離線辨識可能漏讀，不代表本產品不含添加物。
+                      </Text>
+                    )}
+                  </View>
+
+                  {degradedOthers.length > 0 && (
+                    <View style={s.card}>
+                      {/* 標題必須是「未比對到添加物資料庫」而不是「非添加物」——
+                          同一份資料、同樣 5.8% 的比對錯誤率，但一個是誠實的缺口、
+                          一個是錯誤陳述（見上方 isAdditive 的註解）。 */}
+                      <Text style={s.cardTitle}>
+                        其他成分・未比對到添加物資料庫（{degradedOthers.length}）
+                      </Text>
+                      <IngredientsList ingredients={degradedOthers} />
+                    </View>
+                  )}
+
+                  {/* 拿不到什麼，明講 */}
+                  <View style={s.card}>
+                    <Text style={s.cardTitle}>離線模式無法提供</Text>
+                    <Text style={s.degradedMsg}>
+                      {degradedResult.unavailable_fields
+                        .map(f => UNAVAILABLE_LABELS[f] ?? f)
+                        // 同一個中文標籤可能對應多個欄位（score_breakdown 與
+                        // health_score 都是「健康評分」），去重後才不會重複列。
+                        .filter((v, i, a) => a.indexOf(v) === i)
+                        .join('、')}
+                    </Text>
+                    <Text style={s.degradedNote}>
+                      這些需要雲端才能計算。恢復連線後重新檢測即可取得完整分析。
+                    </Text>
+                  </View>
+                </>
+              )}
+
               {/* Results */}
-              {!isAnalyzing && !analysisError && analysisResult && (
+              {!isAnalyzing && !analysisError && !degradedResult && analysisResult && (
                 <>
                   {/* Top nav */}
                   <View style={[s.row, s.resultNav]}>
@@ -1085,6 +1219,34 @@ export default function HomeScreen() {
   );
 }
 
+// 降階模式用琥珀色：**不可用綠色也不可用紅色**。綠色會讓使用者以為是正常結果、
+// 紅色會讓人以為失敗了，而它是「有部分結果但不完整」——第三種狀態要有第三種顏色。
+const DEGRADED_FG = '#B45309';
+const DEGRADED_BG = '#FEF3C7';
+const DEGRADED_BORDER = '#FCD34D';
+
+/**
+ * `unavailable_fields` 的中文標籤。
+ *
+ * 鍵來自 `fog/transforms.py` 的 `DEGRADED_LOCAL_UNAVAILABLE`，
+ * 由 `tests/contract/test_degraded_local_contract.py` 跨層比對。
+ * 查不到的鍵**原樣顯示**而不是丟掉——後端新增欄位時寧可畫面上出現一個英文字，
+ * 也不要安靜少列一項「拿不到的東西」。
+ */
+const UNAVAILABLE_LABELS: Record<string, string> = {
+  health_score: '健康評分',
+  risk_level: '風險等級',
+  score_breakdown: '評分明細',
+  nutrition_facts: '營養標示',
+  daily_reference: '每日參考值',
+  product_info: '品名與廠商',
+  allergen_warnings: '標示上的過敏原警語',
+  food_safety_events: '廠商食安事件',
+  overall_summary: 'AI 總結',
+  additives_summary: 'AI 添加物說明',
+  safety_events_summary: 'AI 食安摘要',
+};
+
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const BRAND = '#009B52';       // OFF green
 const BRAND_LIGHT = '#E6F7EE';
@@ -1310,6 +1472,12 @@ const createStyles = (scale: number) => StyleSheet.create({
   loadingSubtitle: { fontSize: 12 * scale, color: TEXT_MID, textAlign: 'center', lineHeight: 18, maxWidth: 280 },
   errorBox: { alignItems: 'center', gap: 10, paddingVertical: 30, backgroundColor: '#fff1f2', borderColor: '#fecaca' },
   errorTitle: { fontSize: 14 * scale, fontWeight: '900', color: '#7f1d1d' },
+  degradedBox: { gap: 8, backgroundColor: DEGRADED_BG, borderColor: DEGRADED_BORDER },
+  degradedTitle: { fontSize: 14 * scale, fontWeight: '900', color: DEGRADED_FG },
+  degradedMsg: { fontSize: 12 * scale, color: TEXT_DARK, lineHeight: 18 },
+  // 但書用較小字與灰色：它是限制說明，不該跟結果本身搶注意力，
+  // 但**必須看得見**——「沒偵測到」在純 OCR 模式下不等於「不含」。
+  degradedNote: { fontSize: 11 * scale, color: TEXT_MID, lineHeight: 16, marginTop: 4 },
   errorMsg: { fontSize: 12 * scale, color: '#991b1b', textAlign: 'center', lineHeight: 17 },
   retryBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
