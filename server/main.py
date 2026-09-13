@@ -826,8 +826,17 @@ def _is_valid_food_scan(vision_data) -> tuple:
     return False, "照片中未偵測到成分或營養標示"
 
 
-@app.post("/query")
-@app.post("/analyze")
+# ⚠ **三條路由共用同一個處理函式，所以金鑰必須掛在每一條上。**
+#
+# 2026-09-14 發現：A4 的共享密鑰原本只掛在 /api/analyze，而 /query 與
+# /analyze 是同一個 handler 的別名——任何人打那兩條就完全繞過驗證，
+# 而它們會呼叫付費的 reader 與 Gemini。A4 的整個理由（Cloudflare Tunnel
+# 把端點變成公開 HTTPS）在那兩條上等於不存在。
+#
+# 保留別名是為了相容舊版 App（歷史上打過 /query）。要移除得先確認沒有
+# 任何在外的版本還在用——現行 App 與 Fog 都打 /api/analyze。
+@app.post("/query", dependencies=[Depends(require_api_key)])
+@app.post("/analyze", dependencies=[Depends(require_api_key)])
 @app.post("/api/analyze", dependencies=[Depends(require_api_key)])
 async def analyze(request: Request, background_tasks: BackgroundTasks):
     try:

@@ -100,3 +100,26 @@ def test_key_is_not_shipped_to_the_app():
             if ENV_VAR in open(p, encoding='utf-8', errors='replace').read():
                 hits.append(os.path.relpath(p, ROOT))
     assert not hits, 'App 端出現了 %s：%s' % (ENV_VAR, hits)
+
+
+# ── 別名路由也必須保護（2026-09-14 新增）────────────────────────────────────
+def test_every_alias_of_the_analyze_handler_is_guarded():
+    """`/query`、`/analyze`、`/api/analyze` 是**同一個處理函式**的三個別名。
+
+    金鑰只掛在其中一條的話，另外兩條就是完全繞過驗證的後門——而它們一樣會
+    呼叫付費的 reader 與 Gemini。2026-09-14 之前就是這樣：A4 的整個理由
+    （Cloudflare Tunnel 把端點變成公開 HTTPS）在那兩條上等於不存在。
+
+    這種漏法特別難發現：三個裝飾器疊在同一個函式上，讀的時候很容易只看到
+    最靠近 def 的那一個。
+    """
+    src = open(CLOUD, encoding="utf-8").read()
+    i = src.index(chr(64) + 'app.post("/query"')
+    block = src[i:src.index("async def analyze", i)]
+    routes = [l.strip() for l in block.split(chr(10))
+              if l.strip().startswith(chr(64) + "app.post(")]
+    assert len(routes) >= 3, "找不到三條別名路由（實得 %s）" % routes
+    for line in routes:
+        assert "require_api_key" in line, (
+            "%s 沒有掛 require_api_key——它與 /api/analyze 是同一個 handler，"
+            "沒保護等於完全繞過驗證。" % line)
