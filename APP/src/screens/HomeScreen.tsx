@@ -13,10 +13,9 @@ import {
   LayoutAnimation,
   UIManager,
   StyleSheet,
-  Modal,
   Share,
 } from 'react-native';
-import { Sparkles, Sliders, Database, ShoppingBag, AlertOctagon, RotateCcw, Layers, ShieldCheck, Grid, ChevronRight, Zap, ChevronUp, ChevronDown, ArrowLeft, AlertTriangle, CheckCircle2, Info, ScanLine, Activity, Settings2, X } from 'lucide-react-native';
+import { Sparkles, Sliders, Database, ShoppingBag, AlertOctagon, RotateCcw, Layers, ShieldCheck, Grid, ChevronRight, Zap, ChevronUp, ChevronDown, ArrowLeft, AlertTriangle, CheckCircle2, Info, ScanLine, Activity, Settings2 } from 'lucide-react-native';
 
 import { useFontScale } from '../contexts/FontScaleContext';
 import { UserConditions, AnalysisResponse, DegradedLocalResponse } from '../types';
@@ -82,7 +81,7 @@ export default function HomeScreen() {
   const s = createStyles(fontScale);
 
   // 掃描是進入 App 的第一個畫面；健康設定改由右下角齒輪進入（2026-08-05）
-  const [view, setView] = useState<'scan' | 'profile' | 'result'>('scan');
+  const [view, setView] = useState<'scan' | 'profile' | 'result' | 'settings'>('scan');
   const [targetGroup, setTargetGroup] = useState<UserConditions['group']>('adult');
   const [allergens, setAllergens] = useState<string[]>([]);
   const [customAllergen, setCustomAllergen] = useState('');
@@ -125,7 +124,6 @@ export default function HomeScreen() {
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [serverEndpoint, setServerEndpoint] = useState<'fog' | 'cloud'>('fog');
 
-  const [advancedVisible, setAdvancedVisible] = useState(false);
   // 其他成分預設收合：使用者要看的是添加物，其餘配料是備查用的
   const [othersExpanded, setOthersExpanded] = useState(false);
   const [scannerVisible, setScannerVisible] = useState(false);
@@ -306,10 +304,10 @@ export default function HomeScreen() {
   // ── 實驗量測紀錄的匯出／清除 ───────────────────────────────────────────
   const [telemetryCount, setTelemetryCount] = useState(0);
   useEffect(() => {
-    // 每次打開進階設定才重讀：掃描完不即時更新筆數，省一次 AsyncStorage 讀取，
-    // 而使用者要看筆數時本來就得開這個面板。
-    if (advancedVisible) void Telemetry.load().then(r => setTelemetryCount(r.length));
-  }, [advancedVisible]);
+    // 每次進到進階設定才重讀：掃描完不即時更新筆數，省一次 AsyncStorage 讀取，
+    // 而使用者要看筆數時本來就得開這一頁。
+    if (view === 'settings') void Telemetry.load().then(r => setTelemetryCount(r.length));
+  }, [view]);
 
   const handleExportTelemetry = async () => {
     const records = await Telemetry.load();
@@ -450,7 +448,7 @@ export default function HomeScreen() {
       </Pressable>
 
       {/* 健康設定入口。設定畫面本身不顯示，避免與畫面內的返回鍵重複。 */}
-      {view !== 'profile' && (
+      {view !== 'profile' && view !== 'settings' && (
         <Pressable
           onPress={() => setView('profile')}
           style={s.profileGearBtn}
@@ -556,6 +554,81 @@ export default function HomeScreen() {
             </View>
           )}
 
+          {/* ══════════ 進階設定（獨立頁面）══════════
+              2026-09-13 從底部彈出的 Modal 改成獨立頁。理由：這一頁的內容
+              已經不只是「切個節點」——多了實驗量測紀錄與逐段延遲，彈窗高度
+              放不下、又會蓋住底下的結果。與個人健康設定同一種形狀（頂部返回列
+              ＋ 一般捲動），使用者只要學一次。 */}
+          {view === 'settings' && (
+            <View>
+              <View style={s.profileTopBar}>
+                <Pressable style={s.btnSecondary} onPress={() => setView('scan')}>
+                  <ArrowLeft size={13} color={BRAND} />
+                  <Text style={s.btnSecondaryText}>返回掃描</Text>
+                </Pressable>
+              </View>
+
+              <View style={s.card}>
+                <View style={s.cardHeader}>
+                  <Settings2 size={18} color={TEXT_MID} />
+                  <Text style={s.cardTitle}>進階設定</Text>
+                </View>
+                <Text style={s.cardSubtitle}>
+                  後端節點與實驗量測。這一頁是開發與展示用的，一般使用不需要動。
+                </Text>
+              </View>
+
+              <Text style={s.settingsLabel}>食品檢核計算節點</Text>
+              <Text style={s.settingsSub}>選擇分析請求要送往哪個後端節點</Text>
+              <View style={s.segmentedControl}>
+                <Pressable
+                  style={[s.segBtn, serverEndpoint === 'fog' && s.segBtnActive]}
+                  onPress={() => setServerEndpoint('fog')}
+                >
+                  <Text style={[s.segBtnText, serverEndpoint === 'fog' && s.segBtnTextActive]}>
+                    微型邊緣霧節點 (Fog)
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[s.segBtn, serverEndpoint === 'cloud' && s.segBtnActiveCloud]}
+                  onPress={() => setServerEndpoint('cloud')}
+                >
+                  <Text style={[s.segBtnText, serverEndpoint === 'cloud' && s.segBtnTextActive]}>
+                    雲端伺服器 (Cloud)
+                  </Text>
+                </Pressable>
+              </View>
+
+              {/* 「快取管理」區塊已於 2026-08-05 移除。它呼叫 POST :3001/cache/clear，
+                  但 Fog 的 Node 層（3001）只註冊了 DELETE /cache 與 DELETE /cache/:barcode，
+                  該路由不存在 → 一直是 404，按下去只會顯示「清除失敗」。
+                  POST /cache/clear 只存在於 Python 層（3002），而 App 連不到 3002。
+                  Fog 的快取機制本身不受影響，仍照常運作（TTL 到期自動失效）。
+                  若之後要恢復：在 fog/server.ts 補一條轉發路由，並補上路由存在性測試。 */}
+
+              {/* ── 實驗量測紀錄 ────────────────────────────────────────────────
+                  一次掃描一列，存在裝置本地（AsyncStorage），由使用者自己匯出。
+                  **不自動回傳任何東西**——個人化資料不上雲是本專案明文的界線，
+                  量測紀錄同樣比照。匯出走 RN 內建的 Share，不額外加依賴。 */}
+              <Text style={[s.settingsLabel, { marginTop: 20 }]}>實驗量測紀錄</Text>
+              <Text style={s.settingsSub}>
+                已累積 {telemetryCount} 筆，存在本機。匯出為 CSV 後可直接做統計。
+              </Text>
+              <View style={s.segmentedControl}>
+                <Pressable style={s.segBtn} onPress={handleExportTelemetry}>
+                  <Text style={s.segBtnText}>匯出 CSV</Text>
+                </Pressable>
+                <Pressable style={s.segBtn} onPress={handleClearTelemetry}>
+                  <Text style={s.segBtnText}>清除紀錄</Text>
+                </Pressable>
+              </View>
+
+              <Pressable style={[s.btnPrimary, { marginTop: 24 }]} onPress={() => setView('scan')}>
+                <Text style={s.btnPrimaryText}>完成</Text>
+              </Pressable>
+            </View>
+          )}
+
           {/* ══════════ STEP 2: Scan ══════════ */}
           {view === 'scan' && (
             <>
@@ -643,7 +716,7 @@ export default function HomeScreen() {
                 </View>
 
                 {/* 進階設定：開發／展示用（選後端節點、清快取），故置於主要動作之後 */}
-                <Pressable style={s.advancedBtn} onPress={() => setAdvancedVisible(true)}>
+                <Pressable style={s.advancedBtn} onPress={() => setView('settings')}>
                   <Settings2 size={13} color={TEXT_MID} />
                   <Text style={s.advancedBtnText}>進階設定</Text>
                   <View style={s.advancedEndpointBadge}>
@@ -1221,73 +1294,6 @@ export default function HomeScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Advanced settings modal */}
-      <Modal
-        visible={advancedVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setAdvancedVisible(false)}
-      >
-        <Pressable style={s.modalBackdrop} onPress={() => setAdvancedVisible(false)} />
-        <View style={s.modalSheet}>
-          <View style={s.modalHandle} />
-          <View style={s.modalHeader}>
-            <Text style={s.modalTitle}>進階設定</Text>
-            <Pressable onPress={() => setAdvancedVisible(false)} style={s.modalCloseBtn}>
-              <X size={16} color={TEXT_MID} />
-            </Pressable>
-          </View>
-
-          <Text style={s.modalSectionLabel}>食品檢核計算節點</Text>
-          <Text style={s.modalSectionSub}>選擇分析請求要送往哪個後端節點</Text>
-          <View style={s.segmentedControl}>
-            <Pressable
-              style={[s.segBtn, serverEndpoint === 'fog' && s.segBtnActive]}
-              onPress={() => setServerEndpoint('fog')}
-            >
-              <Text style={[s.segBtnText, serverEndpoint === 'fog' && s.segBtnTextActive]}>
-                微型邊緣霧節點 (Fog)
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[s.segBtn, serverEndpoint === 'cloud' && s.segBtnActiveCloud]}
-              onPress={() => setServerEndpoint('cloud')}
-            >
-              <Text style={[s.segBtnText, serverEndpoint === 'cloud' && s.segBtnTextActive]}>
-                雲端伺服器 (Cloud)
-              </Text>
-            </Pressable>
-          </View>
-
-          {/* 「快取管理」區塊已於 2026-08-05 移除。它呼叫 POST :3001/cache/clear，
-              但 Fog 的 Node 層（3001）只註冊了 DELETE /cache 與 DELETE /cache/:barcode，
-              該路由不存在 → 一直是 404，按下去只會顯示「清除失敗」。
-              POST /cache/clear 只存在於 Python 層（3002），而 App 連不到 3002。
-              Fog 的快取機制本身不受影響，仍照常運作（TTL 到期自動失效）。
-              若之後要恢復：在 fog/server.ts 補一條轉發路由，並補上路由存在性測試。 */}
-
-          {/* ── 實驗量測紀錄 ────────────────────────────────────────────────
-              一次掃描一列，存在裝置本地（AsyncStorage），由使用者自己匯出。
-              **不自動回傳任何東西**——個人化資料不上雲是本專案明文的界線，
-              量測紀錄同樣比照。匯出走 RN 內建的 Share，不額外加依賴。 */}
-          <Text style={[s.modalSectionLabel, { marginTop: 20 }]}>實驗量測紀錄</Text>
-          <Text style={s.modalSectionSub}>
-            已累積 {telemetryCount} 筆，存在本機。匯出為 CSV 後可直接做統計。
-          </Text>
-          <View style={s.segmentedControl}>
-            <Pressable style={s.segBtn} onPress={handleExportTelemetry}>
-              <Text style={s.segBtnText}>匯出 CSV</Text>
-            </Pressable>
-            <Pressable style={s.segBtn} onPress={handleClearTelemetry}>
-              <Text style={s.segBtnText}>清除紀錄</Text>
-            </Pressable>
-          </View>
-
-          <Pressable style={[s.btnPrimary, { marginTop: 16 }]} onPress={() => setAdvancedVisible(false)}>
-            <Text style={s.btnPrimaryText}>確認</Text>
-          </Pressable>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -1740,28 +1746,7 @@ const createStyles = (scale: number) => StyleSheet.create({
   },
   advancedEndpointBadgeText: { fontSize: 10 * scale, fontWeight: '700', color: SEL_TEXT },
 
-  // Modal
-  modalBackdrop: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.35)',
-  },
-  modalSheet: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    padding: 24, paddingBottom: 40,
-    borderTopWidth: 1, borderColor: BORDER,
-  },
-  modalHandle: {
-    width: 40, height: 4, borderRadius: 2,
-    backgroundColor: BORDER, alignSelf: 'center', marginBottom: 16,
-  },
-  modalHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20,
-  },
-  modalTitle: { fontSize: 16 * scale, fontWeight: '900', color: TEXT_DARK },
-  modalCloseBtn: {
-    padding: 6, borderRadius: 10, backgroundColor: BRAND_LIGHT,
-    borderWidth: 1, borderColor: BORDER,
-  },
-  modalSectionLabel: { fontSize: 12 * scale, fontWeight: '800', color: TEXT_DARK, marginBottom: 4 },
-  modalSectionSub: { fontSize: 11 * scale, color: TEXT_MID, marginBottom: 12 },
+  // 進階設定頁
+  settingsLabel: { fontSize: 12 * scale, fontWeight: '800', color: TEXT_DARK, marginBottom: 4 },
+  settingsSub: { fontSize: 11 * scale, color: TEXT_MID, marginBottom: 12 },
 });
