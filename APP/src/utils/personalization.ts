@@ -24,7 +24,7 @@ export interface PersonalProfile {
    */
   allergens: string[];
   /**
-   * 慢性病，僅接受預設代碼（hypertension / diabetes）。
+   * 慢性病，僅接受預設代碼（hypertension / diabetes / hyperlipidemia）——三高。
    * 自訂中文文字無意義：groupRisks[].group 只會是 7 個英文碼，營養閾值也只認
    * 這兩個代碼，中文字串兩邊都對不上。UI 的自訂欄位已於 2026-08-05 移除。
    */
@@ -102,13 +102,33 @@ const NUTRITION_RULES = [
   },
   {
     conditionKeys: ['diabetes'],
-    condition: '糖尿病',
+    condition: '高血糖',
     field: 'sugar' as const,
     threshold: 10,
     unit: '公克',
     title: '高糖警示',
     // WHO 2015 游離糖建議 <25 公克/日，10 公克已達 40%
     rationale: '超過每 100 公克 10 公克的建議閾值，對血糖波動影響顯著',
+  },
+  {
+    // 2026-09-13 新增，補上三高的第三項。
+    //
+    // 在這之前做不到，原因不是沒有標準而是**拿不到值**：Cloud 的
+    // nutrition_facts 只回五欄，飽和脂肪不在裡面（CLAUDE.md 記過）。
+    // 同日把它補進 server/main.py 的 nutrition dict 與 22 欄契約，
+    // 這條規則才成立。值仍然**很常是 None**（解析拿不到），
+    // 而 checkNutritionThresholds 會跳過非數值——那是對的，
+    // 「沒有標示」不可當成 0 而判為安全。
+    conditionKeys: ['hyperlipidemia'],
+    condition: '高血脂',
+    field: 'saturated_fat' as const,
+    threshold: 5,
+    unit: '公克',
+    title: '高飽和脂肪警示',
+    // 英國 FSA 前標交通燈號：飽和脂肪 >5 公克/100 公克為紅燈（高）。
+    // 刻意不用總脂肪：那會把富含不飽和脂肪的堅果與植物油一起警示，
+    // 而它們對血脂的作用方向相反。
+    rationale: '超過每 100 公克 5 公克的建議閾值，與血中低密度脂蛋白升高相關',
   },
 ];
 

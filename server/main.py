@@ -1145,6 +1145,11 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
             "calories": product.get("calories", 0.0),
             "protein": product.get("protein", 0.0),
             "fat": product.get("fat", 0.0),
+            # 2026-09-13 新增。寫入端一直有存（上面的 UPSERT 有 saturated_fat 欄），
+            # 讀取端漏了它，所以高血脂的閾值示警做不了——CLAUDE.md 記過這個缺口。
+            # ⚠ 這一欄**很常是 None**（自願標示，不是法定必標），下游務必分辨
+            #   「沒有標示」與「含量為零」。不可在這裡補 0。
+            "saturated_fat": product.get("saturated_fat", 0.0),
             "sugar": product.get("sugar", 0.0),
             "sodium": product.get("sodium", 0.0)
         }

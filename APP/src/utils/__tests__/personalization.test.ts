@@ -76,11 +76,40 @@ describe('慢性病營養閾值', () => {
     expect(r.nutritionWarnings[0].detail).toContain('480');
   });
 
-  it('糖尿病 + 糖 29.2g 觸發高糖警示', () => {
+  it('高血糖 + 糖 29.2g 觸發高糖警示', () => {
     const r = analyzePersonalRisks(makeResult(), {
       ...ADULT, chronicConditions: ['diabetes'],
     });
-    expect(r.nutritionWarnings.map(w => w.condition)).toEqual(['糖尿病']);
+    expect(r.nutritionWarnings.map(w => w.condition)).toEqual(['高血糖']);
+  });
+
+  it('高血脂 + 飽和脂肪 6.2g 觸發警示', () => {
+    const r = analyzePersonalRisks(
+      makeResult({ data: { nutrition_facts: { saturated_fat: 6.2 } } }),
+      { ...ADULT, chronicConditions: ['hyperlipidemia'] },
+    );
+    expect(r.nutritionWarnings.map(w => w.condition)).toEqual(['高血脂']);
+    expect(r.nutritionWarnings[0].detail).toContain('6.2');
+  });
+
+  it('高血脂看飽和脂肪而不是總脂肪', () => {
+    // 堅果與植物油的總脂肪很高但飽和脂肪低，對血脂的作用方向相反。
+    // 拿總脂肪當代理會把它們一起警示，所以規則必須綁在 saturated_fat 上。
+    const r = analyzePersonalRisks(
+      makeResult({ data: { nutrition_facts: { fat: 48, saturated_fat: 3.5 } } }),
+      { ...ADULT, chronicConditions: ['hyperlipidemia'] },
+    );
+    expect(r.nutritionWarnings).toEqual([]);
+  });
+
+  it('飽和脂肪未標示（null）時不得觸發高血脂警示', () => {
+    // Cloud 的營養解析常常拿不到這一欄。null 不可當成 0 判為安全，
+    // 也不可當成超標——兩個方向都是編造。
+    const r = analyzePersonalRisks(
+      makeResult({ data: { nutrition_facts: { saturated_fat: null } } }),
+      { ...ADULT, chronicConditions: ['hyperlipidemia'] },
+    );
+    expect(r.nutritionWarnings).toEqual([]);
   });
 
   it('未超過閾值時不觸發', () => {

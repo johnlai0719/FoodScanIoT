@@ -122,8 +122,11 @@ key。這樣它們才能在 CI 上每次 push 都跑。加新測試時請維持�
 ## 已知陷阱
 
 **營養資料只在 `data.nutrition_facts`，頂層沒有。**
-只有五個欄位（calories/protein/fat/sugar/sodium），基準是每 100g/100mL。
-飽和脂肪不在裡面（存在於 `daily_reference.items[]`），所以高血脂的閾值警示做不了。
+~~只有五個欄位（calories/protein/fat/sugar/sodium）~~，基準是每 100g/100mL。
+**2026-09-13 起是六個欄位，加入 `saturated_fat`**——寫入端（products 表）一直
+有這一欄，只有讀取端漏了，所以高血脂的閾值警示原本做不到。契約測試的
+`NUTRITION_FIELDS` 已同步。⚠ 它**很常是 null**（營養解析拿不到），
+App 的 `checkNutritionThresholds()` 會跳過非數值——那是對的。
 值可能是 `null`，**不可當成 0**——「沒有標示」與「含量為零」是兩件事。
 
 **`groupRisks[].group` 只有 7 種英文值**：`pregnant`／`child`／`kidney_disease`／

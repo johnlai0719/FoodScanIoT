@@ -44,7 +44,12 @@ APP_CONSUMED_TOP_LEVEL = [
 ]
 
 # App 的 checkNutritionThresholds() 讀取的營養欄位（每 100g/100mL 基準）
-NUTRITION_FIELDS = {"calories", "protein", "fat", "sugar", "sodium"}
+# 2026-09-13 加入 saturated_fat：寫入端一直有存（products 有這一欄），讀取端
+# 漏了，所以高血脂的閾值示警做不了——CLAUDE.md 記過這個缺口。
+# ⚠ 它**是**法定必標項目，但我們的營養解析常常拿不到（值為 None）。
+#   下游不可當成 0：「沒有標示」與「含量為零」是兩件事。
+
+NUTRITION_FIELDS = {"calories", "protein", "fat", "saturated_fat", "sugar", "sodium"}
 
 
 @pytest.fixture
@@ -84,6 +89,9 @@ def response():
         raw_allergens="牛奶,大豆",
         nutrition={
             "calories": 210.0, "protein": 0.5, "fat": 0.0,
+            # 刻意給 None：飽和脂肪常常解析不到，而契約要能容得下這種形狀。
+            # 下面的 test_sodium_and_sugar_are_numeric 只要求鈉與糖是數值。
+            "saturated_fat": None,
             "sugar": 29.2, "sodium": 480.0,
         },
         daily_reference={"basis": "per_100g", "items": []},

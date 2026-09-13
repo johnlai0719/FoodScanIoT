@@ -63,6 +63,11 @@ export interface NutritionFacts {
   calories?: number | null;
   protein?: number | null;
   fat?: number | null;
+  /**
+   * 公克 (g)。2026-09-13 加入——在這之前 Cloud 不回這一欄，高血脂的閾值
+   * 示警因此做不到。**很常是 null**（營養解析拿不到），不可當成 0。
+   */
+  saturated_fat?: number | null;
   /** 公克 (g) */
   sugar?: number | null;
   /** 毫克 (mg) */
@@ -126,7 +131,7 @@ export interface DegradedLocalResponse {
 }
 
 export interface UserConditions {
-  group: 'adult' | 'pregnant' | 'child' | 'hypertension' | 'diabetes';
+  group: 'adult' | 'pregnant' | 'child' | 'hypertension' | 'diabetes' | 'hyperlipidemia';
   allergens: string[];
   chronic_conditions?: string[];
 }

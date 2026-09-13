@@ -68,8 +68,11 @@ const GROUPS: { value: UserConditions['group']; label: string }[] = [
 ];
 
 const CHRONIC_DISEASES = [
+  // 三高。label 用「高血糖」而不是「糖尿病」：這裡量的是營養素閾值，
+  // 不是在診斷疾病（key 仍是 diabetes，沿用既有的儲存值與比對代碼）。
   { key: 'hypertension', label: '高血壓' },
-  { key: 'diabetes', label: '糖尿病' },
+  { key: 'diabetes', label: '高血糖' },
+  { key: 'hyperlipidemia', label: '高血脂' },
 ];
 
 
