@@ -333,6 +333,70 @@ def _candidate_names(ing: str) -> list[str]:
 # 決策與代價見 match_ingredients 內原料比對段落。
 
 
+# ── 近似提示 ──────────────────────────────────────────────────────────────────
+# OCR 讀錯一兩個形近字時（實例：5'-次黃「膦」呤、L-「鈦」酸鈉、「烏」嘌呤），
+# 子字串比對整串落空。這裡**不修改讀到的字**，只附上「資料庫裡最接近的是誰」，
+# 由使用者自己判斷。
+#
+# ⚠ 這與已被否決的「字典後修正」是兩件事。那個把 OCR 的字換掉再當事實往下算，
+#   實測 F1 70.0 → 53.0、精確度 84.6% → 48.7%。這裡只提示、不替換、
+#   **不進添加物計數也不進評分**——一旦進去就變回編造。
+#
+# 門檻由實測決定（2026-09-13，`PPOCR_TEST/near_miss2.py`，177 案 vlcrop 輸出）：
+#
+#   長度門檻   比例    會提示   猜對   猜錯   猜對率
+#   （無）     0.10      6      4      2    66.7%
+#   （無）     0.34     48     20     28    41.7%
+#   ≥8 字      0.25     10      7      3    70.0%
+#
+# **長度門檻是關鍵**。沒有它時猜錯的長相是「葡萄糖漿→葡萄糖酸」「玉米糖漿→
+# 玉米糖膠」「乳清蛋白→乳鐵蛋白」——看起來合理但substantively 是不同物質，
+# 使用者分辨不出來。那些全是 4–6 字：短名滿是鄰居，長化學名的鄰居稀疏。
+# 加上 ≥8 字之後，殘餘的錯全部收斂在核苷酸同族內（磷酸二鈉 vs 單磷酸鹽），
+# 誤導性低得多，而且原文就擺在旁邊。
+NEAR_MISS_MIN_LEN = 8
+NEAR_MISS_MAX_RATIO = 0.25
+
+
+def _edit_distance(a: str, b: str) -> int:
+    """Levenshtein。名稱短（3–15 字），不必優化。"""
+    if len(a) < len(b):
+        a, b = b, a
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        for j, cb in enumerate(b, 1):
+            cur.append(min(prev[j] + 1, cur[j - 1] + 1,
+                           prev[j - 1] + (ca != cb)))
+        prev = cur
+    return prev[-1]
+
+
+def _near_miss(norm: str, knowledge: list):
+    """回傳 {officialName, distance, scannedLength} 或 None。
+
+    只在**現行比對已經失敗**時呼叫——所以「改一個字落到另一個真添加物」
+    那個風險在這裡不存在：失敗代表這串字不是任何一個真添加物。
+    """
+    if not norm or len(norm) < NEAR_MISS_MIN_LEN:
+        return None
+    limit = int(len(norm) * NEAR_MISS_MAX_RATIO)
+    if limit < 1:
+        return None
+    best, bd = None, limit + 1
+    for a in knowledge:
+        for cand in [a['_n_zh']] + list(a['_n_zh_parts']) + list(a['_n_aliases']):
+            if not cand or abs(len(cand) - len(norm)) > limit:
+                continue
+            d = _edit_distance(norm, cand)
+            if d < bd:
+                best, bd = a, d
+    if best is None or bd > limit:
+        return None
+    return {"officialName": best['name_zh'], "distance": bd,
+            "scannedLength": len(norm)}
+
+
 def _best_additive_match(norm: str, knowledge: list):
     """
     在添加物庫中找出最合適的一筆，而非「第一個命中就停」。
@@ -787,6 +851,14 @@ def match_ingredients(ing_list_raw, vision_data, cursor, vector_rag,
                     term=normalize_text(_strip_brackets(ing)))
             else:
                 basic_desc = NOT_IN_DB_DESC_INGREDIENT
+            # 近似提示：只對「查無此項」的給，水與類別統稱不給——
+            # 那兩者不是沒配到，是本來就不該配（見 _near_miss）。
+            near = None
+            if matched_by not in ("water", "generic_term"):
+                for cand_name in _candidate_names(ing):
+                    near = _near_miss(cand_name, knowledge)
+                    if near:
+                        break
             basic_detail.append({
                 "name": ing,
                 "sourceLabel": source_label,   # 由哪一項標示展開而來（未展開者為 None）
@@ -796,6 +868,9 @@ def match_ingredients(ing_list_raw, vision_data, cursor, vector_rag,
                 # 不應歸入任一邊（見 GENERIC_TERM_DESC）。
                 "isGenericTerm": matched_by == "generic_term",
                 "description": basic_desc,
+                # 疑似對象。**不是判定**——呈現端必須標成未確認，
+                # 且不可計入添加物數量或評分。None 代表沒有夠接近的鄰居。
+                "nearMiss": near,
             })
 
     # 執行資料庫智能補完 (暫時註解以確保穩定性;沿用原狀,未啟用)

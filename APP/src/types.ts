@@ -33,6 +33,21 @@ export interface IngredientDetail {
   adiValue?: string;
   iarcRating?: string;
   groupRisks?: GroupRisk[];
+  /**
+   * 疑似對象：OCR 讀到的字配不到資料庫，但有一個很接近的項目。
+   *
+   * **這不是判定。** 呈現端必須同時顯示掃到的原文，標成「未確認」，
+   * 且**不可計入添加物數量或評分**——一旦計入就變回編造，而字典後修正
+   * 那條路已經實測否決（F1 70.0 → 53.0）。
+   *
+   * 門檻在 Cloud 端（≥8 字、編輯距離 ≤25%），實測猜對率 70%，
+   * 殘餘的錯收斂在同族鹽類之間。
+   */
+  nearMiss?: {
+    officialName: string;
+    distance: number;
+    scannedLength: number;
+  } | null;
   description_sources?: string[];
 }
 

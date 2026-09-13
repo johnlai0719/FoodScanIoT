@@ -39,6 +39,13 @@ export default function IngredientsList({ ingredients }: Props) {
                     <Text style={styles.additiveBadgeText}>添加物</Text>
                   </View>
                 )}
+                {/* 疑似：OCR 讀到的字配不到，但有很接近的項目。
+                    徽章刻意寫「疑似」而不是添加物名——它不是判定。 */}
+                {!isAdditive && ing.nearMiss && (
+                  <View style={styles.nearMissBadge}>
+                    <Text style={styles.nearMissBadgeText}>疑似</Text>
+                  </View>
+                )}
               </View>
               {isExpanded ? <ChevronUp size={14} color="#757575" /> : <ChevronDown size={14} color="#757575" />}
             </Pressable>
@@ -46,6 +53,24 @@ export default function IngredientsList({ ingredients }: Props) {
             {isExpanded && (
               <View style={styles.body}>
                 <Text style={styles.description}>{ing.description || '一般成分，無特定化學危害紀錄。'}</Text>
+
+                {/* 掃到的原文與疑似對象**並列**。只給疑似對象就是替換，
+                    那正是被否決的字典後修正；只給原文則使用者無從查證。
+                    兩個都給，判斷權留給使用者。 */}
+                {!isAdditive && ing.nearMiss && (
+                  <View style={styles.nearMissBox}>
+                    <Text style={styles.nearMissLine}>
+                      掃到：<Text style={styles.nearMissMono}>{ing.name}</Text>
+                    </Text>
+                    <Text style={styles.nearMissLine}>
+                      資料庫最接近：<Text style={styles.nearMissMono}>{ing.nearMiss.officialName}</Text>
+                      （差 {ing.nearMiss.distance} 字／共 {ing.nearMiss.scannedLength} 字）
+                    </Text>
+                    <Text style={styles.nearMissNote}>
+                      可能是辨識誤差，也可能真的是不同的東西。本系統未將它計入添加物，請以包裝標示為準。
+                    </Text>
+                  </View>
+                )}
 
                 {(ing.iarcRating || ing.adiValue) && (
                   <View style={styles.badgeRow}>
@@ -140,6 +165,19 @@ const createStyles = (scale: number) => StyleSheet.create({
     color: '#991b1b',
     fontWeight: '700',
   },
+  // 疑似：琥珀色，與添加物（實心判定）和一般成分（無標記）都分得開。
+  nearMissBadge: {
+    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6,
+    backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#FCD34D',
+  },
+  nearMissBadgeText: { fontSize: 9 * scale, fontWeight: '800', color: '#B45309' },
+  nearMissBox: {
+    marginTop: 8, padding: 10, borderRadius: 8,
+    backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#FCD34D', gap: 3,
+  },
+  nearMissLine: { fontSize: 11 * scale, color: '#1A1A1A', lineHeight: 16 },
+  nearMissMono: { fontWeight: '700' },
+  nearMissNote: { fontSize: 10 * scale, color: '#B45309', lineHeight: 15, marginTop: 2 },
   additiveBadge: {
     backgroundColor: '#fee2e2',
     borderColor: '#fecaca',
