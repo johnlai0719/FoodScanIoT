@@ -7,11 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "expoapp",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/images/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#FDF8F3"
-    },
     "ios": {
       "supportsTablet": true
     },
@@ -28,7 +23,8 @@
     },
     "plugins": [
       "expo-image-picker",
-      "expo-camera"
+      "expo-camera",
+      "expo-status-bar"
     ],
     "experiments": {
       "reactCompiler": true
