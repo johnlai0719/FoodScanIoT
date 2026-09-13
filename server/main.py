@@ -15,6 +15,7 @@ import time
 from google import genai
 
 import vision_backend
+from starlette.concurrency import run_in_threadpool
 
 # 埋點。與 Fog 共用同一份（server/telemetry.py）——兩層各寫一份格式化一定會
 # 分岔，族群詞彙、撇號、添加物分母都是這樣來的。
@@ -1220,11 +1221,20 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
         daily_reference = get_daily_reference_payload(product, user_conditions)
 
         # LLM 摘要生成 + 持久化已抽出至 module_d/diagnosis.py(2026-07-24),邏輯逐字未改動。
-        _diag_result = generate_ai_diagnosis(
+        # ⚠ **threadpool 不是可有可無。** 這支裡面是同步的
+        # `genai_client.models.generate_content`（Gemma 摘要，實測 2.3 秒，
+        # fallback 路徑更久）加上同步的 DB 寫入。在 async handler 裡直接呼叫
+        # 會卡住 event loop，期間 Cloud 不讀任何新請求的 body，下一個帶圖請求
+        # 就在 Fog 的 5 秒連線逾時處降階——與 vision_backend 那次是同一個
+        # bug class（2026-09-13 由 Fog 端重現實驗定位）。
+        _t_diag = time.time()
+        _diag_result = await run_in_threadpool(
+            generate_ai_diagnosis,
             product, chemical, final_safety_events, user_conditions, nutrition,
             deterministic_score, deterministic_grade, ai_data, raw_allergens,
             cursor, db, _genai_client
         )
+        _mark(request, "diagnosis", (time.time() - _t_diag) * 1000)
         ai_data = _diag_result["ai_data"]
         raw_allergens = _diag_result["raw_allergens"]
 

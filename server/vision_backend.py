@@ -19,14 +19,15 @@
 import os
 
 import requests
+from starlette.concurrency import run_in_threadpool
 
 BACKEND = os.getenv("VISION_BACKEND", "vlcrop").strip().lower()
 READER_URL = os.getenv("READER_URL") or "http://host.docker.internal:8180"
-# reader 要跑 PP-OCR ＋ PPStructureV3 ＋ 兩次 VLM，實測中位數約 10 秒，
-# 但 8GB 的 4060 在連續請求下會慢很多。120 秒是上限不是預期值。
-# ⚠ 這個數字要小於 Fog 的讀取逾時（45 秒）才有意義——目前**不是**，
-#    所以實務上是 Fog 先放棄並降階。留 120 是為了讓 reader 端的 log 能
-#    記錄完整耗時，不是要 Cloud 真的等那麼久。見工程待辦。
+# reader 要跑 PP-OCR ＋ PPStructureV3 ＋ 兩次 VLM，實測穩態 10.3 秒／張。
+# 120 秒是上限不是預期值：reader 一次只服務一個請求（GPU 只有一張），
+# 同時來兩個就會排隊，而排隊等待也算在這個逾時裡。
+# ⚠ 它比 Fog 的讀取逾時（90 秒）長是**刻意的**：真的等超過 90 秒時，
+#    該由 Fog 決定降階（它有本機 OCR 可退），不是由 Cloud 先放棄。
 READER_TIMEOUT = float(os.getenv("READER_TIMEOUT", "120"))
 SECRET = os.getenv("API_SHARED_SECRET", "").strip()
 
@@ -36,10 +37,26 @@ def backend_name() -> str:
 
 
 async def analyze(base64_images: list, barcode: str, gemini_fn):
-    """依 VISION_BACKEND 分派。`gemini_fn` 是 main.analyze_image_with_gemini。"""
+    """依 VISION_BACKEND 分派。`gemini_fn` 是 main.analyze_image_with_gemini。
+
+    ⚠ **必須 run_in_threadpool。** `requests.post` 是同步的，直接在 async 函式
+    裡呼叫會卡住 event loop 整整十幾秒，期間 Cloud **不讀任何新請求的 body**。
+    一張圖 base64 後約 656 KB，塞不進 socket 緩衝區，於是 Fog 的上傳卡在
+    「連線階段」——而 urllib3 在傳 body 時套用的是**連線逾時（Fog 設 5 秒）**，
+    不是 90 秒的讀取逾時。結果是 Cloud 只要在忙，下一個帶圖請求就在 5 秒後
+    降階，而不是排隊等候。
+
+    2026-09-13 由 Fog 端的重現實驗定位：先佔住 Cloud，用 `(5, 90)` 會在 5.4 秒
+    `Connection aborted` 並降階；放寬到 `(30, 90)` 則排隊、31 秒後成功。
+    當天兩次不明降階（都在約 6.7 秒）都是這個。
+
+    **修在 Cloud 而不是放寬 Fog 的連線逾時**：後者要把 30 + 90 + 本機辨識 5 秒
+    塞進 Node 的 105 秒，塞不下；而且會把「對端離線」的偵測從 5 秒拖到 30 秒。
+    根因是這裡阻塞，就修在這裡。
+    """
     if BACKEND == "gemini":
         return await gemini_fn(base64_images, barcode)
-    return _read_via_reader(base64_images, barcode)
+    return await run_in_threadpool(_read_via_reader, base64_images, barcode)
 
 
 def _read_via_reader(base64_images: list, barcode: str):
