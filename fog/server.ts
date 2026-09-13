@@ -100,7 +100,12 @@ app.get('/health', async (req: Request, res: Response) => {
 // 路由: POST /query
 app.post('/query', validateQuery, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const result = await handleQuery(req.body as FogQueryRequest, req.header('X-Request-Id'));
+    // X-Bypass-Cache：量測用的測試模式。**專用標頭而不是 Cache-Control**——
+    // App 每一次請求都送 `Cache-Control: no-cache`，拿它當判準等於永久關閉快取，
+    // 那就量不出「Fog 的快取有沒有幫上忙」。
+    const bypass = req.header('X-Bypass-Cache') === '1';
+    const result = await handleQuery(
+      req.body as FogQueryRequest, req.header('X-Request-Id'), bypass);
     res.header('X-Cache', result.cacheHeader);
     // 三層的計時標頭。**不放進 body**：`test_cloud_response_contract.py` 是
     // `set(keys) == EXPECTED` 嚴格相等，動 body 等於改 App 的資料契約；

@@ -137,6 +137,9 @@ export default function HomeScreen() {
   // 結果頁的 `health_score ?? 100` 顯示一個不存在的分數
   // （`normalize_result` 憑空補 75 分那次就是這樣來的）。
   const [degradedResult, setDegradedResult] = useState<DegradedLocalResponse | null>(null);
+  // 測試模式：送 X-Bypass-Cache，讓 Fog 跳過**讀**快取（照常寫）。
+  // 量延遲時每一次都要走完整路徑，命中快取的那幾次會把中位數拉到失真。
+  const [bypassCache, setBypassCache] = useState(false);
   const [activeDetailView, setActiveDetailView] = useState<'additives' | 'history' | 'breakdown' | null>(null);
   const [isScoreExpanded, setIsScoreExpanded] = useState(false);
 
@@ -205,6 +208,9 @@ export default function HomeScreen() {
             'Content-Type': 'application/json',
             'Cache-Control': 'no-cache',
             'X-Request-Id': reqId,
+            // 專用標頭而不是沿用上面那個 Cache-Control——它每次都送，
+            // 拿它當判準等於永久關閉快取，就量不出快取有沒有幫上忙。
+            ...(bypassCache ? { 'X-Bypass-Cache': '1' } : {}),
           },
           signal: ctrl.signal,
           // 個人化比對自 2026-08-04 起完全在本地進行，健康背景不再送往後端。
@@ -290,6 +296,7 @@ export default function HomeScreen() {
         fog_py: Telemetry.parseTiming(respHeaders?.get('X-Timing-Fog-Py') ?? null),
         cloud: Telemetry.parseTiming(respHeaders?.get('X-Timing-Cloud') ?? null),
         cache: respHeaders?.get('X-Cache') ?? null,
+        bypass_cache: bypassCache,
         status: recResult?.status ?? null,
         health_score: recResult?.health_score ?? null,
         risk_level: recResult?.risk_level ?? null,
@@ -612,6 +619,30 @@ export default function HomeScreen() {
                   一次掃描一列，存在裝置本地（AsyncStorage），由使用者自己匯出。
                   **不自動回傳任何東西**——個人化資料不上雲是本專案明文的界線，
                   量測紀錄同樣比照。匯出走 RN 內建的 Share，不額外加依賴。 */}
+              <Text style={[s.settingsLabel, { marginTop: 24 }]}>測試模式</Text>
+              <Text style={s.settingsSub}>
+                不使用 Fog 快取，每次都走完整路徑（App → Fog → Cloud → 辨識）。
+                量延遲時要開；一般使用請關閉，否則每次都要重新辨識。
+              </Text>
+              <View style={s.segmentedControl}>
+                <Pressable
+                  style={[s.segBtn, !bypassCache && s.segBtnActive]}
+                  onPress={() => setBypassCache(false)}
+                >
+                  <Text style={[s.segBtnText, !bypassCache && s.segBtnTextActive]}>
+                    使用快取
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[s.segBtn, bypassCache && s.segBtnActiveCloud]}
+                  onPress={() => setBypassCache(true)}
+                >
+                  <Text style={[s.segBtnText, bypassCache && s.segBtnTextActive]}>
+                    每次重新辨識
+                  </Text>
+                </Pressable>
+              </View>
+
               <Text style={[s.settingsLabel, { marginTop: 20 }]}>實驗量測紀錄</Text>
               <Text style={s.settingsSub}>
                 已累積 {telemetryCount} 筆，存在本機。匯出為 CSV 後可直接做統計。

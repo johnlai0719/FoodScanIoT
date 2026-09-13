@@ -201,3 +201,39 @@ def test_node_and_python_accept_the_same_request_ids():
     m = re.search(r"const SAFE_REQUEST_ID = /(.+)/;", node)
     assert m, 'queryHandler.ts 找不到 SAFE_REQUEST_ID'
     assert m.group(1) == T._SAFE_ID.pattern
+
+
+# ── 測試模式（X-Bypass-Cache）────────────────────────────────────────────────
+def test_bypass_uses_a_dedicated_header_not_cache_control():
+    """**不可以沿用 `Cache-Control: no-cache`。**
+
+    App 每一次請求都送那個標頭（HomeScreen 的 fetch 裡固定有），
+    拿它當跳過快取的判準等於永久關閉快取——那就量不出「Fog 的快取
+    有沒有幫上忙」，而那正是這個切換鈕要服務的實驗。
+    """
+    node = _read(TS_NODE)
+    server = _read(os.path.join(ROOT, "fog", "server.ts"))
+    assert "X-Bypass-Cache" in server, "fog/server.ts 沒有讀 X-Bypass-Cache"
+    assert "bypassCache" in node
+    # ⚠ 去註解再檢查。寫「不該用 Cache-Control」這種說明本身會讓這條紅掉
+    #   ——同一個錯誤在本檔與 test_degraded_local_contract 已經各犯過一次。
+    code = _strip_comments(server)
+    assert "Cache-Control" not in code,         "fog/server.ts 不該拿 Cache-Control 當跳過快取的判準"
+
+
+def test_bypass_skips_reading_but_still_writes():
+    """跳過**讀**、照常**寫**。關掉寫入的話快取本身就量不出來了。"""
+    node = _read(TS_NODE)
+    assert "bypassCache ? null : getCache(barcode)" in node,         "跳過快取的實作方式變了，請確認它只影響讀取"
+    # setCache 不得被 bypassCache 包住
+    for line in node.split(chr(10)):
+        if "setCache(" in line:
+            assert "bypass" not in line, "寫入快取不該受 bypassCache 影響"
+
+
+def test_telemetry_records_whether_bypass_was_on():
+    """不記的話資料會混著命中快取與完整路徑，中位數不代表任何一種。"""
+    app = _read(TS_APP)
+    hs = _read(os.path.join(ROOT, "APP", "src", "screens", "HomeScreen.tsx"))
+    assert "bypass_cache" in app, "ScanRecord 沒有宣告 bypass_cache"
+    assert "bypass_cache: bypassCache" in hs, "紀錄沒有帶上 bypass_cache"

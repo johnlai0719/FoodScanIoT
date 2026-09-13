@@ -45,8 +45,14 @@ export interface ScanRecord {
   fog_node: TimingSegments | null;
   fog_py: TimingSegments | null;
   cloud: TimingSegments | null;
-  /** `X-Cache`：HIT／HIT-RAW／MISS／DEGRADED。 */
+  /** `X-Cache`：HIT／HIT-RAW／MISS／BYPASS／DEGRADED。 */
   cache: string | null;
+  /**
+   * 這一次有沒有開測試模式（X-Bypass-Cache）。
+   * **必須記**：不記的話資料會混著命中快取與完整路徑兩種，
+   * 算出來的延遲中位數不代表任何一種。
+   */
+  bypass_cache: boolean;
 
   // ── 結果面。**刻意記「有幾項」而不是記內容** ────────────────────────────
   // 一是隱私（照片與成分原文不留在紀錄裡），二是這些才是能拿來算指標的欄位。
@@ -119,7 +125,7 @@ export function toCSV(records: ScanRecord[]): string {
     }
   }
   const base = ['request_id', 'at', 'endpoint', 'barcode', 'n_images', 'payload_chars',
-                'http_status', 'total_ms', 'cache', 'status', 'health_score',
+                'http_status', 'total_ms', 'cache', 'bypass_cache', 'status', 'health_score',
                 'risk_level', 'n_additives', 'degraded', 'error'];
   const cols = [...base, ...[...segCols].sort()];
 

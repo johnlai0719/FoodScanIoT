@@ -26,7 +26,7 @@ const CLOUD_TIMEOUT = 105000;
 // request id 來自 App、會被原樣轉發，不合格就不轉，避免把使用者輸入塞進標頭。
 const SAFE_REQUEST_ID = /^[A-Za-z0-9_.:-]{1,64}$/;
 
-export async function handleQuery(reqData: FogQueryRequest, requestId?: string): Promise<{ status: number, data: any, cacheHeader: string, headers: Record<string, string> }> {
+export async function handleQuery(reqData: FogQueryRequest, requestId?: string, bypassCache = false): Promise<{ status: number, data: any, cacheHeader: string, headers: Record<string, string> }> {
   const { barcode } = reqData;
   const startTime = Date.now();
   // App 產生的 request id 要逐層往下帶，三層的計時紀錄才併得起來。
@@ -49,7 +49,15 @@ export async function handleQuery(reqData: FogQueryRequest, requestId?: string):
   });
 
   // 1. 查詢快取 (命中後仍需送往 Python 做格式正規化；個人化已移至 App 端)
-  const cachedData = getCache(barcode);
+  //
+  // bypassCache：測試模式**只跳過讀，照常寫**。
+  // 量延遲時每一次都要走完整路徑（App → Fog → Cloud → reader），
+  // 命中快取的那幾次會把中位數拉到失真。照常寫則是為了讓快取本身
+  // 仍可被量測——關掉寫入的話就量不出「Fog 有沒有幫上忙」。
+  //
+  // ⚠ 刻意**不用** App 每次都送的 `Cache-Control: no-cache` 當判準：
+  //   那個標頭每一次請求都在，拿它當開關等於永久關閉快取。
+  const cachedData = bypassCache ? null : getCache(barcode);
   if (cachedData) {
     console.log(`[HIT] ${barcode} -> Normalizing cached result...`);
     const controller = new AbortController();
@@ -136,7 +144,7 @@ export async function handleQuery(reqData: FogQueryRequest, requestId?: string):
           ...cloudResult,
           cached: false
         },
-        cacheHeader: 'MISS',
+        cacheHeader: bypassCache ? 'BYPASS' : 'MISS',
         headers: timingHeaders()
       };
     } else {
