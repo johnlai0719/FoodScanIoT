@@ -2,16 +2,42 @@ import fetch from 'node-fetch';
 import { AnalysisResultLike, FogQueryRequest } from './types';
 import { getCache, setCache, getStaleCache } from './cache';
 
+// 延遲埋點。**只量本行程內的時距，不傳時間戳**——決策單 #15 未定的正是
+// 「跨機器時鐘怎麼校正」，而手機／Pi／雲端三個時鐘任兩個相減都含未知偏移。
+// 格式與 Python 兩層共用（server/telemetry.py 的 format_timing）：
+//   key=毫秒，以 ; 分隔，ASCII only（標頭不可放中文）
+function fmtTiming(seg: Record<string, number | null | undefined>): string {
+  return Object.entries(seg)
+    // null 略過而不寫成 0：「沒有這一段」與「這一段 0 毫秒」是兩件事
+    .filter(([, v]) => v !== null && v !== undefined)
+    .map(([k, v]) => `${k}=${Math.round(v as number)}`)
+    .join(';');
+}
+
 // 使用 127.0.0.1 代替 localhost 以提高穩定性
 const CLOUD_API_URL = process.env.PYTHON_API_URL || 'http://127.0.0.1:3002/query';
 // 2026-09-13：60 → 105 秒。這一層要比 Python 層的 CLOUD_READ_TIMEOUT（90 秒）
 // 長，否則 Node 會先放棄，Python 層的降階邏輯根本沒機會跑到。
-// 改用 vlcrop 後 Cloud 端單張就要 55 秒（實測），60 秒是不夠的。
+// 改用 vlcrop 後 Cloud 端單張約 10.3 秒（實測穩態；同日稍早量到的 55 秒是
+// VRAM 擠爆造成的，已用參數解掉），三張約 31 秒——60 秒沒有餘裕。
 const CLOUD_TIMEOUT = 105000;
 
-export async function handleQuery(reqData: FogQueryRequest): Promise<{ status: number, data: any, cacheHeader: string }> {
+export async function handleQuery(reqData: FogQueryRequest): Promise<{ status: number, data: any, cacheHeader: string, headers: Record<string, string> }> {
   const { barcode } = reqData;
   const startTime = Date.now();
+  // 下游（Python → Cloud）自己量的那幾段，原樣往上帶，讓 App 一次收齊三層。
+  const passThrough: Record<string, string> = {};
+  let upstreamMs: number | null = null;
+  const collect = (r: { headers: { get(n: string): string | null } }) => {
+    for (const h of ['X-Timing-Cloud', 'X-Timing-Fog-Py', 'X-Request-Id']) {
+      const v = r.headers.get(h);
+      if (v) passThrough[h] = v;
+    }
+  };
+  const timingHeaders = () => ({
+    ...passThrough,
+    'X-Timing-Fog-Node': fmtTiming({ upstream: upstreamMs, total: Date.now() - startTime }),
+  });
 
   // 1. 查詢快取 (命中後仍需送往 Python 做格式正規化；個人化已移至 App 端)
   const cachedData = getCache(barcode);
@@ -21,6 +47,7 @@ export async function handleQuery(reqData: FogQueryRequest): Promise<{ status: n
     const timeoutId = setTimeout(() => controller.abort(), 15000); // 正規化給 15 秒就好
 
     try {
+      const _t0 = Date.now();
       const response = await fetch(CLOUD_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -32,6 +59,8 @@ export async function handleQuery(reqData: FogQueryRequest): Promise<{ status: n
       });
 
       clearTimeout(timeoutId);
+      upstreamMs = Date.now() - _t0;
+      collect(response);
 
       if (response.ok) {
         const normalizedResult = await response.json() as AnalysisResultLike;
@@ -41,7 +70,8 @@ export async function handleQuery(reqData: FogQueryRequest): Promise<{ status: n
             ...normalizedResult,
             cached: true
           },
-          cacheHeader: 'HIT'
+          cacheHeader: 'HIT',
+          headers: timingHeaders()
         };
       } else {
         console.warn(`[WARN] Python re-calc failed: ${response.status}`);
@@ -55,7 +85,8 @@ export async function handleQuery(reqData: FogQueryRequest): Promise<{ status: n
           ...cachedData,
           cached: true
         },
-        cacheHeader: 'HIT-RAW'
+        cacheHeader: 'HIT-RAW',
+        headers: timingHeaders()
       };
     }
   }
@@ -66,6 +97,7 @@ export async function handleQuery(reqData: FogQueryRequest): Promise<{ status: n
   const timeoutId = setTimeout(() => controller.abort(), CLOUD_TIMEOUT);
 
   try {
+    const _t0 = Date.now();
     const response = await fetch(CLOUD_API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -74,6 +106,8 @@ export async function handleQuery(reqData: FogQueryRequest): Promise<{ status: n
     });
 
     clearTimeout(timeoutId);
+    upstreamMs = Date.now() - _t0;
+    collect(response);
 
     if (response.ok) {
       const cloudResult = await response.json() as AnalysisResultLike;
@@ -93,7 +127,8 @@ export async function handleQuery(reqData: FogQueryRequest): Promise<{ status: n
           ...cloudResult,
           cached: false
         },
-        cacheHeader: 'MISS'
+        cacheHeader: 'MISS',
+        headers: timingHeaders()
       };
     } else {
       throw new Error(`Cloud Status: ${response.status}`);
@@ -115,7 +150,8 @@ export async function handleQuery(reqData: FogQueryRequest): Promise<{ status: n
           cached: true,
           _warning: "⚠️ 目前無法取得最新資料，為您顯示舊有快取"
         },
-        cacheHeader: 'DEGRADED'
+        cacheHeader: 'DEGRADED',
+        headers: timingHeaders()
       };
     }
 
@@ -128,7 +164,8 @@ export async function handleQuery(reqData: FogQueryRequest): Promise<{ status: n
         cached: false,
         cached_at: null
       },
-      cacheHeader: 'DEGRADED'
+      cacheHeader: 'DEGRADED',
+      headers: timingHeaders()
     };
   }
 }

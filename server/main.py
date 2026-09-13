@@ -15,6 +15,10 @@ import time
 from google import genai
 
 import vision_backend
+
+# 埋點。與 Fog 共用同一份（server/telemetry.py）——兩層各寫一份格式化一定會
+# 分岔，族群詞彙、撇號、添加物分母都是這樣來的。
+import telemetry as T
 from google.genai import types
 import numpy as np
 
@@ -142,6 +146,30 @@ from fastapi.staticfiles import StaticFiles
 import os
 
 app = FastAPI(title="FoodAware Cloud Core - Smart Guide Mode")
+
+
+# ── 延遲埋點 ────────────────────────────────────────────────────────────────
+# 用 middleware 而不是在每個 return 前加一行：`/api/analyze` 有七個以上的
+# return 點（rejected／not_found／error／快取／正常），漏掉任何一個，
+# 最需要量的那幾次（失敗與降階）就剛好沒有數字。
+@app.middleware("http")
+async def _timing_middleware(request, call_next):
+    sw = T.Stopwatch()
+    request.state.sw = sw
+    request.state.rid = T.safe_request_id(request.headers.get(T.REQUEST_ID_HEADER))
+    response = await call_next(request)
+    response.headers[T.CLOUD_HEADER] = T.format_timing(**sw.segments())
+    if request.state.rid:
+        response.headers[T.REQUEST_ID_HEADER] = request.state.rid
+    return response
+
+
+def _mark(request, name, ms):
+    """把一段耗時記到本次請求上。沒有 state 時安靜略過——
+    埋點壞了不該讓分析失敗。"""
+    sw = getattr(getattr(request, "state", None), "sw", None)
+    if sw is not None:
+        sw._record(name, ms)
 
 import jwt
 import bcrypt
@@ -914,6 +942,12 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
                 label_images, barcode or "NEW", analyze_image_with_gemini)
             _t_vision_end = time.time()
             print(f"[PERF] Vision[{vision_backend.backend_name()}]: {(_t_vision_end - _t_vision_start)*1000:.0f}ms")
+            _mark(request, "vision", (_t_vision_end - _t_vision_start) * 1000)
+            # reader 回的逐段秒數一起帶上來：沒有它就只知道「視覺花了 10 秒」，
+            # 不知道是 PP-OCR、HunyuanOCR 還是營養表在花。
+            for _k, _v in ((vision_data or {}).get("_meta", {})
+                           .get("stage_secs", {}) or {}).items():
+                _mark(request, "r_" + _k, float(_v) * 1000)
             
             # --- 核心連線邏輯：在分析完畢後才建立連線，防止超時 ---
             db = get_db_conn()

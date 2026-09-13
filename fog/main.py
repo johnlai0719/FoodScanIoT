@@ -13,6 +13,13 @@ from dotenv import load_dotenv
 # 純轉換函式抽至 transforms.py（2026-08-05），讓契約測試不必安裝 FastAPI 即可載入
 from transforms import (mask_sensitive_data, normalize_result,
                         should_degrade, CloudUnavailable)
+
+# 埋點。與 Cloud 共用同一份格式函式（server/telemetry.py）——兩層各寫一份
+# 一定會分岔（族群詞彙、撇號、添加物分母都是這樣來的）。
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.append(str(_Path(__file__).resolve().parents[1] / "server"))
+import telemetry as T
 from version import get_commit
 # local_ocr 在模組層只用標準函式庫，OCR 等依賴延遲到 warm_up() 才載入——CI 會載入本檔
 import local_ocr
@@ -118,6 +125,18 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="FoodAware Fog Server - Vision Optimized", lifespan=lifespan)
 
 
+# ── 延遲埋點 ────────────────────────────────────────────────────────────────
+# middleware 而不是在每個 return 前加一行：/query 有多個 return（快取命中、
+# 降階、STALE、錯誤），漏掉任何一個，最需要量的那幾次剛好就沒有數字。
+@app.middleware("http")
+async def _timing_middleware(request, call_next):
+    sw = T.Stopwatch()
+    request.state.sw = sw
+    response = await call_next(request)
+    response.headers[T.FOG_PY_HEADER] = T.format_timing(**sw.segments())
+    return response
+
+
 @app.get("/health")
 def health(deep: bool = False):
     """健康檢查。部署腳本用它確認服務重啟後有沒有活過來。
@@ -168,6 +187,12 @@ def health(deep: bool = False):
 
 @app.post("/query")
 async def query(request: Request, response: Response):
+    # 埋點：只量本行程內的時距，不傳時間戳（決策單 #15，跨機器相減會被
+    # 時鐘偏移汙染）。request id 由 App 產生、逐層轉發，用來把三層併成一列。
+    sw = request.state.sw
+    rid = T.safe_request_id(request.headers.get(T.REQUEST_ID_HEADER))
+    if rid:
+        response.headers[T.REQUEST_ID_HEADER] = rid
     try:
         data = await request.json()
         barcode = data.get("barcode")
@@ -201,16 +226,24 @@ async def query(request: Request, response: Response):
                 masked_data = mask_sensitive_data(data)
                 masked_data_bytes = json.dumps(masked_data).encode()
                 
-                cloud_resp = requests.post(
-                    CLOUD_URL, 
-                    data=masked_data_bytes, 
-                    headers=cloud_headers(),
-                    # 連線 5 秒、讀取 CLOUD_READ_TIMEOUT（預設 90 秒）分開算：Cloud 對端離線時
-                    # TCP 會一直卡住，不分開就要等滿讀取逾時。讀取逾時的取捨見 CLOUD_READ_TIMEOUT。
-                    # ⚠ 三個數字要一起看：5 + 90 + 本機降階約 5 秒 ≈ 100 秒，必須小於
-                    #    Node 層的 105 秒（fog/queryHandler.ts），降階結果才送得到 App。
-                    timeout=(5.0, CLOUD_READ_TIMEOUT)
-                )
+                _h = cloud_headers()
+                if rid:
+                    _h[T.REQUEST_ID_HEADER] = rid
+                with sw.lap("upstream"):
+                    cloud_resp = requests.post(
+                        CLOUD_URL,
+                        data=masked_data_bytes,
+                        headers=_h,
+                        # 連線 5 秒、讀取 CLOUD_READ_TIMEOUT（預設 90 秒）分開算：Cloud 對端
+                        # 離線時 TCP 會一直卡住，不分開就要等滿讀取逾時。取捨見 CLOUD_READ_TIMEOUT。
+                        # ⚠ 三個數字要一起看：5 + 90 + 本機降階約 5 秒 ≈ 100 秒，必須小於
+                        #    Node 層的 105 秒（fog/queryHandler.ts），降階結果才送得到 App。
+                        timeout=(5.0, CLOUD_READ_TIMEOUT)
+                    )
+                # Cloud 自己量的那幾段原樣轉發，讓 App 一次收齊三層。
+                _ct = cloud_resp.headers.get(T.CLOUD_HEADER)
+                if _ct:
+                    response.headers[T.CLOUD_HEADER] = _ct
                 # ⚠ 不能只靠 `.json()` 解析失敗來察覺 Cloud 掛了。
                 #    Cloudflare 的錯誤頁是 HTML，解析確實會拋例外；但它在某些
                 #    設定下會回 JSON，那時就會被當成一次成功的分析往下走。
@@ -249,7 +282,9 @@ async def query(request: Request, response: Response):
                 if has_images and local_ocr.is_ready():
                     print(f"[LOCAL] {barcode} -> Cloud 不可用且無快取，改用本機 OCR")
                     try:
-                        return await run_in_threadpool(local_ocr.analyze, label_images, barcode)
+                        with sw.lap("localocr"):
+                            return await run_in_threadpool(
+                                local_ocr.analyze, label_images, barcode)
                     except Exception as le:
                         print(f"[ERROR] Local OCR Error: {barcode} -> {le}")
                 raise HTTPException(status_code=504, detail=f"Cloud 不可用且無快取資料: {str(e)}")

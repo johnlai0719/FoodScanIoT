@@ -102,6 +102,10 @@ app.post('/query', validateQuery, async (req: Request, res: Response, next: Next
   try {
     const result = await handleQuery(req.body as FogQueryRequest);
     res.header('X-Cache', result.cacheHeader);
+    // 三層的計時標頭。**不放進 body**：`test_cloud_response_contract.py` 是
+    // `set(keys) == EXPECTED` 嚴格相等，動 body 等於改 App 的資料契約；
+    // 而標頭在降階與錯誤回應上同樣帶得到——那正是最需要量的那幾次。
+    for (const [k, v] of Object.entries(result.headers ?? {})) res.header(k, v);
     res.status(result.status).json(result.data);
   } catch (err) {
     next(err);

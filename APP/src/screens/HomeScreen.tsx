@@ -14,6 +14,7 @@ import {
   UIManager,
   StyleSheet,
   Modal,
+  Share,
 } from 'react-native';
 import { Sparkles, Sliders, Database, ShoppingBag, AlertOctagon, RotateCcw, Layers, ShieldCheck, Grid, ChevronRight, Zap, ChevronUp, ChevronDown, ArrowLeft, AlertTriangle, CheckCircle2, Info, ScanLine, Activity, Settings2, X } from 'lucide-react-native';
 
@@ -27,6 +28,7 @@ import PackageImageScanner from '../components/PackageImageScanner';
 import BarcodeScanner from '../components/BarcodeScanner';
 import { analyzePersonalRisks, getProductAllergenWarnings } from '../utils/personalization';
 import { FOG_URL, CLOUD_URL, ANALYSIS_TIMEOUT_MS } from '../constants/endpoints';
+import * as Telemetry from '../utils/telemetry';
 import { getDataFreshness } from '../utils/dataFreshness';
 import {
   getScoreBreakdownList,
@@ -166,6 +168,20 @@ export default function HomeScreen() {
     setAnalysisError(null);
     setView('result');
 
+    // ── 實驗埋點 ────────────────────────────────────────────────────────
+    // request id 逐層轉發，讓 App／Fog／Cloud 三份紀錄併得起來。
+    // t0 只與 t1 相減（同一個時鐘），不與任何伺服器時刻比對——決策單 #15
+    // 未定的正是跨機器時鐘校正，這裡整個繞過。
+    // ⚠ 宣告在 try 之外：**失敗與降階那幾次才是最需要量的**，
+    //   放在 try 裡面 finally 就取不到，那些次會剛好沒有紀錄。
+    const reqId = Telemetry.newRequestId();
+    const payloadChars = uploadedImages.reduce((n, b) => n + b.length, 0);
+    const t0 = Date.now();
+    let httpStatus: number | null = null;
+    let respHeaders: Headers | null = null;
+    let recResult: any = null;
+    let recError: string | null = null;
+
     try {
       const API_URL = serverEndpoint === 'fog' ? FOG_URL : CLOUD_URL;
       // 逾時：在這之前完全沒設，靠平台預設（各家不同），網路斷掉時畫面會一直轉。
@@ -177,7 +193,11 @@ export default function HomeScreen() {
       try {
         response = await fetch(API_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache',
+            'X-Request-Id': reqId,
+          },
           signal: ctrl.signal,
           // 個人化比對自 2026-08-04 起完全在本地進行，健康背景不再送往後端。
           body: JSON.stringify({
@@ -190,6 +210,8 @@ export default function HomeScreen() {
         // 對已完成的請求沒作用但會讓測試環境留著未回收的計時器。
         clearTimeout(timer);
       }
+      httpStatus = response.status;
+      respHeaders = response.headers;
       if (!response.ok) throw new Error(`伺服器代碼: ${response.status}`);
       const json = await response.json();
       // Fog 可能將結果包在 data 欄位內
@@ -223,6 +245,7 @@ export default function HomeScreen() {
       console.log('[Fog] score_breakdown:', JSON.stringify(result.score_breakdown?.slice(0, 5)));
       // ────────────────────────────────────────────────────────────────────
 
+      recResult = result;
       setAnalysisResult(result);
     } catch (err: any) {
       // AbortError 要單獨講：「連不上」與「等太久」對使用者是不同的下一步，
@@ -230,10 +253,70 @@ export default function HomeScreen() {
       const msg = err?.name === 'AbortError'
         ? `分析逾時（超過 ${ANALYSIS_TIMEOUT_MS / 1000} 秒）。請確認網路後重試，或減少照片張數。`
         : err?.message ?? '無法連線至後端分析節點，請確認伺服器有正常運作！';
+      recError = msg;
       setAnalysisError(msg);
     } finally {
       setIsAnalyzing(false);
+      // 一次掃描一列。**刻意不記照片與成分原文**——一是隱私（紀錄會被匯出），
+      // 二是能拿來算指標的是「有幾項」而不是內容。
+      void Telemetry.append({
+        request_id: reqId,
+        at: new Date().toISOString(),
+        endpoint: serverEndpoint,
+        barcode: barcodeInput,
+        n_images: uploadedImages.length,
+        payload_chars: payloadChars,
+        http_status: httpStatus,
+        total_ms: Date.now() - t0,
+        fog_node: Telemetry.parseTiming(respHeaders?.get('X-Timing-Fog-Node') ?? null),
+        fog_py: Telemetry.parseTiming(respHeaders?.get('X-Timing-Fog-Py') ?? null),
+        cloud: Telemetry.parseTiming(respHeaders?.get('X-Timing-Cloud') ?? null),
+        cache: respHeaders?.get('X-Cache') ?? null,
+        status: recResult?.status ?? null,
+        health_score: recResult?.health_score ?? null,
+        risk_level: recResult?.risk_level ?? null,
+        n_additives: recResult?.ingredients_detail?.length ?? null,
+        // 降階與失敗要分開統計。degraded_mode 是 Fog 本機 OCR 那條路
+        // （transforms.build_degraded_local_response），與 Cloud 的診斷降級不同。
+        degraded: recResult?.status === 'degraded' || !!recResult?.degraded_mode,
+        error: recError,
+      });
     }
+  };
+
+  // ── 實驗量測紀錄的匯出／清除 ───────────────────────────────────────────
+  const [telemetryCount, setTelemetryCount] = useState(0);
+  useEffect(() => {
+    // 每次打開進階設定才重讀：掃描完不即時更新筆數，省一次 AsyncStorage 讀取，
+    // 而使用者要看筆數時本來就得開這個面板。
+    if (advancedVisible) void Telemetry.load().then(r => setTelemetryCount(r.length));
+  }, [advancedVisible]);
+
+  const handleExportTelemetry = async () => {
+    const records = await Telemetry.load();
+    if (records.length === 0) {
+      setAnalysisError('目前沒有量測紀錄。先掃幾張照片再匯出。');
+      return;
+    }
+    const sum = Telemetry.summarize(records);
+    try {
+      await Share.share({
+        title: `FoodScan 量測 ${records.length} 筆`,
+        // 摘要放在最前面，手機上不必捲到底就看得到輪廓。
+        message: `# FoodScan 量測紀錄
+# ${JSON.stringify(sum)}
+
+`
+          + Telemetry.toCSV(records),
+      });
+    } catch {
+      // 使用者取消分享也會走到這裡，不是錯誤，不要顯示訊息。
+    }
+  };
+
+  const handleClearTelemetry = async () => {
+    await Telemetry.clear();
+    setTelemetryCount(0);
   };
 
   const handleBackToScan = () => {
@@ -975,6 +1058,23 @@ export default function HomeScreen() {
               POST /cache/clear 只存在於 Python 層（3002），而 App 連不到 3002。
               Fog 的快取機制本身不受影響，仍照常運作（TTL 到期自動失效）。
               若之後要恢復：在 fog/server.ts 補一條轉發路由，並補上路由存在性測試。 */}
+
+          {/* ── 實驗量測紀錄 ────────────────────────────────────────────────
+              一次掃描一列，存在裝置本地（AsyncStorage），由使用者自己匯出。
+              **不自動回傳任何東西**——個人化資料不上雲是本專案明文的界線，
+              量測紀錄同樣比照。匯出走 RN 內建的 Share，不額外加依賴。 */}
+          <Text style={[s.modalSectionLabel, { marginTop: 20 }]}>實驗量測紀錄</Text>
+          <Text style={s.modalSectionSub}>
+            已累積 {telemetryCount} 筆，存在本機。匯出為 CSV 後可直接做統計。
+          </Text>
+          <View style={s.segmentedControl}>
+            <Pressable style={s.segBtn} onPress={handleExportTelemetry}>
+              <Text style={s.segBtnText}>匯出 CSV</Text>
+            </Pressable>
+            <Pressable style={s.segBtn} onPress={handleClearTelemetry}>
+              <Text style={s.segBtnText}>清除紀錄</Text>
+            </Pressable>
+          </View>
 
           <Pressable style={[s.btnPrimary, { marginTop: 16 }]} onPress={() => setAdvancedVisible(false)}>
             <Text style={s.btnPrimaryText}>確認</Text>
