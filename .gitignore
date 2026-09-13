@@ -1,6 +1,14 @@
 # 敏感資訊與環境變數
+# ⚠ 白名單而不是黑名單（本專案的慣例，PPOCR_TEST 那次 dry-run 抓到 1.1GB
+#   模型檔差點進版控）。`.env.bak-20260913` 這類手動備份原本擋不到——
+#   2026-09-13 Fog 端真的留下了一個。
+#   `!*/.env.example` 必須留：不然以後在 fog/ 新增 .env.example 會被靜默忽略。
 .env
+.env.*
 */.env
+*/.env.*
+!.env.example
+!*/.env.example
 *.pem
 *.key
 secrets.json

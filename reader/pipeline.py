@@ -160,7 +160,13 @@ def read(base64_images, barcode="unknown"):
     cid = "online_" + uuid.uuid4().hex[:12]
     rels = []
     try:
+        # 排隊時間要與處理時間分開。GPU 只有一張，`_lock` 就是那個隊伍；
+        # 不獨立量的話它會被算進呼叫端的 vision 分段，看起來像「辨識變慢了」。
+        # 2026-09-13 Fog 端實測到這件事：vision=18.7 秒但各段加總只有 10.1 秒，
+        # 差的 8.6 秒全是排隊。
+        _tq = time.time()
         with _lock:
+            queue_s = time.time() - _tq
             imgs = [_decode(b) for b in base64_images]
             if not imgs:
                 raise ValueError("沒有圖片")
@@ -172,7 +178,7 @@ def read(base64_images, barcode="unknown"):
                            "images": rels, "set_version": "online"}])
             # 逐段計時。總時間看不出該優化哪一段——2026-09-13 第一次量到
             # 單張 55 秒時，就是因為只有總數而無法判斷方向。
-            t = {}
+            t = {"queue": round(queue_s, 2)}
             _t = time.time()
             _ppocr(cid, rels)
             t["ppocr"] = round(time.time() - _t, 2)
