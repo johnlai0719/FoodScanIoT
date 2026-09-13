@@ -164,22 +164,22 @@ def build_response(product, ai_data, calc_result, deterministic_score,
         "barcode": product['barcode']
     }
 
-    # 取得三個 AI 總結欄位值
+    # 取得 AI 總結欄位值。
+    #
+    # ~~食安歷史事件總結~~ **2026-09-13 移除**。原本的規則是「沒有事件時不得輸出
+    # 食安摘要」（2026-07-26 訂），理由是 ai_data 可能來自資料庫快取、內容是先前
+    # 有事件時產生的，事件清單已空卻還說「該廠商曾多次發生…」等於無佐證的負面陳述。
+    # 現在整條食安管線停用中（SAFETY_EVENTS_ENABLED = False），模型拿不到任何事件
+    # 資料，產出的只會是「該廠商無特定違規紀錄」這種**沒查證過的安心話**——把
+    # 「未查詢」講成「沒問題」，對食安 App 是反向的風險。功能恢復時再加回來。
     overall_summary = ai_data.get("overall_summary") or ai_data.get("summary") or "診斷完成。"
     additives_summary = ai_data.get("additives_summary") or "無法獲取添加物風險總結。"
-    # 沒有食安事件時不得輸出食安摘要（2026-07-26）。
-    # ai_data 可能來自資料庫的快取欄位，內容是先前有事件時產生的；若事件清單已空
-    # 卻仍輸出「該廠商曾多次發生…」這類敘述，等於在沒有任何佐證的情況下對廠商
-    # 做出負面陳述——比顯示不精確的事件更糟，因為連來源連結都沒有。
-    if final_safety_events:
-        safety_events_summary = ai_data.get("safety_events_summary") or "無法獲取廠商食安歷史總結。"
-    else:
-        safety_events_summary = "本系統目前未提供廠商食安事件資訊。"
 
-    # 為維持與行動 App 分割邏輯的相容性，將三個總結結合並加入「[AI 深度分析]：」分割符
-    combined_summary = f"{overall_summary}\n\n[AI 深度分析]：\n【添加物風險總結】\n{additives_summary}"
-    if final_safety_events:
-        combined_summary += f"\n\n【食安歷史事件總結】\n{safety_events_summary}"
+    # 為維持與行動 App 分割邏輯的相容性，將總結結合並加入「[AI 深度分析]：」分割符。
+    # 原本是三段，現在是兩段。
+    combined_summary = (f"{overall_summary}\n\n[AI 深度分析]："
+                        f"\n【添加物風險總結】\n{additives_summary}")
+
 
     # 建立滿足 React Native App 與 API_SPEC_APP.md 串接要求的診斷物件
     final_health_diagnosis_obj = {
@@ -187,7 +187,6 @@ def build_response(product, ai_data, calc_result, deterministic_score,
         "summary": combined_summary,
         "overall_summary": overall_summary,
         "additives_summary": additives_summary,
-        "safety_events_summary": safety_events_summary,
         "warnings": ai_data.get("warnings", []),
         "score_breakdown": formatted_score_breakdown,
         "groupRiskSummary": [],
@@ -214,7 +213,6 @@ def build_response(product, ai_data, calc_result, deterministic_score,
         "product_info": product_info_root,
         "overall_summary": overall_summary,
         "additives_summary": additives_summary,
-        "safety_events_summary": safety_events_summary,
         "score_breakdown": formatted_score_breakdown,
         "risk_tags": ai_data.get("warnings", []),
         "allergen_warnings": final_allergens,

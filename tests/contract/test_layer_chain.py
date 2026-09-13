@@ -19,7 +19,7 @@ from transforms import mask_sensitive_data, normalize_result
 APP_CONSUMED = [
     "health_score", "nutri_grade", "score_scale", "risk_level", "score_breakdown", "product_info",
     "allergen_warnings", "food_safety_events", "ingredients_detail",
-    "overall_summary", "additives_summary", "safety_events_summary",
+    "overall_summary", "additives_summary",
     # App 以此顯示「更新於 X」；快取命中時仍須是原始計算時間，故必須一路存活
     "processed_at",
 ]
@@ -52,7 +52,7 @@ def cloud_success():
         ai_data={
             "grade": "D", "score": 62,
             "overall_summary": "整體摘要", "additives_summary": "添加物摘要",
-            "safety_events_summary": "食安摘要", "warnings": ["高糖"],
+            "warnings": ["高糖"],
         },
         calc_result={
             # grade 要給：nutri_grade 由它來，缺了會是 None 而 App 顯示不出等級。
@@ -129,12 +129,16 @@ def test_fog_derives_missing_summaries():
 
     assert out["overall_summary"] == "整體說明"
     assert out["additives_summary"] == "添加物說明"
-    assert out["safety_events_summary"] == "食安事件說明"
+    # 2026-09-13：Fog 不再從 personalized_notes 生出 safety_events_summary。
+    # Cloud 已經不產生這個欄位（食安管線停用中），Fog 自己補一個等於憑空
+    # 生出上游沒給的摘要——而 personalized_notes 裝的是綜合摘要，
+    # 拿它當食安摘要本來就是湊的。
+    assert "safety_events_summary" not in out
 
     # 補出來之後，App 才不會在 EXPECTED_FIELDS 檢查時抱怨缺欄位
     result, error = app_unwrap(out)
     assert error is None
-    for field in ("overall_summary", "additives_summary", "safety_events_summary"):
+    for field in ("overall_summary", "additives_summary"):
         assert result.get(field), f"{field} 未被回填，App 會顯示空白摘要"
 
 

@@ -51,8 +51,12 @@ def generate_ai_diagnosis(product, chemical, final_safety_events, user_condition
     請進行深度分析，並提供以下三個 AI 總結：
     1. 「總體商品健康診斷總結」(overall_summary)：參考「確切總分」與「健康分級」，產出 50 字內之個人化核心診斷與長期過量攝取的累積慢性健康風險（例如：吃了沒事，但吃久了會有事）。
     2. 「添加物風險總結」(additives_summary)：分析本產品所含的食品添加物、人工化學成分（如防腐劑、防凝劑、甘味劑等）的組合風險，特別是針對該使用者背景（如糖尿病、孕婦、高血壓等）的危害程度，產出 100 字內的分析總結。若無添加物，請說明「本產品無添加化學食品添加物」。
-    3. 「食安歷史事件總結」(safety_events_summary)：分析本產品製造商（廠商）以往的食安歷史違規與歷史事件，對消費者信任度與產品安全的影響，產出 100 字內的分析總結。若無歷史食安事件，請說明「該廠商無特定歷史食安違規紀錄」。
-    4. 產出具體「個人化警示」(warnings) 清單。
+    3. 產出具體「個人化警示」(warnings) 清單。
+
+    ⚠ 不要產生廠商食安歷史的總結。2026-09-13 移除該項：食安事件管線整條停用中
+    （server/main.py 的 SAFETY_EVENTS_ENABLED = False），模型拿不到任何事件資料，
+    寫出來的只會是「該廠商無特定違規紀錄」這種**沒有查證過的安心話**——
+    把「未查詢」講成「沒問題」，對食安 App 是反向的風險。
 
     請以繁體中文回答。回傳格式必須為純 JSON，不可有任何 Markdown 標記，結構如下：
     {{
@@ -60,7 +64,6 @@ def generate_ai_diagnosis(product, chemical, final_safety_events, user_condition
       "grade": "{deterministic_grade}",
       "overall_summary": "總體商品健康診斷總結文字",
       "additives_summary": "添加物風險總結文字",
-      "safety_events_summary": "食安歷史事件總結文字",
       "warnings": ["警告1", "警告2"]
     }}
     """
@@ -91,7 +94,6 @@ def generate_ai_diagnosis(product, chemical, final_safety_events, user_condition
             "grade": deterministic_grade,
             "overall_summary": product.get("overall_summary"),
             "additives_summary": product.get("additives_summary"),
-            "safety_events_summary": product.get("safety_events_summary"),
             "warnings": warnings_list
         }
         ai_data_exists = True
@@ -119,7 +121,6 @@ def generate_ai_diagnosis(product, chemical, final_safety_events, user_condition
                 "grade": deterministic_grade,
                 "overall_summary": "診斷引擎暫時降級運作。",
                 "additives_summary": "無法分析添加物風險。",
-                "safety_events_summary": "無法分析廠商食安歷史。",
                 "warnings": []
             }
     else:
@@ -134,13 +135,12 @@ def generate_ai_diagnosis(product, chemical, final_safety_events, user_condition
         try:
             update_sql = """
                 UPDATE products
-                SET overall_summary = %s, additives_summary = %s, safety_events_summary = %s
+                SET overall_summary = %s, additives_summary = %s
                 WHERE barcode = %s
             """
             cursor.execute(update_sql, (
                 ai_data.get("overall_summary"),
                 ai_data.get("additives_summary"),
-                ai_data.get("safety_events_summary"),
                 product['barcode']
             ))
             db.commit()

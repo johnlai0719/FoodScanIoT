@@ -11,7 +11,7 @@
 這個檔案要擋下的真實事故：
   - App 讀 `data.nutrition_facts` 做慢性病閾值判斷，該欄位只存在於巢狀的 data 底下，
     頂層沒有。任何人把它搬到頂層或改名，App 的高血壓／糖尿病警示就會靜默失效。
-  - App 讀 overall_summary / additives_summary / safety_events_summary，
+  - App 讀 overall_summary / additives_summary，
     但這三個在 Cloud 端是由 explanation 與 personalized_notes 間接組出來的。
 """
 import numbers
@@ -32,7 +32,7 @@ EXPECTED_TOP_LEVEL_KEYS = {
     # 自己推（飲料與純水另有一套帶），所以由 Cloud 送出。
     "nutri_grade", "score_scale",
     "risk_level", "product_info",
-    "overall_summary", "additives_summary", "safety_events_summary",
+    "overall_summary", "additives_summary",
     "score_breakdown", "risk_tags", "allergen_warnings", "ingredients_detail",
     "ingredient_types", "daily_reference", "score_estimated_inputs",
     "score_fully_measured", "food_safety_events", "final_health_diagnosis",
@@ -44,7 +44,7 @@ EXPECTED_TOP_LEVEL_KEYS = {
 APP_CONSUMED_TOP_LEVEL = [
     "health_score", "nutri_grade", "score_scale", "risk_level", "score_breakdown", "product_info",
     "allergen_warnings", "food_safety_events", "ingredients_detail",
-    "overall_summary", "additives_summary", "safety_events_summary",
+    "overall_summary", "additives_summary",
     # 2026-08-05 起 App 顯示資料新鮮度，依賴此欄位（utils/dataFreshness.ts）
     "processed_at",
 ]
@@ -77,7 +77,6 @@ def response():
             "score": 62,
             "overall_summary": "整體摘要",
             "additives_summary": "添加物摘要",
-            "safety_events_summary": "食安摘要",
             "warnings": ["高糖"],
         },
         calc_result={

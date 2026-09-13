@@ -162,7 +162,7 @@ def normalize_result(result: dict):
       1. 格式解包（Cloud 的 {status, data:{...}} 或扁平格式 → 統一結構）
       2. final_health_diagnosis 骨架注入
       3. 客觀 Nutri-Score 分數/等級提升至頂層
-      4. overall_summary / additives_summary / safety_events_summary 雙向映射（App 直接讀這三個）
+      4. overall_summary / additives_summary 雙向映射（App 直接讀這兩個）
     """
     print(f"[DEBUG] Processing result from Cloud. Keys: {list(result.keys())}")
 
@@ -271,24 +271,17 @@ def normalize_result(result: dict):
         if isinstance(explanation, dict):
             result["additives_summary"] = explanation.get("additives") or explanation.get("additives_summary")
 
-    if "safety_events_summary" not in result or not result["safety_events_summary"]:
-        notes = result.get("personalized_notes")
-        if isinstance(notes, list) and len(notes) > 0:
-            result["safety_events_summary"] = "\n".join(notes)
-        elif isinstance(notes, str):
-            result["safety_events_summary"] = notes
-        else:
-            explanation = result.get("explanation")
-            if isinstance(explanation, dict):
-                result["safety_events_summary"] = explanation.get("safety") or explanation.get("safety_events_summary")
+    # ~~safety_events_summary 的回填~~ **2026-09-13 移除**：Cloud 已不再產生
+    # 這個欄位（食安事件管線整條停用中，模型拿不到事件資料，寫出來的只會是
+    # 沒查證過的安心話）。這裡若繼續從 personalized_notes 回填，等於**Fog 自己
+    # 生出一個 Cloud 沒給的摘要**——而 personalized_notes 裝的是綜合摘要，
+    # 拿它當食安摘要本來就是湊的。
 
     # 同步複製到 target / final_health_diagnosis 以免其他位置需要
     if "overall_summary" in result and isinstance(target.get("final_health_diagnosis"), dict):
         target["final_health_diagnosis"]["overall_summary"] = result["overall_summary"]
     if "additives_summary" in result and isinstance(target.get("final_health_diagnosis"), dict):
         target["final_health_diagnosis"]["additives_summary"] = result["additives_summary"]
-    if "safety_events_summary" in result and isinstance(target.get("final_health_diagnosis"), dict):
-        target["final_health_diagnosis"]["safety_events_summary"] = result["safety_events_summary"]
 
     return result
 
@@ -304,7 +297,6 @@ DEGRADED_LOCAL_UNAVAILABLE = (
     "health_score", "risk_level", "score_breakdown", "nutrition_facts",
     "daily_reference", "product_info", "allergen_warnings",
     "food_safety_events", "overall_summary", "additives_summary",
-    "safety_events_summary",
 )
 
 

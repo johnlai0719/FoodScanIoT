@@ -251,7 +251,7 @@ export default function HomeScreen() {
         'health_score', 'risk_level', 'cached',
         'product_info', 'allergen_warnings', 'score_breakdown',
         'ingredients_detail', 'food_safety_events',
-        'overall_summary', 'additives_summary', 'safety_events_summary',
+        'overall_summary', 'additives_summary',
       ];
       const missing = EXPECTED_FIELDS.filter(f => result[f] == null);
       const nulled  = EXPECTED_FIELDS.filter(f => f in result && result[f] === null);
@@ -359,7 +359,7 @@ export default function HomeScreen() {
    * 故 2026-08-05 起改為只在真的有事件時才顯示，補上原本沒停到的那一半。
    *
    * 功能恢復時要注意：Cloud 目前無法區分「未查詢」與「查過但無事」，兩者都回空
-   * 陣列（見 module_d/response_builder.py 的 safety_events_summary 分支）。若要讓
+   * 陣列。若要讓
    * 「查過無事」也顯示為正面資訊，需先讓 Cloud 明確回報這兩種狀態的差別。
    */
   const hasSafetyEvents = safeFoodSafetyEvents.length > 0;
@@ -1267,7 +1267,11 @@ export default function HomeScreen() {
                             <Sparkles size={12} color="#757575" />
                             <Text style={s.aiLabel}>AI 廠商稽查信用簡析</Text>
                           </View>
-                          <Text style={s.aiText}>{analysisResult.safety_events_summary || getAiHistorySummary(analysisResult)}</Text>
+                          {/* 2026-09-13：Cloud 不再回 safety_events_summary
+                              （食安管線停用中，產出的只會是沒查證過的安心話）。
+                              這段改用本地依事件內容組出的敘述——**有事件才會走到
+                              這裡**（整個詳情頁由 hasSafetyEvents 擋住）。 */}
+                          <Text style={s.aiText}>{getAiHistorySummary(analysisResult)}</Text>
                         </View>
                         <View style={{ marginTop: 12 }}>
                           {safeFoodSafetyEvents.length > 0 ? (
@@ -1323,7 +1327,6 @@ const UNAVAILABLE_LABELS: Record<string, string> = {
   food_safety_events: '廠商食安事件',
   overall_summary: 'AI 總結',
   additives_summary: 'AI 添加物說明',
-  safety_events_summary: 'AI 食安摘要',
 };
 
 // ─── Styles ───────────────────────────────────────────────────────────────────

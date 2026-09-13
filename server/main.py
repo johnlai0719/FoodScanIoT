@@ -927,7 +927,6 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
                 "grade": cached_result.get("risk_level") or cached_result.get("final_health_diagnosis", {}).get("grade") or "C",
                 "overall_summary": cached_result.get("overall_summary") or cached_result.get("final_health_diagnosis", {}).get("overall_summary") or "使用快取診斷結果。",
                 "additives_summary": cached_result.get("additives_summary") or cached_result.get("final_health_diagnosis", {}).get("additives_summary") or "使用快取添加物分析。",
-                "safety_events_summary": cached_result.get("safety_events_summary") or cached_result.get("final_health_diagnosis", {}).get("safety_events_summary") or "使用快取食安警訊。",
                 "warnings": cached_result.get("risk_tags") or cached_result.get("final_health_diagnosis", {}).get("warnings") or []
             }
             print(f"[SUCCESS] [Query] Restored cached product: {v_name} for personalization")

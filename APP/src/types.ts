@@ -119,7 +119,6 @@ export interface AnalysisResponse {
   ingredients_detail: IngredientDetail[];
   overall_summary?: string;
   additives_summary?: string;
-  safety_events_summary?: string;
   cached?: boolean;
   /**
    * Cloud 計算此分析的時間（ISO 8601），由 build_response() 產生、Fog 不會改動。
