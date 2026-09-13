@@ -116,7 +116,30 @@ class NutriScoreV7:
                 "breakdown": {
                     "energy": n_energy, "sugars": n_sugars, "sfa": n_sfa, "salt": n_salt,
                     "protein": p_protein, "fibre": p_fibre, "fruit_veg": p_fruit_veg
-                }
+                },
+                # 每一項的可能上限。**由產生分數的同一份門檻表算出**
+                # （`len(thresholds)` 就是該項能拿到的最高分），不另寫一組常數
+                # ——兩處各寫一份遲早分岔，本專案已經為此付過三次代價。
+                # 呈現端要算「這一項佔了多少」就靠這個分母；沒有它只能看到
+                # 「糖扣 5 分」而不知道 5 分是滿分還是一半。
+                "maxima": {
+                    "energy": len(self.beverage_energy_thresholds if is_beverage
+                                  else self.energy_thresholds),
+                    "sugars": len(self.beverage_sugar_thresholds if is_beverage
+                                  else self.sugar_thresholds),
+                    "sfa": len(self.sfa_thresholds),
+                    "salt": len(self.salt_thresholds),
+                    "protein": len(self.beverage_protein_thresholds if is_beverage
+                                   else self.protein_thresholds),
+                    "fibre": len(self.beverage_fibre_thresholds if is_beverage
+                                 else self.fibre_thresholds),
+                    # 蔬果比在程式裡是寫死的階梯（>80/60/40），不是門檻表，
+                    # 所以上限也寫死在這裡；改那段階梯時要一起改。
+                    "fruit_veg": 6 if is_beverage else 5,
+                },
+                # 甜味劑罰分只有飲料有，且是固定 +4 不是查表。
+                "sweetener_penalty": n_sweeteners,
+                "is_beverage": is_beverage,
             }
         }
 

@@ -82,31 +82,77 @@ def build_response(product, ai_data, calc_result, deterministic_score,
         "fruit_veg": ("天然蔬果比例 (Fruit & Vegetables)", "富含天然蔬果成分，提供多種維生素與抗氧化物。")
     }
 
-    for k, v in breakdown_raw.items():
-        if v > 0:
-            if k in penalty_mapping:
-                name, desc_tpl = penalty_mapping[k]
-                # 嘗試使用資料庫中的具體數據補充描述
-                actual_val_desc = desc_tpl.format(int(v))
-                if k == "sugars" and product.get("sugar") is not None:
-                    actual_val_desc = f"含有 {product['sugar']} 公克添加糖，糖分得分為 {int(v)} 分，高糖攝取易引發慢性病與肥胖風險。"
-                elif k == "energy" and product.get("calories") is not None:
-                    actual_val_desc = f"含有 {product['calories']} kcal 熱量，熱量成分得分為 {int(v)} 分，高熱量會增加身體代謝負荷。"
-                elif k == "salt" and product.get("sodium") is not None:
-                    actual_val_desc = f"含有 {product['sodium']} 毫克鈉，鈉分得分為 {int(v)} 分，高鈉攝取增加高血壓與腎臟負擔。"
+    # ── 逐項得分 ───────────────────────────────────────────────────────────
+    # 2026-09-13 改成**列出全部七項，含 0 分的**。原本 `if v > 0` 會把沒扣到分
+    # 的項目整個省略，使用者看到的是一份殘缺的算式——而「這一項 0 分」本身就是
+    # 資訊（它告訴你那一項沒有扣你分）。教授要的「點開看計算方式與占比」需要
+    # 完整的分母。
+    #
+    # 每一項都帶 maxPoints，占比才算得出來；沒有它只知道「糖扣 7 分」，
+    # 不知道 7 分是滿分還是一半。maxima 由產生分數的同一份門檻表算出
+    # （見 nutriscore_v7.py），不另寫一組常數。
+    maxima = calc_result['details'].get('maxima', {})
 
-                formatted_score_breakdown.append({
-                    "reason": name,
-                    "description": actual_val_desc,
-                    "points": -int(v)
-                })
-            elif k in bonus_mapping:
-                  name, desc = bonus_mapping[k]
-                  formatted_score_breakdown.append({
-                      "reason": name,
-                      "description": desc,
-                      "points": int(v)
-                  })
+    # 每一項的實測值與單位，讓畫面能寫「含 9.0 公克糖 → 扣 7 分（滿分 10）」。
+    # 值取自 product（標示實測），不是計分器內部換算後的值——使用者對得起來的
+    # 是標示上的數字，不是 kJ 或鹽當量。
+    value_of = {
+        "energy": (product.get("calories"), "kcal"),
+        "sugars": (product.get("sugar"), "g"),
+        "sfa": (product.get("saturated_fat"), "g"),
+        "salt": (product.get("sodium"), "mg"),
+        "protein": (product.get("protein"), "g"),
+        "fibre": (product.get("fiber"), "g"),
+        "fruit_veg": (product.get("fruit_veg_pct"), "%"),
+    }
+
+    for k in ("energy", "sugars", "sfa", "salt", "protein", "fibre", "fruit_veg"):
+        if k not in breakdown_raw:
+            continue
+        v = int(breakdown_raw[k])
+        is_penalty = k in penalty_mapping
+        name, desc_tpl = (penalty_mapping if is_penalty else bonus_mapping)[k]
+        val, unit = value_of.get(k, (None, ""))
+
+        if is_penalty:
+            desc = desc_tpl.format(v)
+            if k == "sugars" and product.get("sugar") is not None:
+                desc = f"含有 {product['sugar']} 公克添加糖，糖分得分為 {v} 分，高糖攝取易引發慢性病與肥胖風險。"
+            elif k == "energy" and product.get("calories") is not None:
+                desc = f"含有 {product['calories']} kcal 熱量，熱量成分得分為 {v} 分，高熱量會增加身體代謝負荷。"
+            elif k == "salt" and product.get("sodium") is not None:
+                desc = f"含有 {product['sodium']} 毫克鈉，鈉分得分為 {v} 分，高鈉攝取增加高血壓與腎臟負擔。"
+        else:
+            desc = desc_tpl
+
+        formatted_score_breakdown.append({
+            "key": k,
+            "reason": name,
+            "description": desc,
+            # 扣分為負、加分為正，與原本一致。
+            "points": -v if is_penalty else v,
+            "maxPoints": maxima.get(k),
+            "kind": "penalty" if is_penalty else "bonus",
+            # ⚠ None 代表**標示沒有這一項**，不是 0。畫面要寫「未標示」
+            #   而不是「0 公克」——那兩件事在營養標示上意義完全不同。
+            "value": val,
+            "unit": unit,
+        })
+
+    # 甜味劑罰分不是查表來的（飲料固定 +4），但它會影響總分，
+    # 省略它會讓明細加不回總分。
+    _sw = calc_result['details'].get('sweetener_penalty') or 0
+    if _sw:
+        formatted_score_breakdown.append({
+            "key": "sweeteners",
+            "reason": "非營養性甜味劑 (Sweeteners)",
+            "description": f"含非營養性甜味劑，Nutri-Score V7 對飲料固定加計 {int(_sw)} 分罰分。",
+            "points": -int(_sw),
+            "maxPoints": 4,
+            "kind": "penalty",
+            "value": None,
+            "unit": "",
+        })
 
     # 食安事件已在上方預先去重並限定近十年且最多 5 個，此處直接使用 final_safety_events
 
@@ -153,6 +199,17 @@ def build_response(product, ai_data, calc_result, deterministic_score,
         "status": "success",
         "barcode": product['barcode'],
         "health_score": ai_data.get("score", deterministic_score),
+        # Nutri-Score 等級（A–E）。**2026-09-13 新增，而且是必要的。**
+        #
+        # `health_score` 是 Nutri-Score 的原始分數：**越低越好**，範圍約 −15~40。
+        # App 的 Gauge 卻把它當 0–100 越高越好（A 要 ≥80），於是每一筆都判錯——
+        # raw −5（最健康）顯示成 E，raw 35（最糟）反而顯示成 D。
+        #
+        # 等級不可由呈現端自己從分數推：飲料與純水另有一套帶（飲料 ≤2 才 B、
+        # 純水才可能 A），只有 `get_grade()` 知道。所以由這裡送出去。
+        "nutri_grade": (calc_result or {}).get("grade"),
+        # 分數的方向。呈現端寫「越低越好」不能靠猜，也不該寫死在四個地方。
+        "score_scale": "nutriscore_points_lower_is_better",
         "risk_level": risk_level,
         "product_info": product_info_root,
         "overall_summary": overall_summary,

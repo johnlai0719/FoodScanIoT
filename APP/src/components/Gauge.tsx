@@ -11,6 +11,17 @@ interface HealthSegment {
 
 interface GaugeProps {
   score: number;
+  /**
+   * Cloud 算出的 Nutri-Score 等級（A–E）。**有給就用它，不要自己從分數推。**
+   *
+   * 2026-09-13 修：`score` 是 Nutri-Score 原始分數（**越低越好**，約 −15~40），
+   * 這裡卻拿它跟 0–100 的門檻比（A 要 ≥80），於是每一筆都判錯——
+   * raw −5（最健康）落到 E、raw 35（最糟）反而落到 D。
+   *
+   * 而且等級也**不能**由呈現端自己推：飲料與純水另有一套帶
+   * （飲料要 ≤2 才 B、只有純水可能 A），只有 Cloud 的 `get_grade()` 知道。
+   */
+  grade?: string | null;
   label: string;
   type: 'health' | 'additives';
   subtitle?: string;
@@ -30,15 +41,27 @@ const NUTRI_GRADES = [
   { grade: 'E', color: '#e63e11', label: '極高負擔 (E)', min: 0 },
 ];
 
+/**
+ * 等級在圓弧上佔多少。A 幾乎滿圈、E 最短——這是**視覺強度**不是精確比例，
+ * 因為 Nutri-Score 的分數帶本來就不等寬（固體 C 是 3~10、D 是 11~18）。
+ * 要精確數字的人看詳細頁的逐項得分，那裡才是真的算式。
+ */
+function gradeArcFraction(grade: string): number {
+  return { A: 0.92, B: 0.74, C: 0.56, D: 0.38, E: 0.2 }[grade] ?? 0.2;
+}
+
 function getNutriGrade(score: number) {
   return NUTRI_GRADES.find(g => score >= g.min) ?? NUTRI_GRADES[4];
 }
 
-export default function Gauge({ score, label, type, subtitle, pos = 3, neg = 8, healthSegments }: GaugeProps) {
-  const activeGrade = getNutriGrade(score);
+export default function Gauge({ score, grade, label, type, subtitle, pos = 3, neg = 8, healthSegments }: GaugeProps) {
+  // 等級以 Cloud 給的為準；沒給才退回舊的推法（舊快取裡的結果沒有這個欄位）。
+  const activeGrade =
+    NUTRI_GRADES.find(g => g.grade === grade) ?? getNutriGrade(score);
   let accumulatedPercent = 0;
 
-  const gaugeColor = score > 50 ? '#ef4444' : score > 0 ? '#f59e0b' : '#10b981';
+  // 弧的顏色跟等級同一個來源，不要再用一組分數門檻——那正是上面那個 bug。
+  const gaugeColor = activeGrade.color;
 
   return (
     <View style={styles.card}>
@@ -73,7 +96,9 @@ export default function Gauge({ score, label, type, subtitle, pos = 3, neg = 8, 
               fill="transparent"
               stroke={gaugeColor}
               strokeWidth="8"
-              strokeDasharray={`${(score / 100) * CIRCUMFERENCE} ${CIRCUMFERENCE}`}
+              // 弧長照**等級**在 A–E 五段中的位置，不是 score/100——
+              // score 是 Nutri-Score 原始分數，不是百分比。
+              strokeDasharray={`${gradeArcFraction(activeGrade.grade) * CIRCUMFERENCE} ${CIRCUMFERENCE}`}
               transform="rotate(-90 50 50)"
             />
           )}
@@ -82,8 +107,11 @@ export default function Gauge({ score, label, type, subtitle, pos = 3, neg = 8, 
         <View style={styles.centerText}>
           {type === 'health' ? (
             <>
-              <Text style={styles.scoreText}>{score} 分</Text>
-              <Text style={styles.subtext}>配方評分</Text>
+              {/* 中央放等級，不放分數。Nutri-Score 的主體是 A–E；
+                  原始分數放在下面那行，並註明方向——不寫「越低越好」的話，
+                  「10 分」會被讀成 0–100 裡的 10 分。 */}
+              <Text style={styles.gradeText}>{activeGrade.grade}</Text>
+              <Text style={styles.subtext}>{activeGrade.label.replace(/\s*\(.\)$/, '')}</Text>
             </>
           ) : (
             <>
@@ -195,6 +223,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     alignItems: 'center',
   },
+  gradeText: { fontSize: 34, fontWeight: '900', lineHeight: 38 },
   scoreText: {
     fontSize: 16,
     fontWeight: '900',

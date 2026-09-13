@@ -874,14 +874,29 @@ export default function HomeScreen() {
                       )}
 
                       {/* Gauge — main dashboard chart */}
-                      <Gauge
-                        score={scoreValue}
-                        type="health"
-                        label="營養結構佔比評估 (糖分與熱量)"
-                        pos={dynamicPos}
-                        neg={dynamicNeg}
-                        healthSegments={healthSegments}
-                      />
+                      {/* 點分數 → 看完整算式。教授要的「占比與計算方式」在那一頁。
+                          等級以 Cloud 的 nutri_grade 為準：score 是 Nutri-Score
+                          原始分數（越低越好），呈現端自己推會判錯（見 Gauge.tsx）。 */}
+                      <Pressable onPress={() => setActiveDetailView('breakdown')}>
+                        <Gauge
+                          score={scoreValue}
+                          grade={analysisResult.nutri_grade}
+                          type="health"
+                          label="營養結構佔比評估 (糖分與熱量)"
+                          pos={dynamicPos}
+                          neg={dynamicNeg}
+                          healthSegments={healthSegments}
+                        />
+                        <View style={s.scoreTapRow}>
+                          <Text style={s.scoreTapText}>
+                            Nutri-Score {scoreValue} 分・分數越低越好
+                          </Text>
+                          <View style={s.row}>
+                            <Text style={s.scoreTapLink}>看計算方式</Text>
+                            <ChevronRight size={13} color={BRAND} />
+                          </View>
+                        </View>
+                      </Pressable>
 
                       {/* Personal additive risk — only shown when profile matches */}
                       {personalAdditiveRisks.length > 0 && (
@@ -990,7 +1005,24 @@ export default function HomeScreen() {
                         <Text style={s.backNavText}>返回診斷儀表板</Text>
                       </Pressable>
                       <View style={s.card}>
-                        <Text style={s.cardTitle}>成分細則扣分分解</Text>
+                        <Text style={s.cardTitle}>Nutri-Score 計算明細</Text>
+                        {/* 先給總帳，再給逐項。只有逐項的話讀者得自己加，
+                            而且加起來對不對也無從確認。 */}
+                        <View style={s.totalsRow}>
+                          <Text style={s.totalsText}>
+                            扣分合計 {scoreBreakdownList.filter(i => i.points < 0)
+                              .reduce((n, i) => n + Math.abs(i.points), 0)}
+                            　加分合計 {scoreBreakdownList.filter(i => i.points > 0)
+                              .reduce((n, i) => n + i.points, 0)}
+                          </Text>
+                          <Text style={s.totalsScore}>
+                            = {scoreValue} 分・{analysisResult.nutri_grade ?? '—'} 級
+                          </Text>
+                        </View>
+                        <Text style={s.breakdownDesc}>
+                          分數越低越好。等級的分界隨品類而異——飲料要 2 分以下才是 B，
+                          只有純水可能拿到 A。
+                        </Text>
                         <View style={s.aiBox}>
                           <View style={s.row}>
                             <Sparkles size={12} color="#757575" />
@@ -1002,25 +1034,52 @@ export default function HomeScreen() {
                         </View>
                         <View style={{ marginTop: 12, gap: 8 }}>
                           {scoreBreakdownList.length > 0 ? (
-                            scoreBreakdownList.map((item, idx) => (
-                              <View key={idx} style={s.breakdownRow}>
-                                <View style={{ flex: 1 }}>
-                                  <Text style={s.breakdownReason}>{item.reason}</Text>
-                                  <Text style={s.breakdownDesc}>{item.description}</Text>
-                                </View>
-                                <View style={[
-                                  s.scoreBadge,
-                                  item.points > 0 ? s.scoreBadgeGreen : item.points < 0 ? s.scoreBadgeRed : s.scoreBadgeGray,
-                                ]}>
-                                  <Text style={[
-                                    s.scoreNum,
-                                    item.points > 0 ? s.scoreNumGreen : item.points < 0 ? s.scoreNumRed : s.scoreNumGray,
+                            scoreBreakdownList.map((item, idx) => {
+                              // 占比＝這一項拿到的分 ÷ 這一項的上限。
+                              // maxPoints 缺席時（舊快取）不畫條，也不假造一個分母。
+                              const abs = Math.abs(item.points);
+                              const max = item.maxPoints ?? null;
+                              const frac = max ? Math.min(abs / max, 1) : null;
+                              return (
+                                <View key={idx} style={s.breakdownRow}>
+                                  <View style={{ flex: 1 }}>
+                                    <View style={s.breakdownHead}>
+                                      <Text style={s.breakdownReason}>{item.reason}</Text>
+                                      {/* 實測值。**null 是「未標示」不是 0**——
+                                          寫成 0 會宣稱這項含量為零，那是編造。 */}
+                                      <Text style={s.breakdownValue}>
+                                        {item.value === null || item.value === undefined
+                                          ? '未標示'
+                                          : `${item.value} ${item.unit ?? ''}`.trim()}
+                                      </Text>
+                                    </View>
+                                    {frac !== null && (
+                                      <View style={s.barTrack}>
+                                        <View style={[
+                                          s.barFill,
+                                          { width: `${frac * 100}%` },
+                                          item.points > 0 ? s.barFillGreen : s.barFillRed,
+                                        ]} />
+                                      </View>
+                                    )}
+                                    <Text style={s.breakdownDesc}>{item.description}</Text>
+                                  </View>
+                                  <View style={[
+                                    s.scoreBadge,
+                                    item.points > 0 ? s.scoreBadgeGreen : item.points < 0 ? s.scoreBadgeRed : s.scoreBadgeGray,
                                   ]}>
-                                    {item.points > 0 ? `+${item.points}` : item.points}分
-                                  </Text>
+                                    <Text style={[
+                                      s.scoreNum,
+                                      item.points > 0 ? s.scoreNumGreen : item.points < 0 ? s.scoreNumRed : s.scoreNumGray,
+                                    ]}>
+                                      {item.points > 0 ? `+${item.points}` : item.points}
+                                    </Text>
+                                    {/* 分母要寫出來：只有「−7 分」看不出是滿分還是一半。 */}
+                                    {max ? <Text style={s.scoreMax}>／{max}</Text> : null}
+                                  </View>
                                 </View>
-                              </View>
-                            ))
+                              );
+                            })
                           ) : (
                             <Text style={{ fontSize: 11, color: '#A89481', fontStyle: 'italic' }}>
                               無特定營養比例增扣減明細
@@ -1618,6 +1677,27 @@ const createStyles = (scale: number) => StyleSheet.create({
   // 出處：比理由再小一級的灰字。它是佐證不是內容，不該跟理由搶注意力，
   // 但必須看得見——「未經人工複核」這五個字是誠實陳述，不是免責聲明。
   personalRiskSource: { fontSize: 10 * scale, color: TEXT_MID, lineHeight: 15, marginTop: 3 },
+  // 分數卡下方的可點提示。必須寫出「分數越低越好」——Nutri-Score 的方向
+  // 與直覺相反，只給一個「10」會被讀成 0–100 裡的 10 分。
+  // ── Nutri-Score 計算明細 ──────────────────────────────────────────────
+  breakdownHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 },
+  breakdownValue: { fontSize: 11 * scale, color: TEXT_MID, fontVariant: ['tabular-nums'] },
+  // 占比條：軌道用中性灰，扣分紅、加分綠。這是「這一項用掉上限的幾成」，
+  // 不是它在總分裡的權重——兩者不同，描述文字要講清楚。
+  barTrack: { height: 5, borderRadius: 999, backgroundColor: 'rgba(0,0,0,0.07)', marginTop: 6, marginBottom: 6, overflow: 'hidden' },
+  barFill: { height: 5, borderRadius: 999 },
+  barFillRed: { backgroundColor: '#e63e11' },
+  barFillGreen: { backgroundColor: '#038141' },
+  scoreMax: { fontSize: 9 * scale, color: TEXT_MID, marginTop: -1 },
+  totalsRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginTop: 8, marginBottom: 2 },
+  totalsText: { fontSize: 11 * scale, color: TEXT_MID },
+  totalsScore: { fontSize: 13 * scale, fontWeight: '900', color: TEXT_DARK },
+  scoreTapRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 10, paddingHorizontal: 2,
+  },
+  scoreTapText: { fontSize: 11 * scale, color: TEXT_MID },
+  scoreTapLink: { fontSize: 12 * scale, fontWeight: '700', color: BRAND },
   personalRiskReason: { fontSize: 11 * scale, color: '#92400e', lineHeight: 16 },
 
   // Product compact header

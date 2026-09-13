@@ -66,8 +66,17 @@ export interface FoodSafetyEvent {
 export interface ScoreBreakdownItem {
   reason: string;
   description: string;
+  /** 扣分為負、加分為正。 */
   points: number;
+  /** 計分器內部的鍵（energy／sugars／sfa／salt／protein／fibre／fruit_veg／sweeteners）。 */
+  key?: string;
+  /** 這一項能拿到的最高分。算占比的分母；缺了就只知道扣幾分、不知道佔多少。 */
+  maxPoints?: number | null;
+  kind?: 'penalty' | 'bonus';
   type?: string;
+  /** 標示上的實測值。**null 代表未標示，不是 0。** */
+  value?: number | null;
+  unit?: string;
 }
 
 /**
@@ -91,7 +100,17 @@ export interface NutritionFacts {
 }
 
 export interface AnalysisResponse {
+  /**
+   * Nutri-Score 的**原始分數**：越低越好，範圍約 −15~40。
+   * ⚠ 不是 0–100 的健康分數。拿它跟百分比門檻比會判錯等級——
+   *   2026-09-13 之前 Gauge 就是這樣，最健康的品項全部顯示成 E。
+   */
   health_score: number;
+  /** Cloud 算出的 Nutri-Score 等級（A–E）。呈現端一律用它，不要自己從分數推：
+   *  飲料與純水另有一套帶，只有 Cloud 的 get_grade() 知道。 */
+  nutri_grade?: string | null;
+  /** 分數的方向，目前固定 `nutriscore_points_lower_is_better`。 */
+  score_scale?: string | null;
   risk_level: 'low' | 'medium' | 'high';
   score_breakdown: ScoreBreakdownItem[] | Record<string, number>;
   product_info?: ProductInfo;

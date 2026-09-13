@@ -17,7 +17,7 @@ from transforms import mask_sensitive_data, normalize_result
 
 # APP/src/screens/HomeScreen.tsx 讀取的頂層欄位
 APP_CONSUMED = [
-    "health_score", "risk_level", "score_breakdown", "product_info",
+    "health_score", "nutri_grade", "score_scale", "risk_level", "score_breakdown", "product_info",
     "allergen_warnings", "food_safety_events", "ingredients_detail",
     "overall_summary", "additives_summary", "safety_events_summary",
     # App 以此顯示「更新於 X」；快取命中時仍須是原始計算時間，故必須一路存活
@@ -54,7 +54,17 @@ def cloud_success():
             "overall_summary": "整體摘要", "additives_summary": "添加物摘要",
             "safety_events_summary": "食安摘要", "warnings": ["高糖"],
         },
-        calc_result={"details": {"breakdown": {"sugars": 7, "energy": 3}}},
+        calc_result={
+            # grade 要給：nutri_grade 由它來，缺了會是 None 而 App 顯示不出等級。
+            "grade": "D",
+            "details": {
+                "breakdown": {"energy": 3, "sugars": 7, "sfa": 0, "salt": 0,
+                              "protein": 0, "fibre": 0, "fruit_veg": 0},
+                "maxima": {"energy": 10, "sugars": 15, "sfa": 10, "salt": 20,
+                           "protein": 7, "fibre": 5, "fruit_veg": 5},
+                "sweetener_penalty": 0,
+            },
+        },
         deterministic_score=62,
         chemical=[{
             "name": "麥芽糊精", "isAdditive": True, "description": "增稠劑",

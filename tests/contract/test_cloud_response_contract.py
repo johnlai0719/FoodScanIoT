@@ -25,7 +25,13 @@ from module_d.response_builder import build_response
 # 改動這個集合前請先確認 Fog 的 normalize_result() 與 App 的 AnalysisResponse
 # 是否需要同步調整。這裡「刻意」用相等而非包含比對——多出欄位也要被看見。
 EXPECTED_TOP_LEVEL_KEYS = {
-    "status", "barcode", "health_score", "risk_level", "product_info",
+    "status", "barcode", "health_score",
+    # 2026-09-13 新增。health_score 是 Nutri-Score 原始分數（越低越好），
+    # App 的 Gauge 卻當成 0–100 越高越好，於是每一筆都判錯等級——
+    # raw −5（最健康）顯示成 E、raw 35（最糟）顯示成 D。等級不可由呈現端
+    # 自己推（飲料與純水另有一套帶），所以由 Cloud 送出。
+    "nutri_grade", "score_scale",
+    "risk_level", "product_info",
     "overall_summary", "additives_summary", "safety_events_summary",
     "score_breakdown", "risk_tags", "allergen_warnings", "ingredients_detail",
     "ingredient_types", "daily_reference", "score_estimated_inputs",
@@ -36,7 +42,7 @@ EXPECTED_TOP_LEVEL_KEYS = {
 # App 端 `AnalysisResponse`（APP/src/types.ts）實際讀取的頂層欄位。
 # 這是跨層斷言：Cloud 少給任何一個，App 的畫面就會缺一塊。
 APP_CONSUMED_TOP_LEVEL = [
-    "health_score", "risk_level", "score_breakdown", "product_info",
+    "health_score", "nutri_grade", "score_scale", "risk_level", "score_breakdown", "product_info",
     "allergen_warnings", "food_safety_events", "ingredients_detail",
     "overall_summary", "additives_summary", "safety_events_summary",
     # 2026-08-05 起 App 顯示資料新鮮度，依賴此欄位（utils/dataFreshness.ts）
@@ -74,7 +80,16 @@ def response():
             "safety_events_summary": "食安摘要",
             "warnings": ["高糖"],
         },
-        calc_result={"details": {"breakdown": {"sugars": 7, "energy": 3}}},
+        calc_result={
+            "grade": "D",
+            "details": {
+                "breakdown": {"energy": 3, "sugars": 7, "sfa": 0, "salt": 0,
+                              "protein": 0, "fibre": 0, "fruit_veg": 0},
+                "maxima": {"energy": 10, "sugars": 15, "sfa": 10, "salt": 20,
+                           "protein": 7, "fibre": 5, "fruit_veg": 5},
+                "sweetener_penalty": 0,
+            },
+        },
         deterministic_score=62,
         chemical=[{
             "name": "麥芽糊精",
