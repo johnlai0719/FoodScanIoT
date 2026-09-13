@@ -53,6 +53,11 @@ GROUP_ZH_TO_EN = {
     "孕婦": "pregnant", "哺乳期婦女": "pregnant",
     "嬰幼兒": "child", "兒童": "child", "兒童及青少年": "child",
     "六個月以下嬰兒": "child", "一歲以下嬰幼兒": "child",
+    # 2026-09-13：庫內實際出現但漏收的寫法。L-麩酸那筆因此從未觸發過——
+    # 不在這張表內的中文族群會被下面的 `continue` 靜默丟掉，不報錯。
+    # ⚠ 新增中文鍵不影響值域（EXPECTED_GROUP_CODES 仍是七個英文碼），
+    #   所以 test_group_vocabulary 不會紅；守這件事的是 test_group_coverage。
+    "幼童與兒童": "child",
     "慢性腎臟病患者": "kidney_disease",
     "氣喘患者": "asthma",
     "阿斯匹靈過敏者": "aspirin_allergy",
@@ -731,6 +736,17 @@ def match_ingredients(ing_list_raw, vision_data, cursor, vector_rag,
                     "riskLevel": CONCERN_TO_LEVEL.get(r.get("concern", "caution"), 1),
                     "reason": r.get("ai_reasoning") or r.get("source_quote") or zh_group,
                     "confidence": r.get("confidence", ""),
+                    # 2026-09-13 加入出處四欄。在這之前畫面講得出理由、講不出依據，
+                    # 而資料庫裡一直存著 WHO／EFSA／JECFA 的連結與原文引述。
+                    # 這與第 0 條原則（輸出的每個字都要有來源）是同一件事：
+                    # 有來源卻不呈現，使用者無從分辨這句話是查來的還是編的。
+                    "sourceUrl": r.get("source_url") or "",
+                    "sourceTitle": r.get("source_title") or "",
+                    "sourceYear": r.get("source_year"),
+                    # ⚠ 這些 ai_reasoning 是模型產生的（有 source_quote 佐證，
+                    #   但多數未經逐筆人工複核）。誠實標出來，不要讓它看起來
+                    #   像已審定的結論。缺這個鍵時一律視為 False。
+                    "reviewedByHuman": bool(r.get("reviewed_by_human")),
                 })
 
             adi_val = None

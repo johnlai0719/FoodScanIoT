@@ -894,6 +894,17 @@ export default function HomeScreen() {
                             <View key={i} style={s.personalRiskRow}>
                               <Text style={s.personalRiskName}>{r.name}</Text>
                               <Text style={s.personalRiskReason}>{r.reason}</Text>
+                              {/* 出處與複核狀態。這句話是查來的還是模型整理的，
+                                  使用者有權分辨——與「輸出的每個字都要有來源」
+                                  同一條原則。沒記出處時整行不顯示，不要寫成
+                                  「來源：無」，那會讀起來像「查證過但沒有來源」。 */}
+                              {(r.sourceTitle || r.sourceUrl || r.reviewedByHuman === false) && (
+                                <Text style={s.personalRiskSource}>
+                                  {r.sourceTitle || r.sourceUrl}
+                                  {r.sourceYear ? `（${r.sourceYear}）` : ''}
+                                  {r.reviewedByHuman === false ? '・未經人工複核' : ''}
+                                </Text>
+                              )}
                             </View>
                           ))}
                         </View>
@@ -1604,6 +1615,9 @@ const createStyles = (scale: number) => StyleSheet.create({
     borderWidth: 1, borderColor: '#fde68a', gap: 3,
   },
   personalRiskName: { fontSize: 12 * scale, fontWeight: '700', color: '#78350f' },
+  // 出處：比理由再小一級的灰字。它是佐證不是內容，不該跟理由搶注意力，
+  // 但必須看得見——「未經人工複核」這五個字是誠實陳述，不是免責聲明。
+  personalRiskSource: { fontSize: 10 * scale, color: TEXT_MID, lineHeight: 15, marginTop: 3 },
   personalRiskReason: { fontSize: 11 * scale, color: '#92400e', lineHeight: 16 },
 
   // Product compact header

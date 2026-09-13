@@ -6,7 +6,23 @@
 export interface GroupRisk {
   group: string;
   riskLevel: number;
+  /** 中文說明。來源是資料庫的 `ai_reasoning`，缺時退到 `source_quote`。 */
   reason: string;
+  confidence?: string;
+  /**
+   * 依據的出處。2026-09-13 加入——在這之前畫面講得出理由、講不出依據，
+   * 而資料庫裡一直存著 WHO／EFSA／JECFA 的連結與原文引述。
+   * 空字串代表那一筆沒有記出處，**不要顯示成連結**。
+   */
+  sourceUrl?: string;
+  sourceTitle?: string;
+  sourceYear?: number | null;
+  /**
+   * 這筆說明有沒有經過人工逐筆複核。多數是 false——`ai_reasoning` 由模型
+   * 產生（有 source_quote 佐證）。**false 時必須在畫面上標出來**，
+   * 否則使用者無從分辨它是已審定的結論還是待複核的整理。
+   */
+  reviewedByHuman?: boolean;
 }
 
 export interface IngredientDetail {

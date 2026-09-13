@@ -36,6 +36,12 @@ export interface AdditiveRisk {
   reason: string;
   group: string;
   riskLevel: number;
+  /** 依據的出處。空字串代表那一筆沒有記，畫面上不要顯示成連結。 */
+  sourceUrl?: string;
+  sourceTitle?: string;
+  sourceYear?: number | null;
+  /** 未經人工複核時要在畫面上標出來——見 types.ts 的 GroupRisk。 */
+  reviewedByHuman?: boolean;
 }
 
 export interface NutritionWarning {
@@ -236,6 +242,12 @@ export function matchAdditiveRisks(
           reason: r.reason,
           group: r.group,
           riskLevel: r.riskLevel,
+          // 出處一併帶下去。不帶的話畫面講得出理由卻講不出依據，
+          // 使用者無從分辨這句話是查來的還是編的。
+          sourceUrl: r.sourceUrl,
+          sourceTitle: r.sourceTitle,
+          sourceYear: r.sourceYear,
+          reviewedByHuman: r.reviewedByHuman,
         })),
     );
 }

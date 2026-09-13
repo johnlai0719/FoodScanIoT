@@ -143,6 +143,7 @@ def test_group_risks_survive_into_ingredients_detail(response):
     assert risks and {"group", "riskLevel", "reason"} <= set(risks[0])
 
 
+
 def test_score_breakdown_items_have_app_expected_shape(response):
     """App 的 getScoreBreakdownList() 讀 reason / description / points。"""
     for item in response["score_breakdown"]:
