@@ -290,14 +290,25 @@ def _localfields(cid):
     _mods["LF"].run_one(cid)   # 回傳 (prediction, 秒數)，這裡只要它寫出檔案
 
 
+# 除錯用：設 READER_KEEP=1 時保留本次的中間檔（PP-OCR／VL／營養／欄位），
+# 好回頭看「辨識到底讀出什麼」。**預設關閉**——那些檔案含使用者照片轉出的
+# 文字，不該在伺服器上累積。
+_KEEP = os.environ.get("READER_KEEP") in ("1", "true", "yes")
+
+
 def _cleanup(cid, rels):
     """暫存檔不留。圖片尤其不可留——那會在伺服器上累積使用者的照片，
-    而個人化資料不上雲是本專案明文的界線（見 CLAUDE.md「慣例」）。"""
+    而個人化資料不上雲是本專案明文的界線（見 CLAUDE.md「慣例」）。
+
+    READER_KEEP=1 時保留中間的 JSON 供除錯，**但圖片一律刪**——
+    要看的是辨識結果，不是原圖。"""
     for rel in rels:
         try:
             (WORK / rel).unlink()
         except OSError:
             pass
+    if _KEEP:
+        return
     for pre in (PRESET_BOXES, PRESET_VL, PRESET_NUTRI, PRESET_LF):
         try:
             (PPOCR / "out" / pre / (cid + ".json")).unlink()
