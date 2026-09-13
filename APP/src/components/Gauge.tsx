@@ -28,10 +28,15 @@ interface GaugeProps {
   pos?: number;
   neg?: number;
   healthSegments?: HealthSegment[];
+  /** 加分項，畫成內圈。長度是「加分 ÷ 扣分」——它抵銷了多少。 */
+  bonusSegments?: HealthSegment[];
 }
 
 const RADIUS = 45;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+// 內圈畫加分。半徑差 11 是「兩圈看得出是兩圈、但不至於把中間的字擠掉」。
+const INNER_RADIUS = 34;
+const INNER_CIRCUMFERENCE = 2 * Math.PI * INNER_RADIUS;
 
 const NUTRI_GRADES = [
   { grade: 'A', color: '#038141', label: '優秀 (A)', min: 80 },
@@ -54,11 +59,12 @@ function getNutriGrade(score: number) {
   return NUTRI_GRADES.find(g => score >= g.min) ?? NUTRI_GRADES[4];
 }
 
-export default function Gauge({ score, grade, label, type, subtitle, pos = 3, neg = 8, healthSegments }: GaugeProps) {
+export default function Gauge({ score, grade, label, type, subtitle, pos = 3, neg = 8, healthSegments, bonusSegments }: GaugeProps) {
   // 等級以 Cloud 給的為準；沒給才退回舊的推法（舊快取裡的結果沒有這個欄位）。
   const activeGrade =
     NUTRI_GRADES.find(g => g.grade === grade) ?? getNutriGrade(score);
   let accumulatedPercent = 0;
+  let accumulatedBonus = 0;
 
   // 弧的顏色跟等級同一個來源，不要再用一組分數門檻——那正是上面那個 bug。
   const gaugeColor = activeGrade.color;
@@ -73,7 +79,35 @@ export default function Gauge({ score, grade, label, type, subtitle, pos = 3, ne
             stroke="rgba(62,47,40,0.08)"
             strokeWidth="9"
           />
-          {type === 'health' && healthSegments ? (
+          {/* 內圈：加分抵銷了多少扣分。沒有加分時整圈不畫——
+              畫一條 0 長度的弧只是多一個看不見的元素。 */}
+          {type === 'health' && bonusSegments && bonusSegments.length > 0 && (
+            <>
+              <Circle
+                cx="50" cy="50" r={INNER_RADIUS}
+                fill="transparent"
+                stroke="rgba(62,47,40,0.05)"
+                strokeWidth="5"
+              />
+              {bonusSegments.map((seg, idx) => {
+                const segLen = (seg.percentage / 100) * INNER_CIRCUMFERENCE;
+                const rotation = -90 + (accumulatedBonus / 100) * 360;
+                accumulatedBonus += seg.percentage;
+                return (
+                  <Circle
+                    key={`b${idx}`}
+                    cx="50" cy="50" r={INNER_RADIUS}
+                    fill="transparent"
+                    stroke={seg.color}
+                    strokeWidth="5"
+                    strokeDasharray={`${segLen} ${INNER_CIRCUMFERENCE}`}
+                    transform={`rotate(${rotation} 50 50)`}
+                  />
+                );
+              })}
+            </>
+          )}
+          {type === 'health' && healthSegments && healthSegments.length > 0 ? (
             healthSegments.map((seg, idx) => {
               const segLen = (seg.percentage / 100) * CIRCUMFERENCE;
               const rotation = -90 + (accumulatedPercent / 100) * 360;
@@ -110,8 +144,12 @@ export default function Gauge({ score, grade, label, type, subtitle, pos = 3, ne
               {/* 中央放等級，不放分數。Nutri-Score 的主體是 A–E；
                   原始分數放在下面那行，並註明方向——不寫「越低越好」的話，
                   「10 分」會被讀成 0–100 裡的 10 分。 */}
-              <Text style={styles.gradeText}>{activeGrade.grade}</Text>
-              <Text style={styles.subtext}>{activeGrade.label.replace(/\s*\(.\)$/, '')}</Text>
+              {/* 圓環本身表達的是**扣分的組成**，所以中央放總分；
+                  等級縮小放在下面，不再是主角——只有一個字母的圓沒有資訊。 */}
+              <Text style={styles.scoreBig}>{score}</Text>
+              <Text style={styles.subtext}>
+                {activeGrade.grade} 級・分數越低越好
+              </Text>
             </>
           ) : (
             <>
@@ -122,16 +160,30 @@ export default function Gauge({ score, grade, label, type, subtitle, pos = 3, ne
         </View>
       </View>
 
-      {type === 'health' && healthSegments && (
+      {type === 'health' && ((healthSegments?.length ?? 0) > 0 || (bonusSegments?.length ?? 0) > 0) && (
         <View style={styles.legend}>
-          {healthSegments.map((seg, idx) => (
+          {healthSegments?.map((seg, idx) => (
             <View key={idx} style={styles.legendRow}>
               <View style={[styles.legendDot, { backgroundColor: seg.color }]} />
               <Text style={styles.legendName}>{seg.name}</Text>
               <Text style={styles.legendValue}>{seg.valueText}</Text>
             </View>
           ))}
+          {/* 加分項的點畫成空心，跟外圈的扣分區分開——同樣的實心點會讓人
+              以為它們在同一個圓上。 */}
+          {bonusSegments?.map((seg, idx) => (
+            <View key={`b${idx}`} style={styles.legendRow}>
+              <View style={[styles.legendDotHollow, { borderColor: seg.color }]} />
+              <Text style={styles.legendName}>{seg.name}</Text>
+              <Text style={styles.legendValue}>{seg.valueText}</Text>
+            </View>
+          ))}
         </View>
+      )}
+
+      {/* 全部 0 分：圓環是空的，要講清楚那是「沒有扣分」而不是「沒算出來」。 */}
+      {type === 'health' && (healthSegments?.length ?? 0) === 0 && (
+        <Text style={styles.emptyNote}>各項營養素皆未達扣分門檻。</Text>
       )}
 
       <Text style={styles.labelText}>{label}</Text>
@@ -223,7 +275,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     alignItems: 'center',
   },
-  gradeText: { fontSize: 34, fontWeight: '900', lineHeight: 38 },
+  legendDotHollow: { width: 8, height: 8, borderRadius: 999, borderWidth: 2, backgroundColor: 'transparent' },
+  emptyNote: { fontSize: 11, color: '#757575', textAlign: 'center', marginTop: 8 },
+  scoreBig: { fontSize: 30, fontWeight: '900', lineHeight: 34, fontVariant: ['tabular-nums'] },
   scoreText: {
     fontSize: 16,
     fontWeight: '900',

@@ -33,6 +33,7 @@ import {
   getScoreBreakdownList,
   getDynamicHealthPoints,
   getDynamicHealthSegments,
+  getBonusSegments,
   getDynamicHealthLegend,
 } from '../utils/scoring';
 import {
@@ -437,6 +438,7 @@ export default function HomeScreen() {
 
   const { pos: dynamicPos, neg: dynamicNeg } = getDynamicHealthPoints(analysisResult, scoreBreakdownList);
   const healthSegments = getDynamicHealthSegments(analysisResult, scoreBreakdownList);
+  const bonusSegments = getBonusSegments(scoreBreakdownList);
   const healthLegend = getDynamicHealthLegend(scoreBreakdownList);
   const scoreValue = analysisResult?.health_score ?? 100;
 
@@ -959,6 +961,7 @@ export default function HomeScreen() {
                           pos={dynamicPos}
                           neg={dynamicNeg}
                           healthSegments={healthSegments}
+                          bonusSegments={bonusSegments}
                         />
                         <View style={s.scoreTapRow}>
                           <Text style={s.scoreTapText}>

@@ -68,34 +68,71 @@ export function getDynamicHealthSegments(
   analysisResult: AnalysisResponse | null,
   scoreBreakdownList: ScoreBreakdownItem[]
 ): HealthSegment[] {
-  let sugarPercent = 55;
-  let caloriesPercent = 35;
-  let otherPercent = 10;
+  // 2026-09-13 重寫。**舊版是編的**：寫死 55/35/10、依條碼給魔術數字
+  // （TEST → 68/22/10）、缺值時 `sugarPoints || 6` 捏一個 6 出來，還有一個
+  // 從來沒算過的「其他膳食營養 10%」。而且只看糖與熱量，飽和脂肪、鈉、
+  // 蛋白質、纖維全部忽略——圓環看起來像在表達什麼，其實沒有。
+  //
+  // 現在每一項都帶真的 points，占比就是 |這項| ÷ Σ|全部扣分|。
+  // 只畫扣分：Nutri-Score = 扣分 − 加分，把相減塞進同一個圓餅會誤導
+  // （一塊「負的面積」不存在）。加分另外由 bonusSegments 畫成內圈。
+  const penalties = scoreBreakdownList.filter(i => i.points < 0);
+  const total = penalties.reduce((n, i) => n + Math.abs(i.points), 0);
+  if (total === 0) return [];
 
-  if (analysisResult) {
-    const barcode = analysisResult.product_info?.barcode || '';
-    if (barcode === 'TEST') {
-      sugarPercent = 68; caloriesPercent = 22; otherPercent = 10;
-    } else if (barcode === '4710018123456') {
-      sugarPercent = 62; caloriesPercent = 28; otherPercent = 10;
-    } else {
-      const sugarItem = scoreBreakdownList.find(item => /糖|sugar/i.test(item.reason));
-      const calorieItem = scoreBreakdownList.find(item => /熱量|卡路里|energy|calories/i.test(item.reason));
-      const sugarPoints = Math.abs(sugarItem?.points || 6);
-      const caloriePoints = Math.abs(calorieItem?.points || 3);
-      const sum = sugarPoints + caloriePoints || 1;
-      sugarPercent = Math.round((sugarPoints / sum) * 85);
-      caloriesPercent = Math.round((caloriePoints / sum) * 85);
-      otherPercent = 100 - sugarPercent - caloriesPercent;
-    }
-  }
-
-  return [
-    { name: '糖分比例', percentage: sugarPercent, color: '#f43f5e', valueText: `約 ${sugarPercent}%` },
-    { name: '熱量比例', percentage: caloriesPercent, color: '#f59e0b', valueText: `約 ${caloriesPercent}%` },
-    { name: '其他膳食營養', percentage: otherPercent, color: '#10b981', valueText: `約 ${otherPercent}%` },
-  ];
+  return penalties
+    .map(item => {
+      const abs = Math.abs(item.points);
+      return {
+        name: item.reason,
+        percentage: (abs / total) * 100,
+        color: PENALTY_COLORS[item.key ?? ''] ?? '#9ca3af',
+        // 同時給「幾分」與「佔幾成」：只有百分比看不出量級，
+        // 只有分數看不出這一項在總扣分裡有多重。
+        valueText: `${abs} 分・${Math.round((abs / total) * 100)}%`,
+      };
+    })
+    // 0 分的項目不畫（畫出來是寬度 0 的弧），但它們仍留在明細清單裡。
+    .filter(seg => seg.percentage > 0);
 }
+
+/**
+ * 加分項。畫成內圈，長度是「加分 ÷ 扣分」——它抵銷了多少。
+ * 沒有加分時回空陣列，內圈整個不畫（而不是畫一個 0 長度的弧）。
+ */
+export function getBonusSegments(
+  scoreBreakdownList: ScoreBreakdownItem[]
+): HealthSegment[] {
+  const bonuses = scoreBreakdownList.filter(i => i.points > 0);
+  const penaltyTotal = scoreBreakdownList
+    .filter(i => i.points < 0)
+    .reduce((n, i) => n + Math.abs(i.points), 0);
+  if (bonuses.length === 0 || penaltyTotal === 0) return [];
+
+  return bonuses.map(item => ({
+    name: item.reason,
+    // 以扣分總額為分母：內圈畫滿就代表加分完全抵銷了扣分。
+    percentage: Math.min((item.points / penaltyTotal) * 100, 100),
+    color: BONUS_COLORS[item.key ?? ''] ?? '#10b981',
+    valueText: `+${item.points} 分`,
+  }));
+}
+
+// 每一項固定一個顏色，換產品時同一項才會是同一色（隨機或依序上色的話，
+// 兩個產品的圓環無法對照）。色相取自 Nutri-Score 官方色階的紅橙端。
+const PENALTY_COLORS: Record<string, string> = {
+  sugars: '#e63e11',      // 糖：最重的那一項，用最深的紅
+  energy: '#ee8100',      // 熱量
+  sfa: '#b45309',         // 飽和脂肪
+  salt: '#7c2d12',        // 鈉
+  sweeteners: '#a16207',  // 非營養性甜味劑
+};
+
+const BONUS_COLORS: Record<string, string> = {
+  protein: '#038141',
+  fibre: '#85bb2f',
+  fruit_veg: '#4d7c0f',
+};
 
 export interface LegendItem {
   label: string;
