@@ -173,3 +173,6 @@ PPOCR_TEST/*.bak*
 PPOCR_TEST/.venv_*/
 reader/_work/
 PPOCR_TEST/out/_online_*/
+
+# Expo 連線用的 QR（含 Tailscale 內網位址，不進版控）
+APP/expo-qr.png
