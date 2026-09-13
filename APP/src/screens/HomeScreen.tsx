@@ -15,7 +15,7 @@ import {
   StyleSheet,
   Share,
 } from 'react-native';
-import { Sparkles, Sliders, Database, ShoppingBag, AlertOctagon, RotateCcw, Layers, ShieldCheck, Grid, ChevronRight, Zap, ChevronUp, ChevronDown, ArrowLeft, AlertTriangle, CheckCircle2, Info, ScanLine, Activity, Settings2 } from 'lucide-react-native';
+import { Sparkles, Sliders, Database, ShoppingBag, AlertOctagon, RotateCcw, Layers, ShieldCheck, ChevronRight, Zap, ChevronUp, ChevronDown, ArrowLeft, AlertTriangle, CheckCircle2, Info, ScanLine, Activity, Settings2 } from 'lucide-react-native';
 
 import { useFontScale } from '../contexts/FontScaleContext';
 import { UserConditions, AnalysisResponse, DegradedLocalResponse } from '../types';
@@ -1017,22 +1017,16 @@ export default function HomeScreen() {
                         </View>
                       )}
 
-                      {/* Entry rows */}
+                      {/* Entry rows
+
+                          ~~評分明細~~ **2026-09-13 移除這一列**：它與分數卡下方的
+                          「看逐項計算」通到同一頁，兩個入口做同一件事會讓人以為是
+                          兩種不同的東西。留分數卡那個——它就貼在被解釋的對象旁邊，
+                          而這個清單裝的是**其他主題**（添加物、廠商歷史），把計算
+                          明細混進來反而暗示它是另一個主題。
+                          （順帶一提原本的標題「成分細則扣分分解」也是錯的：
+                          扣分的是營養素，不是成分。） */}
                       <View style={s.card}>
-                        {/* Breakdown */}
-                        <Pressable style={s.entryRow} onPress={() => setActiveDetailView('breakdown')}>
-                          <View style={s.gatewayIcon}>
-                            <Grid size={16} color="#757575" />
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={s.entryRowTitle}>成分細則扣分分解</Text>
-                            <Text style={s.entryRowSub}>{scoreBreakdownList.length} 項評分項目</Text>
-                          </View>
-                          <ChevronRight size={15} color={TEXT_MID} />
-                        </Pressable>
-
-                        <View style={s.entryDivider} />
-
                         {/* Additives */}
                         <Pressable style={s.entryRow} onPress={() => setActiveDetailView('additives')}>
                           <View style={s.gatewayIcon}>
