@@ -64,6 +64,46 @@ describe('未設定任何健康條件', () => {
   });
 });
 
+describe('自訂過敏原', () => {
+  it('走與預設項相同的子字串比對', () => {
+    const r = analyzePersonalRisks(
+      makeResult({ ingredients_detail: [{ name: '木瓜酵素', isAdditive: false, description: '' }] }),
+      { ...ADULT, allergens: ['木瓜'] },
+    );
+    expect(r.matchedAllergens).toEqual(['木瓜']);
+  });
+
+  it('英文大寫也要配得到', () => {
+    // 2026-09-13 之前不會：比對的那一側有 toLowerCase()，關鍵字卻沒有。
+    // 預設項的關鍵字本來就是小寫所以沒事，自訂項打大寫就永遠配不到，
+    // 而且不會有任何錯誤訊息。
+    const r = analyzePersonalRisks(
+      makeResult({ ingredients_detail: [{ name: 'Papain 木瓜酵素', isAdditive: false, description: '' }] }),
+      { ...ADULT, allergens: ['Papain'] },
+    );
+    expect(r.matchedAllergens).toEqual(['Papain']);
+  });
+
+  it('自訂項沒有同義詞展開——這是限制，不是壞掉', () => {
+    // 預設的「大豆」會展開成 黃豆／大豆／卵磷脂／soy；
+    // 自訂的「黃豆」只比對「黃豆」四個字本身。我們無從知道使用者打的那個詞
+    // 有哪些別名，硬猜會製造假警示。
+    const r = analyzePersonalRisks(
+      makeResult({ ingredients_detail: [{ name: '大豆卵磷脂', isAdditive: true, description: '' }] }),
+      { ...ADULT, allergens: ['黃豆'] },
+    );
+    expect(r.matchedAllergens).toEqual([]);
+  });
+
+  it('前後空白會被去掉，不會變成配不到', () => {
+    const r = analyzePersonalRisks(
+      makeResult({ ingredients_detail: [{ name: '木瓜酵素', isAdditive: false, description: '' }] }),
+      { ...ADULT, allergens: ['  木瓜  '] },
+    );
+    expect(r.matchedAllergens).toEqual(['木瓜']);
+  });
+});
+
 describe('慢性病營養閾值', () => {
   // 這是遷移前完全無法觸發的情境：groupRisks 的值域不含 hypertension/diabetes，
   // 使用者勾了高血壓卻什麼都不會發生。

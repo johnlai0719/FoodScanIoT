@@ -152,6 +152,19 @@ function normalizeAllergens(allergens: string[]): string[] {
   return Array.from(new Set(normalized));
 }
 
+/**
+ * 取比對用的關鍵字。預設過敏原有同義詞清單（大豆 → 黃豆／卵磷脂／soy），
+ * **自訂過敏原只有它自己**——我們無從知道使用者打的那個詞有哪些別名。
+ *
+ * ⚠ 一律轉小寫。比對的那一側（成分名、標示全文）都做了 `toLowerCase()`，
+ *   關鍵字卻沒有——預設項的關鍵字本來就是小寫所以沒事，但**自訂過敏原
+ *   只要打了任何大寫英文就永遠配不到**（`Papain`、`MSG`），而且不會有
+ *   任何錯誤訊息。中文不受影響（沒有大小寫）。2026-09-13 修。
+ */
+function keywordsFor(allergen: string): string[] {
+  return (ALLERGEN_KEYWORDS[allergen] ?? [allergen]).map(k => k.toLowerCase());
+}
+
 /** 使用者的族群/疾病標籤，用於比對 groupRisks[].group */
 export function buildActiveTags(profile: PersonalProfile): string[] {
   const tags = [
@@ -184,7 +197,7 @@ export function detectAllergens(
   // 第一層：比對成分明細的名稱
   const ingredients = result.ingredients_detail ?? [];
   for (const allergen of userAllergens) {
-    const keywords = ALLERGEN_KEYWORDS[allergen] ?? [allergen];
+    const keywords = keywordsFor(allergen);
     const hit = ingredients.some(ing => {
       const name = (ing?.name ?? '').toLowerCase();
       return name !== '' && keywords.some(k => name.includes(k));
@@ -205,8 +218,7 @@ export function detectAllergens(
   if (sourceText.trim() !== '') {
     for (const allergen of userAllergens) {
       if (matched.includes(allergen)) continue;
-      const keywords = ALLERGEN_KEYWORDS[allergen] ?? [allergen];
-      if (keywords.some(k => sourceText.includes(k))) matched.push(allergen);
+      if (keywordsFor(allergen).some(k => sourceText.includes(k))) matched.push(allergen);
     }
   }
 
