@@ -100,7 +100,7 @@ app.get('/health', async (req: Request, res: Response) => {
 // 路由: POST /query
 app.post('/query', validateQuery, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const result = await handleQuery(req.body as FogQueryRequest);
+    const result = await handleQuery(req.body as FogQueryRequest, req.header('X-Request-Id'));
     res.header('X-Cache', result.cacheHeader);
     // 三層的計時標頭。**不放進 body**：`test_cloud_response_contract.py` 是
     // `set(keys) == EXPECTED` 嚴格相等，動 body 等於改 App 的資料契約；

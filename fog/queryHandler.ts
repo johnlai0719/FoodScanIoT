@@ -22,9 +22,16 @@ const CLOUD_API_URL = process.env.PYTHON_API_URL || 'http://127.0.0.1:3002/query
 // VRAM 擠爆造成的，已用參數解掉），三張約 31 秒——60 秒沒有餘裕。
 const CLOUD_TIMEOUT = 105000;
 
-export async function handleQuery(reqData: FogQueryRequest): Promise<{ status: number, data: any, cacheHeader: string, headers: Record<string, string> }> {
+// 與 server/telemetry.py 的 _SAFE_ID 相同（tests/contract/test_timing_headers.py 比對兩者）。
+// request id 來自 App、會被原樣轉發，不合格就不轉，避免把使用者輸入塞進標頭。
+const SAFE_REQUEST_ID = /^[A-Za-z0-9_.:-]{1,64}$/;
+
+export async function handleQuery(reqData: FogQueryRequest, requestId?: string): Promise<{ status: number, data: any, cacheHeader: string, headers: Record<string, string> }> {
   const { barcode } = reqData;
   const startTime = Date.now();
+  // App 產生的 request id 要逐層往下帶，三層的計時紀錄才併得起來。
+  const rid = requestId && SAFE_REQUEST_ID.test(requestId) ? requestId : '';
+  const upstreamHeaders: Record<string, string> = { 'Content-Type': 'application/json', ...(rid ? { 'X-Request-Id': rid } : {}) };
   // 下游（Python → Cloud）自己量的那幾段，原樣往上帶，讓 App 一次收齊三層。
   const passThrough: Record<string, string> = {};
   let upstreamMs: number | null = null;
@@ -35,6 +42,8 @@ export async function handleQuery(reqData: FogQueryRequest): Promise<{ status: n
     }
   };
   const timingHeaders = () => ({
+    // 自己先帶上：Python 連不上時 passThrough 是空的，最需要對帳的正是那幾次
+    ...(rid ? { 'X-Request-Id': rid } : {}),
     ...passThrough,
     'X-Timing-Fog-Node': fmtTiming({ upstream: upstreamMs, total: Date.now() - startTime }),
   });
@@ -50,7 +59,7 @@ export async function handleQuery(reqData: FogQueryRequest): Promise<{ status: n
       const _t0 = Date.now();
       const response = await fetch(CLOUD_API_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: upstreamHeaders,
         body: JSON.stringify({
           ...reqData,
           cached_result: cachedData 
@@ -100,7 +109,7 @@ export async function handleQuery(reqData: FogQueryRequest): Promise<{ status: n
     const _t0 = Date.now();
     const response = await fetch(CLOUD_API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: upstreamHeaders,
       body: JSON.stringify(reqData),
       signal: controller.signal
     });

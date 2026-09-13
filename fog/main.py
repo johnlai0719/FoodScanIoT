@@ -318,11 +318,14 @@ async def query(request: Request, response: Response):
             # 執行脫敏 (Task A)
             masked_data = mask_sensitive_data(data)
             masked_data_bytes = json.dumps(masked_data).encode()
+            _h = cloud_headers()
+            if rid:
+                _h[T.REQUEST_ID_HEADER] = rid
             
             cloud_resp = requests.post(
                 CLOUD_URL, 
                 data=masked_data_bytes, 
-                headers=cloud_headers(),
+                headers=_h,
                 # 無圖路徑：同樣分開連線與讀取，理由見帶圖那條的註解
                 # （Cloudflare 524 是 100 秒硬上限）。
                 timeout=(5.0, CLOUD_READ_TIMEOUT)

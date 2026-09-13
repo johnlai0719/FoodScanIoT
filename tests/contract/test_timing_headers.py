@@ -164,3 +164,40 @@ def test_records_counts_not_contents():
     for m2 in re.finditer(r"uploadedImages(\.\w+)?", appended):
         assert m2.group(1) == ".length", (
             "量測紀錄只能記圖片張數，不能記圖片本身：%s" % m2.group(0))
+
+
+# ── request id 要真的逐層轉發，不只是名字出現在檔案裡 ────────────────────────
+# 2026-09-13 實測：X-Request-Id 在 queryHandler.ts 裡只出現在「從 Python 回應複製」
+# 的清單中，App 送的 id 在 Node 就被丟掉，三層的紀錄併不起來——而上面那條
+# 「名字要一致」的測試照樣是綠的。
+
+def test_node_passes_request_id_into_handle_query():
+    server = _read(os.path.join(ROOT, 'fog', 'server.ts'))
+    assert re.search(r"handleQuery\([^)]*X-Request-Id", server), \
+        'server.ts 沒把請求的 X-Request-Id 交給 handleQuery()'
+
+
+def test_node_forwards_request_id_on_every_call_to_python():
+    node = _read(TS_NODE)
+    n_fetch = node.count('fetch(CLOUD_API_URL')
+    assert n_fetch >= 1
+    assert node.count('headers: upstreamHeaders') == n_fetch, \
+        'queryHandler.ts 有打 Python 的 fetch 沒帶 upstreamHeaders（其中含 X-Request-Id）'
+    m = re.search(r"const upstreamHeaders[^;]*;", node, re.S)
+    assert m and 'X-Request-Id' in m.group(0)
+
+
+def test_python_forwards_request_id_on_every_call_to_cloud():
+    main = _read(os.path.join(ROOT, 'fog', 'main.py'))
+    assert 'headers=cloud_headers()' not in main, \
+        'fog/main.py 有打 Cloud 的呼叫只用 cloud_headers()，沒帶 request id'
+    assert main.count('_h[T.REQUEST_ID_HEADER] = rid') == 2, \
+        '帶圖與無圖兩條打 Cloud 的路徑都要轉發 request id'
+
+
+def test_node_and_python_accept_the_same_request_ids():
+    """Node 先過濾再轉發；兩邊規則不同時，合格的 id 可能在 Node 就被擋掉。"""
+    node = _read(TS_NODE)
+    m = re.search(r"const SAFE_REQUEST_ID = /(.+)/;", node)
+    assert m, 'queryHandler.ts 找不到 SAFE_REQUEST_ID'
+    assert m.group(1) == T._SAFE_ID.pattern
