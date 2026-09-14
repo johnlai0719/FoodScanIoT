@@ -27,6 +27,7 @@ import base64
 import io as _io
 import concurrent.futures as _futures
 import json
+import subprocess
 import os
 import threading
 import time
@@ -131,6 +132,26 @@ def warm_up():
 
         _mods.update(RB=RB, RV=RV, RC=RC, N=N, LF=LF, EJ=EJ,
                      predict=cfg["predict"])
+
+        # ⚠ **建立模型不等於暖好。** paddle／cuDNN 的核心選擇是在**第一次真正
+        # 推論**時才做的，所以只 new 出物件的話那個成本會落在第一位使用者身上。
+        #
+        # 2026-09-14 量到：重啟後第一次請求 13.0 秒，其中
+        # nutrition_structure 佔 7.16 秒（平常 0.75）；之後四次是
+        # 6.2／5.5／5.1／5.0。差的就是這一段。
+        #
+        # 空跑一張純色小圖把它逼出來。內容不重要——要的是讓 cuDNN 選完核心、
+        # 讓記憶體池配置完。失敗不影響服務，只是第一位使用者會慢一次。
+        try:
+            import numpy as _np
+            _dummy = _np.full((640, 480, 3), 255, dtype=_np.uint8)
+            _tw = time.time()
+            list(_ocr.predict(_dummy, **cfg["predict"]))
+            list(_pp.predict(_dummy))
+            print("[reader] 空跑暖機 %.1f 秒" % (time.time() - _tw))
+        except Exception as _e:
+            print("[reader] 空跑暖機略過：%r" % (_e,))
+
         _state.update(state="ready", detail="warm-up %.1fs" % (time.time() - t0))
     except Exception as e:
         _state.update(state="failed", detail="%s: %s" % (type(e).__name__, e))
@@ -180,6 +201,7 @@ def read(base64_images, barcode="unknown"):
             # 逐段計時。總時間看不出該優化哪一段——2026-09-13 第一次量到
             # 單張 55 秒時，就是因為只有總數而無法判斷方向。
             t = {"queue": round(queue_s, 2)}
+            host_before = _host_sample()
             _t = time.time()
             _ppocr(cid, rels)
             t["ppocr"] = round(time.time() - _t, 2)
@@ -198,6 +220,11 @@ def read(base64_images, barcode="unknown"):
             t["assemble"] = round(time.time() - _t, 2)
         out.setdefault("_meta", {})["reader"] = "vlcrop_hy (PP-OCR→HunyuanOCR→Qwen)"
         out["_meta"]["stage_secs"] = t
+        # 前後各取一次。只取一次看不出「這次請求把記憶體撐大了多少」——
+        # paddle 的記憶體池會隨用量成長且用過不還（2026-09-14 量到載入
+        # 1938 MB、實跑 3851 MB），那個成長本身就是要觀察的對象。
+        out["_meta"]["host_before"] = host_before
+        out["_meta"]["host_after"] = _host_sample()
         out["_meta"]["barcode"] = barcode
         return out
     finally:
@@ -330,6 +357,43 @@ def _localfields(cid):
 # 好回頭看「辨識到底讀出什麼」。**預設關閉**——那些檔案含使用者照片轉出的
 # 文字，不該在伺服器上累積。
 _KEEP = os.environ.get("READER_KEEP") in ("1", "true", "yes")
+
+
+# ── 主機狀態取樣 ─────────────────────────────────────────────────────────────
+# 2026-09-14：同一張圖、同一個行程，實測到 6.8 秒與 11.6 秒兩種結果，而
+# 四個假設（我在跑別的測試搶 GPU、冷快取、Docker 網路、圖片本身）逐一被
+# 排除，事後也無法再現。問題不在缺少「哪一段慢」——stage_secs 已經有了
+# ——而在缺少**當下主機是什麼狀況**。
+#
+# 所以每次請求連同耗時一起記下 GPU 與 CPU 的現況。下次再出現 11 秒，
+# 現場資料就在回應裡，不必事後追時間戳。
+#
+# 成本：nvidia-smi 一次約 20–40ms，只在請求開始與結束各取一次。
+# 取不到就回 None——**這是量測，不可以讓它影響服務**。
+def _gpu_sample():
+    """回傳 (已用 MiB, 可用 MiB, 使用率 %)；取不到回 (None, None, None)。"""
+    try:
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.used,memory.free,utilization.gpu",
+             "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=3).stdout.strip().splitlines()
+        used, free, util = (int(x) for x in out[0].split(","))
+        return used, free, util
+    except Exception:
+        return None, None, None
+
+
+def _host_sample():
+    """GPU ＋ CPU 的當下狀況。Qwen 跑 CPU，CPU 被佔住一樣會拖慢這條管線。"""
+    used, free, util = _gpu_sample()
+    d = {"vram_used_mb": used, "vram_free_mb": free, "gpu_util_pct": util}
+    try:
+        import psutil
+        d["cpu_pct"] = psutil.cpu_percent(interval=None)
+        d["load_procs"] = len(psutil.pids())
+    except Exception:
+        pass
+    return d
 
 
 def _cleanup(cid, rels):

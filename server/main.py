@@ -957,6 +957,15 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
             for _k, _v in ((vision_data or {}).get("_meta", {})
                            .get("stage_secs", {}) or {}).items():
                 _mark(request, "r_" + _k, float(_v) * 1000)
+            # 主機狀態一起帶上來。2026-09-14 為了「同一張圖為何一次 6.8 秒、
+            # 一次 11.6 秒」查了半小時，最後排除不掉也再現不了——缺的不是
+            # 「哪一段慢」（那已經有了），是**當下主機是什麼狀況**。
+            # ⚠ 這幾個不是耗時，單位是 MiB 與 %。`_mark` 的欄位名以 h_ 起頭
+            #   就是為了跟毫秒的欄位分開，讀 header 的人不會誤當成時間。
+            _host = (vision_data or {}).get("_meta", {}).get("host_before") or {}
+            for _k in ("vram_free_mb", "gpu_util_pct", "cpu_pct"):
+                if _host.get(_k) is not None:
+                    _mark(request, "h_" + _k, float(_host[_k]))
             
             # --- 核心連線邏輯：在分析完畢後才建立連線，防止超時 ---
             db = get_db_conn()
