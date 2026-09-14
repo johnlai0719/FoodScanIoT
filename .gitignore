@@ -180,4 +180,6 @@ APP/expo-qr.png
 # 可重現的 Tesseract baseline：程式與說明進版控，辨識輸出不進版控。
 !tools/TESSERACT_BASELINE.md
 !tools/EASYOCR_BASELINE.md
+!tools/STRUCTURED_PIPELINE.md
 .artifacts/
+.cache/
