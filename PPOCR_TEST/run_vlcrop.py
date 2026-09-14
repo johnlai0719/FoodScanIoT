@@ -54,6 +54,8 @@ LINECLS_TH = float(os.environ.get("VL_LINECLS") or 0)
 LINECLS_DIR = os.environ.get("VL_LINECLS_DIR") or "linecls_pred"
 
 
+import degenerate as DG      # 重複退化偵測（見該檔檔頭的量測依據）
+
 def _linecls_probs(cid, ppocr):
     """把折外預測接回 OCR 行序，回傳與所有行等長的機率序列。
 
@@ -305,14 +307,81 @@ def ask(img, prompt, max_tokens=3072):
     # 專案 2026-09 在 local_fields.py 踩過同一個坑。
     body.update(CFG.get("extra") or {})
     t = time.time()
+    if STREAM_ABORT:
+        txt, fin = _ask_streaming(body)
+        if fin != "retry":
+            return txt, fin, time.time() - t
+        # 串流被後端拒絕（部分 LM Studio 版本）時退回一次性請求。
     for attempt in range(2):     # LM Studio 偶發 Content-only format 400
         d = requests.post(CFG["url"], json=body, timeout=1800).json()
         if "error" not in d:
             ch = d["choices"][0]
-            return ch["message"]["content"], ch.get("finish_reason"), time.time() - t
+            txt = ch["message"]["content"]
+            # 非串流時仍要清一次：退化不一定在結尾（c150 的重複段後面
+            # 還接了乾淨的營養表），只是省不到時間。
+            txt, removed = DG.clean(txt or "")
+            return txt, ("degenerate" if removed else ch.get("finish_reason")), time.time() - t
         if attempt == 0:
             body["max_tokens"] = max_tokens // 2
     return None, f"error: {str(d['error'])[:80]}", time.time() - t
+
+
+# 串流解碼並在偵測到重複退化時中止。
+#
+# 為什麼是串流而不是 max_tokens 上限：2026-09-14 以 177 案量測，**長度沒有
+# 判別力**——最長的 c159（3563 字、中英雙語密集標示）是正常的，退化的
+# c150 只有 3292 字。長度上限會截掉前者、放過後者。
+# 判準改成「尾段是不是週期性的」（見 degenerate.py），而那必須邊生成邊看，
+# 等生成完再判就已經付完時間了。
+STREAM_ABORT = os.environ.get("VLCROP_STREAM_ABORT", "1") not in ("0", "false")
+# 每累積這麼多字檢查一次。太密會拖慢解碼迴圈，太疏會多跑冤枉的 token。
+_CHECK_EVERY = 64
+
+
+def _ask_streaming(body):
+    """回傳 (文字, finish_reason)。finish_reason 為 "retry" 代表後端不支援串流。"""
+    b = dict(body); b["stream"] = True
+    try:
+        r = requests.post(CFG["url"], json=b, timeout=1800, stream=True)
+        if r.status_code != 200:
+            return None, "retry"
+    except requests.RequestException:
+        return None, "retry"
+    buf, since, fin = [], 0, None
+    try:
+        # ⚠ 不可用 iter_lines(decode_unicode=True)：它會把跨 chunk 的多位元組
+        # 字元切壞，實測 3102 字的輸出只收到 140 字（2026-09-14）。
+        # 自己收 bytes 再解碼。
+        for raw in r.iter_lines():
+            if not raw:
+                continue
+            line = raw.decode("utf-8", errors="replace")
+            if not line.startswith("data:"):
+                continue
+            payload = line[5:].strip()
+            if payload == "[DONE]":
+                break
+            try:
+                d = json.loads(payload)
+            except ValueError:
+                continue
+            ch = (d.get("choices") or [{}])[0]
+            piece = (ch.get("delta") or {}).get("content") or ""
+            if piece:
+                buf.append(piece)
+                since += len(piece)
+            fin = ch.get("finish_reason") or fin
+            if since >= _CHECK_EVERY:
+                since = 0
+                cut, p = DG.find_degenerate_tail("".join(buf))
+                if cut is not None:
+                    # 中止連線，不等它把 max_tokens 跑完。
+                    r.close()
+                    return "".join(buf)[:cut], "degenerate"
+    finally:
+        r.close()
+    txt, removed = DG.clean("".join(buf))
+    return txt, ("degenerate" if removed else (fin or "stop"))
 
 
 def to_lines(txt):
