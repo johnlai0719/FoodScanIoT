@@ -76,7 +76,7 @@ export default function Gauge({ score, grade, label, type, subtitle, pos = 3, ne
           <Circle
             cx="50" cy="50" r={RADIUS}
             fill="transparent"
-            stroke="rgba(62,47,40,0.08)"
+            stroke="rgba(62,47,40,0.13)"
             strokeWidth="9"
           />
           {/* 內圈：加分抵銷了多少扣分。沒有加分時整圈不畫——
@@ -86,7 +86,9 @@ export default function Gauge({ score, grade, label, type, subtitle, pos = 3, ne
               <Circle
                 cx="50" cy="50" r={INNER_RADIUS}
                 fill="transparent"
-                stroke="rgba(62,47,40,0.05)"
+                // 內圈的軌道要看得見。0.05 時使用者只看到一段綠色懸在那裡，
+                // 看不出它是「整圈的一部分」，會以為圓環壞掉或沒畫完。
+                stroke="rgba(62,47,40,0.13)"
                 strokeWidth="5"
               />
               {bonusSegments.map((seg, idx) => {
@@ -141,14 +143,15 @@ export default function Gauge({ score, grade, label, type, subtitle, pos = 3, ne
         <View style={styles.centerText}>
           {type === 'health' ? (
             <>
-              {/* 中央放等級，不放分數。Nutri-Score 的主體是 A–E；
-                  原始分數放在下面那行，並註明方向——不寫「越低越好」的話，
-                  「10 分」會被讀成 0–100 裡的 10 分。 */}
-              {/* 圓環本身表達的是**扣分的組成**，所以中央放總分；
-                  等級縮小放在下面，不再是主角——只有一個字母的圓沒有資訊。 */}
+              {/* 圓環表達的是**扣分的組成**，所以中央放總分而不是等級——
+                  只有一個字母的圓沒有資訊。等級在下方的 A–E 色帶上。
+                  ⚠ 方向必須寫出來：不寫的話「10 分」會被讀成 0–100 裡的 10 分。 */}
               <Text style={styles.scoreBig}>{score}</Text>
-              <Text style={styles.subtext}>
-                {activeGrade.grade} 級・分數越低越好
+              {/* 副標只放方向，不重複等級——等級在下方的 A–E 色帶上已經標出來，
+                  而中央放得下的字寬只有約 53px（內圈內緣半徑約 35px）。
+                  原本的「E 級・分數越低越好」約 72px，一定會壓到內圈。 */}
+              <Text style={styles.subtext} numberOfLines={1}>
+                越低越好
               </Text>
             </>
           ) : (
@@ -179,6 +182,16 @@ export default function Gauge({ score, grade, label, type, subtitle, pos = 3, ne
             </View>
           ))}
         </View>
+      )}
+
+      {/* 內圈只有一段、卻不畫滿，使用者會以為是畫壞了。
+          它的長度是「加分 ÷ 扣分總額」——畫滿才代表完全抵銷，所以要講明白。 */}
+      {type === 'health' && (bonusSegments?.length ?? 0) > 0 && (
+        <Text style={styles.ringNote}>
+          內圈為加分項抵銷掉的比例（約 {Math.round(
+            Math.min(bonusSegments!.reduce((n, b) => n + b.percentage, 0), 100)
+          )}%），畫滿代表完全抵銷扣分。
+        </Text>
       )}
 
       {/* 全部 0 分：圓環是空的，要講清楚那是「沒有扣分」而不是「沒算出來」。 */}
@@ -274,9 +287,14 @@ const styles = StyleSheet.create({
   centerText: {
     position: 'absolute',
     alignItems: 'center',
+    // 硬上限。內圈內緣半徑約 35px，扣掉文字高度後可用寬度約 53px——
+    // 沒有這一行的話，只要副標或分數變長（例如三位數）就會蓋到圓環上，
+    // 而那看起來像圓環畫壞了，不像字太長。
+    maxWidth: 56,
   },
   legendDotHollow: { width: 8, height: 8, borderRadius: 999, borderWidth: 2, backgroundColor: 'transparent' },
   emptyNote: { fontSize: 11, color: '#757575', textAlign: 'center', marginTop: 8 },
+  ringNote: { fontSize: 10, color: '#757575', textAlign: 'center', marginTop: 6, lineHeight: 14, paddingHorizontal: 8 },
   scoreBig: { fontSize: 30, fontWeight: '900', lineHeight: 34, fontVariant: ['tabular-nums'] },
   scoreText: {
     fontSize: 16,
