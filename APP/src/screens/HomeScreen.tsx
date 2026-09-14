@@ -143,6 +143,11 @@ export default function HomeScreen() {
   // 分頁的理由：成分與添加物同列一頁時，使用者要捲很久才看得完，
   // 而且兩份清單長得一樣，捲到一半就分不清現在看的是哪一份。
   const [additiveSubView, setAdditiveSubView] = useState<'all' | 'additives' | 'risky' | null>(null);
+  // 這一次分析花了多久。**手機自己量的**（同一個時鐘兩次相減），
+  // 不是把各層的時間戳相減——三層分處不同機器，時鐘不保證同步。
+  // 這個數字包含網路往返，是使用者實際等待的時間。
+  const [lastTiming, setLastTiming] = useState<
+    { totalMs: number; cloudMs: number | null; cached: boolean } | null>(null);
   const [isScoreExpanded, setIsScoreExpanded] = useState(false);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -283,6 +288,17 @@ export default function HomeScreen() {
       setAnalysisError(msg);
     } finally {
       setIsAnalyzing(false);
+      {
+        // Cloud 自報的分析耗時（X-Timing-Cloud 的 total）。與手機量到的差額
+        // 就是網路與各層轉發——兩個都顯示，使用者才看得出慢在哪一段。
+        const cloud = Telemetry.parseTiming(respHeaders?.get('X-Timing-Cloud') ?? null);
+        setLastTiming({
+          totalMs: Date.now() - t0,
+          cloudMs: cloud?.total ?? null,
+          // 快取命中時耗時會低一個量級，不標出來會讓人以為辨識變快了。
+          cached: (respHeaders?.get('X-Cache') ?? '').toLowerCase().includes('hit'),
+        });
+      }
       // 一次掃描一列。**刻意不記照片與成分原文**——一是隱私（紀錄會被匯出），
       // 二是能拿來算指標的是「有幾項」而不是內容。
       void Telemetry.append({
@@ -830,6 +846,13 @@ export default function HomeScreen() {
                       <RotateCcw size={13} color="#757575" />
                       <Text style={s.btnSecondaryText}>重新檢測</Text>
                     </Pressable>
+                    {/* 降階時也要顯示耗時——它常常是「等了很久才降階」，
+                        而使用者只看到「離線模式」不會知道等了多久。 */}
+                    {lastTiming && (
+                      <Text style={s.navTiming}>
+                        耗時 {(lastTiming.totalMs / 1000).toFixed(1)} 秒
+                      </Text>
+                    )}
                   </View>
 
                   <View style={[s.card, s.degradedBox]}>
@@ -927,9 +950,20 @@ export default function HomeScreen() {
                     </Pressable>
                     {/* 原本這裡寫死「資料校準時間：2026」，對使用者沒有任何資訊。
                         改為顯示 Cloud 實際計算此分析的時間（快取命中時即為原始計算時間）。 */}
-                    <Text style={[s.navTimestamp, dataFreshness.isStale && s.navTimestampStale]}>
-                      {dataFreshness.label}
-                    </Text>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={[s.navTimestamp, dataFreshness.isStale && s.navTimestampStale]}>
+                        {dataFreshness.label}
+                      </Text>
+                      {lastTiming && (
+                        <Text style={s.navTiming}>
+                          {lastTiming.cached ? '快取命中・' : ''}
+                          耗時 {(lastTiming.totalMs / 1000).toFixed(1)} 秒
+                          {lastTiming.cloudMs != null
+                            ? `（雲端 ${(lastTiming.cloudMs / 1000).toFixed(1)} 秒）`
+                            : ''}
+                        </Text>
+                      )}
+                    </View>
                   </View>
 
                   {/* Cloud 不可用、Fog 以過期快取降級回應時，必須讓使用者知道 */}
@@ -1697,6 +1731,7 @@ const createStyles = (scale: number) => StyleSheet.create({
   // 可點的統計卡：邊框加深、底色微調，與不可點的統計卡分得開。
   miniStatTappable: { borderColor: '#D8C9BA', backgroundColor: '#FFFDFB' },
   miniStatHint: { fontSize: 8 * scale, color: TEXT_MID, fontWeight: '700' },
+  navTiming: { fontSize: 9 * scale, color: TEXT_MID, marginTop: 2, fontVariant: ['tabular-nums'] },
   catBox: { backgroundColor: '#FBF7F3', borderRadius: 10, padding: 10, marginBottom: 10, gap: 8 },
   catBoxTitle: { fontSize: 10 * scale, fontWeight: '800', color: TEXT_MID, textTransform: 'uppercase' },
   catWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
