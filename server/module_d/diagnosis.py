@@ -1,5 +1,13 @@
 """
-Module D — LLM 生成自然語言摘要(以知識庫約束)+ 持久化
+Module D — 診斷資料的組裝（**不再呼叫語言模型**）
+
+⚠ 2026-09-14：兩段文字總結改由 `module_d/summary.py` 以規則產生，本檔的
+Gemini 呼叫、複合式 prompt 與「總結持久化到 products 表」整段移除。
+理由與實測（本地 2B 與 Gemini 在此任務上都會寫出無依據的句子）記在
+`summary.py` 的檔頭。總結現在是**衍生值**，不快取——快取會在規則改版後
+留下與現行規則不一致的舊句子，而使用者無從分辨。
+
+本檔現在只負責：沿用資料庫既有的過敏原欄位、回填本次重算的分數與等級。
 
 從 main.py 抽出(2026-07-24)。邏輯與原本逐字相同,僅一處必要調整:
 
@@ -16,138 +24,53 @@ Module D — LLM 生成自然語言摘要(以知識庫約束)+ 持久化
 本函式為此段流程中資料庫使用的最後一步——結束時會關閉傳入的 cursor/db。
 """
 import json
-import re
-import time
 
 
 def generate_ai_diagnosis(product, chemical, final_safety_events, user_conditions, nutrition,
                           deterministic_score, deterministic_grade, ai_data, raw_allergens,
-                          cursor, db, genai_client) -> dict:
+                          cursor, db) -> dict:
     """
     回傳 dict: ai_data(更新後), raw_allergens(可能已被重用分支重新賦值)
     """
-    # 強化後的複合式 Prompt，使用 Google Gemma 同時生成總體、添加物與歷史事件三個 AI 總結
-    composite_prompt = f"""
-    你是 FoodAware Pro 專家系統。請執行「臨床風險診斷」並針對商品進行「添加物風險總結」、「食安歷史事件總結」與「總體商品健康診斷總結」。
-
-    【產品資訊】
-    產品: {product['name']} | 品牌: {product['brand']} | 廠商: {product['manufacturer']}
-    營養成分: {json.dumps(nutrition, ensure_ascii=False)}
-
-    【權威計分依據 (Nutri-Score V7 2024 最新版)】
-    依據歐盟 2024 演算法算出的確切總分: {deterministic_score}
-    確定之健康分級: {deterministic_grade} 級 (A為最優，E為最差)
-
-    【廠商食安歷史 (Module C)】
-    {json.dumps(final_safety_events, ensure_ascii=False)}
-
-    【權威資料庫已提供之食品添加物資訊 (Module B)】
-    {json.dumps(chemical, ensure_ascii=False)}
-
-    【使用者健康背景】
-    {json.dumps(user_conditions, ensure_ascii=False)}
-
-    【任務】
-    請進行深度分析，並提供以下三個 AI 總結：
-    1. 「總體商品健康診斷總結」(overall_summary)：參考「確切總分」與「健康分級」，產出 50 字內之個人化核心診斷與長期過量攝取的累積慢性健康風險（例如：吃了沒事，但吃久了會有事）。
-    2. 「添加物風險總結」(additives_summary)：分析本產品所含的食品添加物、人工化學成分（如防腐劑、防凝劑、甘味劑等）的組合風險，特別是針對該使用者背景（如糖尿病、孕婦、高血壓等）的危害程度，產出 100 字內的分析總結。若無添加物，請說明「本產品無添加化學食品添加物」。
-    3. 產出具體「個人化警示」(warnings) 清單。
-
-    ⚠ 不要產生廠商食安歷史的總結。2026-09-13 移除該項：食安事件管線整條停用中
-    （server/main.py 的 SAFETY_EVENTS_ENABLED = False），模型拿不到任何事件資料，
-    寫出來的只會是「該廠商無特定違規紀錄」這種**沒有查證過的安心話**——
-    把「未查詢」講成「沒問題」，對食安 App 是反向的風險。
-
-    請以繁體中文回答。回傳格式必須為純 JSON，不可有任何 Markdown 標記，結構如下：
-    {{
-      "score": {deterministic_score},
-      "grade": "{deterministic_grade}",
-      "overall_summary": "總體商品健康診斷總結文字",
-      "additives_summary": "添加物風險總結文字",
-      "warnings": ["警告1", "警告2"]
-    }}
-    """
-
-    # --- 🚀 檢查資料庫中是否有預存的 AI 總結，若有則直接重用 ---
     ai_data_exists = ai_data is not None
-    is_reused_from_db = False
-    if not ai_data_exists and product and product.get("overall_summary") and product.get("overall_summary") != "診斷引擎暫時降級運作。":
-        print(f"[INFO] [Analyze] Reusing pre-analyzed AI summaries from PostgreSQL for barcode: {product['barcode']}")
 
-        # 防禦性解析過敏原字串
+    # 沿用資料庫既有的過敏原欄位。
+    #
+    # ⚠ 2026-09-14：這個分支的門檻原本是「products 表裡有沒有 overall_summary」，
+    # 那是總結還由模型產生、需要「一次分析永久重用」時的判準。總結改成規則
+    # 產生之後那個門檻就失去意義——而且更糟，它會讓**沒有舊總結的商品拿不到
+    # 已存的過敏原**。真正的門檻是「有沒有過敏原可沿用」。
+    if not ai_data_exists and product and product.get("allergens"):
         raw_allergens = product.get("allergens")
         warnings_list = []
-        if raw_allergens:
-            if isinstance(raw_allergens, list):
-                warnings_list = raw_allergens
-            elif isinstance(raw_allergens, str):
-                if raw_allergens.strip().startswith("["):
-                    try:
-                        warnings_list = json.loads(raw_allergens)
-                    except Exception:
-                        warnings_list = [raw_allergens]
-                else:
+        if isinstance(raw_allergens, list):
+            warnings_list = raw_allergens
+        elif isinstance(raw_allergens, str):
+            # 防禦性解析：這一欄在舊資料裡有純字串與 JSON 陣列兩種寫法。
+            if raw_allergens.strip().startswith("["):
+                try:
+                    warnings_list = json.loads(raw_allergens)
+                except Exception:
                     warnings_list = [raw_allergens]
-
+            else:
+                warnings_list = [raw_allergens]
         ai_data = {
             "score": deterministic_score,
             "grade": deterministic_grade,
-            "overall_summary": product.get("overall_summary"),
-            "additives_summary": product.get("additives_summary"),
-            "warnings": warnings_list
+            "warnings": warnings_list,
         }
         ai_data_exists = True
-        is_reused_from_db = True
 
-    # --- 🚀 只有在無快取 AI 資料且無資料庫預存時才發送大模型請求 ---
     if not ai_data_exists:
-        try:
-            try:
-                print(f"[DEBUG] [Analyze] Sending prompt to Gemma. Length: {len(composite_prompt)}")
-                _t_gemma_start = time.time()
-                ai_resp = genai_client.models.generate_content(model="gemini-2.5-flash-lite", contents=composite_prompt)
-                ai_data = json.loads(re.search(r'(\{.*\})', ai_resp.text, re.DOTALL).group(1))
-                print(f"[PERF] Gemini-2.5-flash-lite Diagnosis: {(time.time() - _t_gemma_start)*1000:.0f}ms")
-            except Exception as first_e:
-                print(f"[WARN] [Analyze] gemini-2.5-flash-lite failed, falling back to gemini-2.5-flash... Error: {first_e}")
-                _t_gemma_start = time.time()
-                ai_resp = genai_client.models.generate_content(model="gemini-2.5-flash", contents=composite_prompt)
-                ai_data = json.loads(re.search(r'(\{.*\})', ai_resp.text, re.DOTALL).group(1))
-                print(f"[PERF] Gemini-2.5-flash Diagnosis (fallback): {(time.time() - _t_gemma_start)*1000:.0f}ms")
-        except Exception as ai_e:
-            print(f"[WARN] [Analyze] Both primary and fallback models failed: {ai_e}")
-            ai_data = {
-                "score": deterministic_score,
-                "grade": deterministic_grade,
-                "overall_summary": "診斷引擎暫時降級運作。",
-                "additives_summary": "無法分析添加物風險。",
-                "warnings": []
-            }
+        ai_data = {
+            "score": deterministic_score,
+            "grade": deterministic_grade,
+            "warnings": [],
+        }
     else:
-        if not is_reused_from_db:
-            print("[INFO] [Query] Reusing pre-cached AI summaries (Skipping LLM Generation for Fog/Cache mode)")
-        # 即使是使用快取，健康評分與等級仍然依據本次重算的結果更新，以維持個人化計算的準確性
+        # 沿用過敏原，但分數與等級一律以本次重算的結果為準。
         ai_data["score"] = deterministic_score
         ai_data["grade"] = deterministic_grade
-
-    # 將新生成的 AI 總結持久化儲存到資料庫中，以實現「一次分析，永久重用」
-    if not is_reused_from_db and ai_data and ai_data.get("overall_summary") != "診斷引擎暫時降級運作。" and product and product.get("barcode"):
-        try:
-            update_sql = """
-                UPDATE products
-                SET overall_summary = %s, additives_summary = %s
-                WHERE barcode = %s
-            """
-            cursor.execute(update_sql, (
-                ai_data.get("overall_summary"),
-                ai_data.get("additives_summary"),
-                product['barcode']
-            ))
-            db.commit()
-            print(f"[SUCCESS] [DB] 持久化預存 AI 總結於資料庫: {product['barcode']}")
-        except Exception as update_e:
-            print(f"[WARN] [DB] Failed to save AI summaries to DB: {update_e}")
-            db.rollback()
 
     cursor.close()
     db.close()

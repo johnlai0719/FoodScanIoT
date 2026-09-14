@@ -19,38 +19,44 @@
 import os
 import re
 
-import pytest
-
 ROOT = os.path.join(os.path.dirname(__file__), '..', '..')
 MARKER = '診斷引擎暫時降級運作。'
 
-SITES = [
-    ('server/module_d/diagnosis.py', 3),   # 產生 1 次、比對 2 次
-    ('fog/queryHandler.ts', 1),
-]
+def _strip_comments(src):
+    """掃描原始碼前先去註解。
+
+    這個檔案守的字串本身就寫在各處的說明文字裡，不去掉的話會掃到註解而
+    假通過。本專案已因此誤判過三次。
+    """
+    src = re.sub(r'"""' + r'.*?' + r'"""', '', src, flags=re.S)
+    src = re.sub(r'/' + r'\*.*?\*' + r'/', '', src, flags=re.S)
+    src = re.sub(r'^\s*#.*$', '', src, flags=re.M)
+    return re.sub(r'^\s*//.*$', '', src, flags=re.M)
 
 
-@pytest.mark.parametrize('rel,least', SITES)
-def test_marker_present_in_every_layer(rel, least):
-    p = os.path.join(ROOT, rel)
-    src = open(p, encoding='utf-8').read()
-    n = src.count(MARKER)
-    assert n >= least, (
-        '%s 只出現 %d 次（預期至少 %d）。若是刻意改了字串，'
-        '其餘各層也要一起改，否則降級結果會被當成正常結果快取。' % (rel, n, least))
+def test_fog_still_recognises_the_marker_for_old_cached_results():
+    """Fog 的守門一字不可改——改了就認不出舊快取裡帶標記的結果。"""
+    src = _strip_comments(
+        open(os.path.join(ROOT, 'fog/queryHandler.ts'), encoding='utf-8').read())
+    assert src.count(MARKER) >= 1, (
+        'queryHandler.ts 找不到降級標記。資料庫與 Fog 快取裡可能還有舊版'
+        '產生、帶著這個標記的結果，拿掉守門會讓那句話被重新快取後繼續服務。')
 
 
-def test_typescript_and_python_use_the_identical_string():
-    """逐字相同，包含句號。曾經有人只改標點就讓比對失效的類似前例。"""
-    py = open(os.path.join(ROOT, 'server/module_d/diagnosis.py'),
-              encoding='utf-8').read()
-    ts = open(os.path.join(ROOT, 'fog/queryHandler.ts'), encoding='utf-8').read()
-    py_lits = set(re.findall(r'["\']([^"\']*降級運作[^"\']*)["\']', py))
-    ts_lits = set(re.findall(r'["\']([^"\']*降級運作[^"\']*)["\']', ts))
-    assert py_lits, '在 diagnosis.py 找不到降級標記字串'
-    assert ts_lits, '在 queryHandler.ts 找不到降級標記字串'
-    assert py_lits == ts_lits, (
-        '兩層的降級標記不一致：\n  Python %s\n  TypeScript %s' % (py_lits, ts_lits))
+def test_cloud_no_longer_produces_the_marker():
+    """Cloud 不可以把它加回來。
+
+    它出現在 Cloud 端只有一種成因：有人又接了會失敗的外部呼叫去產生總結。
+    總結是衍生值——由 score_breakdown 與添加物清單算出來——沒有可失敗的
+    外部相依，也就沒有「降級的診斷」這種狀態。
+    """
+    for rel in ('server/module_d/diagnosis.py', 'server/module_d/summary.py',
+                'server/module_d/response_builder.py'):
+        src = _strip_comments(
+            open(os.path.join(ROOT, rel), encoding='utf-8').read())
+        assert MARKER not in src, (
+            '%s 又出現降級標記。總結若需要「失敗時的替代文字」，'
+            '代表它依賴了不該依賴的外部呼叫。' % rel)
 
 
 def test_degraded_results_are_not_cached_by_status_either():

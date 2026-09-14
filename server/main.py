@@ -1245,7 +1245,7 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
             generate_ai_diagnosis,
             product, chemical, final_safety_events, user_conditions, nutrition,
             deterministic_score, deterministic_grade, ai_data, raw_allergens,
-            cursor, db, _genai_client
+            cursor, db
         )
         _mark(request, "diagnosis", (time.time() - _t_diag) * 1000)
         ai_data = _diag_result["ai_data"]

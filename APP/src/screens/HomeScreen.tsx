@@ -39,7 +39,6 @@ import {
 import {
   getAiProductSummary,
   getAiAdditivesSummary,
-  getAiHistorySummary,
 } from '../utils/aiSummaries';
 
 if (Platform.OS === 'android') {
@@ -1150,8 +1149,8 @@ export default function HomeScreen() {
                         </Text>
                         <View style={s.aiBox}>
                           <View style={s.row}>
-                            <Sparkles size={12} color="#757575" />
-                            <Text style={s.aiLabel}>Gemini AI 智慧評估綜述</Text>
+                            <Info size={12} color="#757575" />
+                            <Text style={s.aiLabel}>評分說明</Text>
                           </View>
                           <Text style={s.aiText}>
                             {analysisResult.overall_summary || getAiProductSummary(analysisResult, allIngredients, totalAdditivesCount)}
@@ -1229,8 +1228,8 @@ export default function HomeScreen() {
                           <Text style={s.cardTitle}>完整化學配料安全分級報告</Text>
                           <View style={s.aiBox}>
                             <View style={s.row}>
-                              <Sparkles size={12} color="#757575" />
-                              <Text style={s.aiLabel}>AI 配方添加劑快速提要</Text>
+                              <Info size={12} color="#757575" />
+                              <Text style={s.aiLabel}>添加物概要</Text>
                             </View>
                             <Text style={s.aiText}>
                               {analysisResult.additives_summary || getAiAdditivesSummary(analysisResult, totalAdditivesCount, highRiskCount)}
@@ -1386,7 +1385,10 @@ export default function HomeScreen() {
                               （食安管線停用中，產出的只會是沒查證過的安心話）。
                               這段改用本地依事件內容組出的敘述——**有事件才會走到
                               這裡**（整個詳情頁由 hasSafetyEvents 擋住）。 */}
-                          <Text style={s.aiText}>{getAiHistorySummary(analysisResult)}</Text>
+                          {/* 食安事件管線停用中，這一段本來就進不來。
+                              原本呼叫的 getAiHistorySummary 會針對具名企業產生
+                              憑空的合規背書與違規指控，已於 2026-09-14 移除。 */}
+                          <Text style={s.aiText}>食安事件查詢目前停用中。</Text>
                         </View>
                         <View style={{ marginTop: 12 }}>
                           {safeFoodSafetyEvents.length > 0 ? (

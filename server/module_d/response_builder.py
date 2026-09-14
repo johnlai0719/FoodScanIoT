@@ -8,6 +8,8 @@ LLM 診斷摘要)算出的結果組裝成回傳格式,故可直接抽出、不�
 locals() 轉參數的處理。
 """
 import json
+
+from .summary import build_additives_summary, build_overall_summary
 from datetime import datetime
 
 
@@ -172,8 +174,14 @@ def build_response(product, ai_data, calc_result, deterministic_score,
     # 現在整條食安管線停用中（SAFETY_EVENTS_ENABLED = False），模型拿不到任何事件
     # 資料，產出的只會是「該廠商無特定違規紀錄」這種**沒查證過的安心話**——把
     # 「未查詢」講成「沒問題」，對食安 App 是反向的風險。功能恢復時再加回來。
-    overall_summary = ai_data.get("overall_summary") or ai_data.get("summary") or "診斷完成。"
-    additives_summary = ai_data.get("additives_summary") or "無法獲取添加物風險總結。"
+    # ⚠ 2026-09-14：兩段總結改為**規則產生**，不再呼叫語言模型。
+    # 理由與實測見 module_d/summary.py 的檔頭——簡言之，加了約束不編造之後，
+    # 模型的輸出就退化成把畫面上已有的數字念一遍；不加約束則會寫出
+    # 「高膽固醇」「長期適量攝取對健康無害」這種沒有依據的句子。
+    # 規則版每一句都指得回某個欄位，且回答的是「為什麼是這個等級」。
+    overall_summary = build_overall_summary(
+        deterministic_score, calc_result.get("grade"), formatted_score_breakdown)
+    additives_summary = build_additives_summary(chemical, basic_detail)
 
     # 為維持與行動 App 分割邏輯的相容性，將總結結合並加入「[AI 深度分析]：」分割符。
     # 原本是三段，現在是兩段。
