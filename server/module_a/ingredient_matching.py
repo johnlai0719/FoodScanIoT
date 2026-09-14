@@ -541,6 +541,26 @@ def _items_from_raw_text(ingredients_raw) -> dict | None:
     return parsed
 
 
+def _category_list(match) -> list:
+    """把資料庫的 category 正規化成字串陣列。
+
+    這一欄在不同批次的匯入下出現過三種形狀：json 陣列、單一字串、None。
+    收斂成一種，讓下游（App 的類別統計）只需處理陣列。
+    """
+    if not match:
+        return []
+    raw = match.get("category")
+    if raw is None:
+        return []
+    vals = raw if isinstance(raw, list) else [raw]
+    out = []
+    for v in vals:
+        t = str(v).strip()
+        if t and t not in out:
+            out.append(t)
+    return out
+
+
 def match_ingredients(ing_list_raw, vision_data, cursor, vector_rag,
                       ingredients_raw=None) -> dict:
     """
@@ -824,6 +844,12 @@ def match_ingredients(ing_list_raw, vision_data, cursor, vector_rag,
                 "sourceLabel": source_label,   # 由哪一項標示展開而來（未展開者為 None）
                 "isAdditive": True,
                 "officialName": match['name_zh'] if match else ing,
+                # 官方類別（防腐劑、著色劑…）。資料庫的 category 是 json 陣列，
+                # 一項添加物可能同時屬多類，故原樣送出陣列而不攤平成字串——
+                # 前端要依類別分組統計，攤平了就得再解析一次。
+                # 比對不到資料庫時為空陣列，**不是 None**：前端一律當陣列處理，
+                # 少一個 null 判斷就少一種當掉的方式。
+                "category": _category_list(match),
                 "purpose": final_purpose or "食品添加物",
                 "adiValue": adi_val,
                 # 查無資料時一律標示「未收錄」，不可填「無」或「未分類」——

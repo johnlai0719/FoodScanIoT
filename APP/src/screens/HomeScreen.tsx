@@ -404,6 +404,24 @@ export default function HomeScreen() {
   });
   const highRiskCount = riskyIngredients.length;
 
+  // 依官方類別統計添加物。一項可能屬多類，故各類次數相加會大於添加物總數——
+  // 這是對的，不可為了「加起來等於總數」而只取第一類：那會讓「己二烯酸鉀」
+  // 這種同時是防腐劑與殺菌劑的項目憑空少掉一個身分。畫面上要講明這件事。
+  const additiveCategoryStats = (() => {
+    const m = new Map<string, number>();
+    let uncategorised = 0;
+    for (const i of additiveIngredients) {
+      const cats = i.category ?? [];
+      if (cats.length === 0) { uncategorised += 1; continue; }
+      for (const c of cats) m.set(c, (m.get(c) ?? 0) + 1);
+    }
+    const rows = [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    // 「未分類」永遠排最後，且與其他類別分開命名——它不是一種類別，
+    // 是「這項沒配到知識庫」，混在中間會被讀成官方分類之一。
+    if (uncategorised > 0) rows.push(['未分類', uncategorised]);
+    return rows;
+  })();
+
   const scoreBreakdownList = getScoreBreakdownList(analysisResult);
 
   // 資料新鮮度：讓使用者知道手上這份分析是何時算出來的，以及是否為降級回應
@@ -1302,6 +1320,30 @@ export default function HomeScreen() {
                                 <Text style={s.cardSubtitle}>　{view.list.length} 項</Text>
                               </Text>
                               <Text style={[s.tipText, { marginTop: 4, marginBottom: 8 }]}>{view.note}</Text>
+                              {additiveSubView === 'additives' && additiveCategoryStats.length > 0 && (
+                                <View style={s.catBox}>
+                                  <Text style={s.catBoxTitle}>依類別</Text>
+                                  <View style={s.catWrap}>
+                                    {additiveCategoryStats.map(([cat, n]) => (
+                                      <View
+                                        key={cat}
+                                        style={[s.catChip, cat === '未分類' && s.catChipMuted]}
+                                      >
+                                        <Text style={[s.catChipText, cat === '未分類' && s.catChipTextMuted]}>
+                                          {cat}
+                                        </Text>
+                                        <Text style={[s.catChipNum, cat === '未分類' && s.catChipTextMuted]}>
+                                          {n}
+                                        </Text>
+                                      </View>
+                                    ))}
+                                  </View>
+                                  {/* 不解釋的話會被當成加總錯誤。 */}
+                                  <Text style={s.catNote}>
+                                    一項添加物可能同時屬多個類別，各類數字相加會大於添加物總數（{totalAdditivesCount}）。
+                                  </Text>
+                                </View>
+                              )}
                               {view.list.length > 0 ? (
                                 <IngredientsList ingredients={view.list} />
                               ) : (
@@ -1653,6 +1695,16 @@ const createStyles = (scale: number) => StyleSheet.create({
   // 可點的統計卡：邊框加深、底色微調，與不可點的統計卡分得開。
   miniStatTappable: { borderColor: '#D8C9BA', backgroundColor: '#FFFDFB' },
   miniStatHint: { fontSize: 8 * scale, color: TEXT_MID, fontWeight: '700' },
+  catBox: { backgroundColor: '#FBF7F3', borderRadius: 10, padding: 10, marginBottom: 10, gap: 8 },
+  catBoxTitle: { fontSize: 10 * scale, fontWeight: '800', color: TEXT_MID, textTransform: 'uppercase' },
+  catWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  catChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#fff',
+    borderWidth: 1, borderColor: '#E3D3C4', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 },
+  catChipMuted: { backgroundColor: '#F2ECE6', borderColor: '#DCD1C6' },
+  catChipText: { fontSize: 11 * scale, color: TEXT_DARK, fontWeight: '700' },
+  catChipNum: { fontSize: 11 * scale, color: '#991b1b', fontWeight: '900' },
+  catChipTextMuted: { color: TEXT_MID },
+  catNote: { fontSize: 9 * scale, color: TEXT_MID, lineHeight: 13 * scale },
   emptyEvents: {
     padding: 20, borderRadius: 14, borderWidth: 1.5, borderStyle: 'dashed',
     borderColor: '#94A3B8', backgroundColor: '#fff', alignItems: 'center',

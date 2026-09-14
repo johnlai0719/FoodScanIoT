@@ -39,6 +39,14 @@ export default function IngredientsList({ ingredients }: Props) {
                     <Text style={styles.additiveBadgeText}>添加物</Text>
                   </View>
                 )}
+                {/* 官方類別徽章。放在「添加物」徽章後面而不是取代它——
+                    「添加物」是判定結果，類別是這項判定的細分，兩者不同層級。
+                    一項可能屬多類（己二烯酸鉀是防腐劑也是殺菌劑），全列出來。 */}
+                {isAdditive && (ing.category ?? []).map(c => (
+                  <View key={c} style={styles.categoryBadge}>
+                    <Text style={styles.categoryBadgeText}>{c}</Text>
+                  </View>
+                ))}
                 {/* 疑似：OCR 讀到的字配不到，但有很接近的項目。
                     徽章刻意寫「疑似」而不是添加物名——它不是判定。 */}
                 {!isAdditive && ing.nearMiss && (
@@ -152,7 +160,11 @@ const createStyles = (scale: number) => StyleSheet.create({
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    // 類別徽章之後這一列可能有三、四個標籤，長名稱（「品質改良用、釀造用
+    // 及食品製造用劑」）加上去會擠爆單行。必須換行，不可讓它裁掉——
+    // 裁掉的話使用者看不出還有別的類別。
+    flexWrap: 'wrap',
+    gap: 6,
     flex: 1,
   },
   name: {
@@ -165,6 +177,13 @@ const createStyles = (scale: number) => StyleSheet.create({
     color: '#991b1b',
     fontWeight: '700',
   },
+  // 類別徽章：描邊不填色，與「添加物」的實心徽章分層——實心是判定，
+  // 描邊是判定的細分。同色系可以讓人看出兩者相關，明度差別看出主從。
+  categoryBadge: {
+    borderWidth: 1, borderColor: '#D9A6A6', borderRadius: 4,
+    paddingHorizontal: 5, paddingVertical: 1,
+  },
+  categoryBadgeText: { fontSize: 9, fontWeight: '700', color: '#9b5c5c' },
   // 疑似：琥珀色，與添加物（實心判定）和一般成分（無標記）都分得開。
   nearMissBadge: {
     paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6,

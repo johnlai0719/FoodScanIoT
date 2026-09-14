@@ -29,6 +29,14 @@ export interface IngredientDetail {
   name: string;
   isAdditive: boolean | string;
   description: string;
+  /**
+   * 官方類別（防腐劑、著色劑、營養添加劑…），來自食藥署的添加物分類。
+   *
+   * 一項添加物可能同時屬多類，故為陣列。比對不到資料庫時為空陣列——
+   * **空陣列不等於「無類別」**，只代表這一項沒配到知識庫，
+   * 統計時要獨立成一格（「未分類」）而不是併進任何一類。
+   */
+  category?: string[];
   purpose?: string;
   adiValue?: string;
   iarcRating?: string;
