@@ -25,6 +25,7 @@
 """
 import base64
 import io as _io
+import concurrent.futures as _futures
 import json
 import os
 import threading
@@ -251,14 +252,49 @@ def _vlcrop(cid, rels, imgs):
         lines = im_rec.get("lines") or []
         r = RC.find_regions(lines)
         all_lines, meta, secs = [], {}, 0.0
+        # 成分區與營養區**並行**送。兩者沒有先後依賴，而 llama-server 以
+        # -np 2 開了兩個槽（見 start_models.py）。
+        #
+        # 2026-09-14 端到端實測（雞腿堡，四次中位）：
+        #     vlcrop_hunyuan  7.38 → 2.30 秒
+        #     端到端          9.77 → 4.79 秒
+        #
+        # ⚠ 收益比「兩條並行＝省一半」更大，原因不只是並行：兩個區固定落在
+        #   不同的槽，各自的 KV cache 跨請求還在，prefill 大多命中；串行時
+        #   兩個提示詞輪流擠同一個槽，每次都要重算。
+        # ⚠ **冷啟動時並行反而略慢**（首次量到 3.75 對 3.26 秒）——快取還沒
+        #   建立時，兩條序列只是把同一份算力切成兩半。穩態才有收益。
+        #
+        # 結果要**按固定順序**收集，不可依完成先後：all_lines 的順序會進到
+        # 下游的成分解析，順序不穩的話同一張圖每次跑出來的結果會不同。
+        todo = [k for k in ("ingredients", "nutrition") if r[k] is not None]
         for kind in ("ingredients", "nutrition"):
-            box = r[kind]
-            if box is None:
+            if r[kind] is None:
                 meta[kind] = {"found": False}
-                continue
-            b = RV.read_region(img, lines, box, RV.CFG[kind], 3072)
+
+        # 關掉並行的開關。留著是為了**可比對**——並行只改送出方式、不該改變
+        # 輸出；看到可疑結果時要能用同一份輸入跑出串行版對照，否則分不出是
+        # 並行造成的還是本來就這樣。
+        _parallel = (os.environ.get("READER_PARALLEL_REGIONS") not in ("0", "false")
+                     and len(todo) > 1)
+        done = {}
+        if _parallel:
+            with _futures.ThreadPoolExecutor(max_workers=len(todo)) as ex:
+                fut = {ex.submit(RV.read_region, img, lines, r[k],
+                                 RV.CFG[k], 3072): k for k in todo}
+                for f in _futures.as_completed(fut):
+                    done[fut[f]] = f.result()
+        else:
+            for k in todo:
+                done[k] = RV.read_region(img, lines, r[k], RV.CFG[k], 3072)
+
+        for kind in todo:                       # 固定順序，不是完成順序
+            b = done[kind]
+            box = r[kind]
             all_lines.extend(b["lines"])
-            secs += b["secs"]
+            # 並行之後各區的耗時是**重疊**的，相加會高估。取最大值——
+            # 那才是這一段實際等了多久。
+            secs = max(secs, b["secs"])
             meta[kind] = {"found": True, "rot": b["rot"], "finish": b["finish"],
                           "n_lines": len(b["lines"]), "n_cjk": b["n"],
                           "box": [int(v) for v in box]}

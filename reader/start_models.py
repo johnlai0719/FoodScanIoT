@@ -39,6 +39,12 @@ SERVERS = [
         # ⚠ 太小會截斷輸出：run_vlcrop 的 max_tokens 是 3072，加上視覺 token，
         #   8192 是量過還沒撞到 finish_reason=length 的值。再降要重新驗。
         "ctx": "8192",
+        # 成分區與營養區沒有先後依賴，兩槽並行。decode 是記憶體頻寬受限，
+        # 兩條序列一起跑幾乎免費；串著跑的話 7.38 秒有一半是在等。
+        # ⚠ 這裡的 8192 會被切成 2×4096。2026-09-14 量到裁切區實際只用
+        #   636／502 個 token（成分區／營養區），4096 仍遠超過
+        #   max_tokens 3072 ＋ prompt 約 350，所以**不必調高 ctx**。
+        "parallel": 2,
     },
     {
         "name": "qwen",
@@ -81,6 +87,12 @@ def start(s):
            "--port", str(s["port"]),
            "--ctx-size", s.get("ctx", "16384"), "-fa", "on",
            "--alias", s["name"]]
+    # 平行槽。**必須明確指定**——這個 build 的預設是 4 槽，而 --ctx-size 是
+    # 所有槽共用的總量：8192÷4 = 2048，比 max_tokens 3072 還小，長一點的
+    # 成分區會被截斷而且不會報錯。指定 2 槽時每槽 4096，才放得下。
+    # 2026-09-14 量到裁切區實際只用 636／502 個 token，4096 綽綽有餘。
+    if s.get("parallel"):
+        cmd += ["-np", str(s["parallel"])]
     if s["mmproj"]:
         cmd[3:3] = ["--mmproj", s["mmproj"]]
     print("[%s] 啟動中 :%d …" % (s["name"], s["port"]))
