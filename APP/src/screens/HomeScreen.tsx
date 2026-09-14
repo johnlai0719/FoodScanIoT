@@ -15,7 +15,7 @@ import {
   StyleSheet,
   Share,
 } from 'react-native';
-import { Sparkles, Sliders, Database, ShoppingBag, AlertOctagon, RotateCcw, Layers, ShieldCheck, ChevronRight, Zap, ChevronUp, ChevronDown, ArrowLeft, AlertTriangle, CheckCircle2, Info, ScanLine, Activity, Settings2 } from 'lucide-react-native';
+import { Sparkles, Sliders, Database, ShoppingBag, AlertOctagon, RotateCcw, Layers, ShieldCheck, ChevronRight, Zap, ArrowLeft, AlertTriangle, CheckCircle2, Info, ScanLine, Activity, Settings2 } from 'lucide-react-native';
 
 import { useFontScale } from '../contexts/FontScaleContext';
 import { UserConditions, AnalysisResponse, DegradedLocalResponse } from '../types';
@@ -126,7 +126,6 @@ export default function HomeScreen() {
   const [serverEndpoint, setServerEndpoint] = useState<'fog' | 'cloud'>('fog');
 
   // 其他成分預設收合：使用者要看的是添加物，其餘配料是備查用的
-  const [othersExpanded, setOthersExpanded] = useState(false);
   const [scannerVisible, setScannerVisible] = useState(false);
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -141,6 +140,10 @@ export default function HomeScreen() {
   // 量延遲時每一次都要走完整路徑，命中快取的那幾次會把中位數拉到失真。
   const [bypassCache, setBypassCache] = useState(false);
   const [activeDetailView, setActiveDetailView] = useState<'additives' | 'history' | 'breakdown' | null>(null);
+  // 添加物明細底下再分三頁。null＝三個統計卡的總覽頁。
+  // 分頁的理由：成分與添加物同列一頁時，使用者要捲很久才看得完，
+  // 而且兩份清單長得一樣，捲到一半就分不清現在看的是哪一份。
+  const [additiveSubView, setAdditiveSubView] = useState<'all' | 'additives' | 'risky' | null>(null);
   const [isScoreExpanded, setIsScoreExpanded] = useState(false);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -350,6 +353,7 @@ export default function HomeScreen() {
     setAnalysisError(null);
     setDegradedResult(null);
     setActiveDetailView(null);
+    setAdditiveSubView(null);
     setIsScoreExpanded(false);
   };
 
@@ -391,12 +395,14 @@ export default function HomeScreen() {
   const isAdditive = (i: typeof allIngredients[number]) =>
     i.isAdditive === true || i.isAdditive === 'true';
   const additiveIngredients = allIngredients.filter(isAdditive);
-  const otherIngredients = allIngredients.filter(i => !isAdditive(i));
   const totalAdditivesCount = additiveIngredients.length;
-  const highRiskCount = allIngredients.filter(i => {
+  // 「須注意」＝有族群風險等級 ≥3 的添加物。只算添加物，不含未比對到的成分——
+  // 未比對到就沒有族群風險資料，混進來會讓這個數字看起來比實際能判定的多。
+  const riskyIngredients = allIngredients.filter(i => {
     if (!(i.isAdditive === true || i.isAdditive === 'true')) return false;
     return (i.groupRisks ?? []).some(r => r.riskLevel >= 3);
-  }).length;
+  });
+  const highRiskCount = riskyIngredients.length;
 
   const scoreBreakdownList = getScoreBreakdownList(analysisResult);
 
@@ -1192,83 +1198,122 @@ export default function HomeScreen() {
                   ) : activeDetailView === 'additives' ? (
                     // ── Additives detail view ──
                     <View style={{ gap: 12 }}>
-                      <Pressable style={[s.backNav, s.row]} onPress={() => setActiveDetailView(null)}>
+                      <Pressable
+                        style={[s.backNav, s.row]}
+                        onPress={() => { setActiveDetailView(null); setAdditiveSubView(null); }}
+                      >
                         <ArrowLeft size={15} color={TEXT_DARK} />
                         <Text style={s.backNavText}>返回診斷儀表板</Text>
                       </Pressable>
-                      <View style={s.card}>
-                        <Text style={s.cardTitle}>完整化學配料安全分級報告</Text>
-                        <View style={s.aiBox}>
-                          <View style={s.row}>
-                            <Sparkles size={12} color="#757575" />
-                            <Text style={s.aiLabel}>AI 配方添加劑快速提要</Text>
-                          </View>
-                          <Text style={s.aiText}>
-                            {analysisResult.additives_summary || getAiAdditivesSummary(analysisResult, totalAdditivesCount, highRiskCount)}
-                          </Text>
-                        </View>
-                        <View style={[s.row, { gap: 8, marginTop: 12, marginBottom: 4 }]}>
-                          {[
-                            { label: '配料總數', val: `${allIngredients.length}`, col: '#4D3A31' },
-                            { label: '添加物種數', val: `${totalAdditivesCount}`, col: '#991b1b' },
-                            { label: '高特定風險', val: `${highRiskCount}`, col: highRiskCount > 0 ? '#b45309' : '#009B52' },
-                          ].map(st => (
-                            <View key={st.label} style={[s.miniStat, { flex: 1 }]}>
-                              <Text style={[s.miniStatNum, { color: st.col }]}>{st.val}</Text>
-                              <Text style={s.miniStatLabel}>{st.label}</Text>
+                      {additiveSubView === null ? (
+                        // ── 總覽：三個統計卡，點進去才看清單 ──
+                        <View style={s.card}>
+                          <Text style={s.cardTitle}>完整化學配料安全分級報告</Text>
+                          <View style={s.aiBox}>
+                            <View style={s.row}>
+                              <Sparkles size={12} color="#757575" />
+                              <Text style={s.aiLabel}>AI 配方添加劑快速提要</Text>
                             </View>
-                          ))}
-                        </View>
-                        {additiveIngredients.length > 0 ? (
-                          <IngredientsList ingredients={additiveIngredients} />
-                        ) : (
-                          /* ⚠ 空清單**不等於**「本產品不含添加物」。
-                           *
-                           * 2026-09-10 以 177 案量測：添加物為 0 的案子有 42 個，
-                           * 其中 11 個是「標示上有、我們沒讀到」。而系統**分不出來**
-                           * ——兩組的成分項數分布幾乎完全重疊（危險組中位 10 項、
-                           * 乾淨組中位 9 項），任何門檻都是抓到少數、誤傷一堆
-                           * （成分項數 <10 只抓到 5/11，卻誤傷 19/31）。
-                           *
-                           * 既然分不出來，畫面就不能宣稱任何一邊。這與 2026-08-05
-                           * 把食安事件從「未查詢卻顯示為安全」改掉是同一條原則：
-                           * 對食安 App 而言，把「沒查到」呈現成「沒問題」有風險。 */
-                          <View style={[s.tipBox, s.row, { alignItems: 'flex-start' }]}>
-                            <AlertTriangle size={14} color="#b45309" style={{ marginTop: 2 }} />
-                            <View style={{ flex: 1, gap: 4 }}>
-                              <Text style={[s.tipText, { fontWeight: '800', color: TEXT_DARK }]}>
-                                未偵測到添加物
-                              </Text>
-                              <Text style={s.tipText}>
-                                這可能是產品確實未使用，也可能是成分標示沒有辨識成功。
-                                系統無法分辨這兩種情況，
-                                <Text style={{ fontWeight: '800' }}>請以包裝上的成分欄為準</Text>。
-                              </Text>
+                            <Text style={s.aiText}>
+                              {analysisResult.additives_summary || getAiAdditivesSummary(analysisResult, totalAdditivesCount, highRiskCount)}
+                            </Text>
+                          </View>
+                          <View style={[s.row, { gap: 8, marginTop: 12 }]}>
+                            {([
+                              { key: 'all' as const, label: '成分', val: allIngredients.length, col: '#4D3A31' },
+                              { key: 'additives' as const, label: '添加物', val: totalAdditivesCount, col: '#991b1b' },
+                              { key: 'risky' as const, label: '須注意', val: highRiskCount, col: highRiskCount > 0 ? '#b45309' : '#009B52' },
+                            ]).map(st => (
+                              <Pressable
+                                key={st.key}
+                                onPress={() => setAdditiveSubView(st.key)}
+                                style={[s.miniStat, s.miniStatTappable, { flex: 1 }]}
+                              >
+                                <Text style={[s.miniStatNum, { color: st.col }]}>{st.val}</Text>
+                                <Text style={s.miniStatLabel}>{st.label}</Text>
+                                {/* 數字本身看不出可以點。這一列是唯一的入口，
+                                    沒有它使用者會以為清單被拿掉了。 */}
+                                <View style={[s.row, { gap: 2, marginTop: 4 }]}>
+                                  <Text style={s.miniStatHint}>查看</Text>
+                                  <ChevronRight size={10} color={TEXT_MID} />
+                                </View>
+                              </Pressable>
+                            ))}
+                          </View>
+                          {totalAdditivesCount === 0 && (
+                            /* ⚠ 空清單**不等於**「本產品不含添加物」。這段留在總覽頁，
+                             * 因為添加物為 0 時使用者不會去點那張卡，看不到頁內的說明。
+                             *
+                             * 2026-09-10 以 177 案量測：添加物為 0 的案子有 42 個，
+                             * 其中 11 個是「標示上有、我們沒讀到」，而系統**分不出來**
+                             * ——兩組的成分項數分布幾乎完全重疊。既然分不出來，
+                             * 畫面就不能宣稱任何一邊。 */
+                            <View style={[s.tipBox, s.row, { alignItems: 'flex-start', marginTop: 12 }]}>
+                              <AlertTriangle size={14} color="#b45309" style={{ marginTop: 2 }} />
+                              <View style={{ flex: 1, gap: 4 }}>
+                                <Text style={[s.tipText, { fontWeight: '800', color: TEXT_DARK }]}>
+                                  未偵測到添加物
+                                </Text>
+                                <Text style={s.tipText}>
+                                  這可能是產品確實未使用，也可能是成分標示沒有辨識成功。
+                                  系統無法分辨這兩種情況，
+                                  <Text style={{ fontWeight: '800' }}>請以包裝上的成分欄為準</Text>。
+                                </Text>
+                              </View>
                             </View>
-                          </View>
-                        )}
-
-                        {otherIngredients.length > 0 && (
-                          <View style={{ marginTop: 12 }}>
-                            <Pressable
-                              onPress={() => setOthersExpanded(v => !v)}
-                              style={[s.row, { justifyContent: 'space-between', paddingVertical: 6 }]}
-                            >
-                              {/* ⚠ 標題不可寫成「非添加物」。這一欄是「沒有比對到
-                               *    添加物資料庫」，不是「確定不是添加物」——實測
-                               *    有 5.8% 的真添加物會落在這裡（見上方 derived 區註解）。*/}
-                              <Text style={[s.cardTitle, { fontSize: 13 * fontScale }]}>
-                                其他成分（{otherIngredients.length}）
-                                <Text style={s.cardSubtitle}>　未比對到添加物資料庫</Text>
+                          )}
+                        </View>
+                      ) : (
+                        // ── 子頁：一次只顯示一份清單 ──
+                        (() => {
+                          const view = {
+                            all: {
+                              title: '全部成分',
+                              note: '依標示順序列出。標有「添加物」徽章者已比對到添加物資料庫；未標記者為未比對到，不代表確定不是添加物。',
+                              list: allIngredients,
+                              empty: '沒有辨識到任何成分。',
+                            },
+                            additives: {
+                              title: '食品添加物',
+                              note: '已比對到添加物資料庫的項目。',
+                              list: additiveIngredients,
+                              empty: '未偵測到添加物。這可能是產品確實未使用，也可能是標示沒有辨識成功——系統無法分辨，請以包裝上的成分欄為準。',
+                            },
+                            risky: {
+                              title: '須注意的添加物',
+                              note: '對特定族群（孕婦、幼童、腎功能不全者等）有明確風險提示的添加物。每一則提示都附有來源。',
+                              list: riskyIngredients,
+                              empty: '本產品的添加物中，沒有對特定族群的高風險提示。',
+                            },
+                          }[additiveSubView];
+                          return (
+                            <View style={s.card}>
+                              {/* 返回總覽，不是直接回儀表板——少一階會讓使用者
+                                  要看第二份清單時得從頭再點一次。 */}
+                              <Pressable
+                                style={[s.row, { paddingVertical: 4, marginBottom: 8 }]}
+                                onPress={() => setAdditiveSubView(null)}
+                              >
+                                <ArrowLeft size={14} color={TEXT_DARK} />
+                                <Text style={s.backNavText}>返回添加物總覽</Text>
+                              </Pressable>
+                              <Text style={s.cardTitle}>
+                                {view.title}
+                                <Text style={s.cardSubtitle}>　{view.list.length} 項</Text>
                               </Text>
-                              {othersExpanded
-                                ? <ChevronUp size={14} color={TEXT_MID} />
-                                : <ChevronDown size={14} color={TEXT_MID} />}
-                            </Pressable>
-                            {othersExpanded && <IngredientsList ingredients={otherIngredients} />}
-                          </View>
-                        )}
-                      </View>
+                              <Text style={[s.tipText, { marginTop: 4, marginBottom: 8 }]}>{view.note}</Text>
+                              {view.list.length > 0 ? (
+                                <IngredientsList ingredients={view.list} />
+                              ) : (
+                                <View style={[s.tipBox, s.row, { alignItems: 'flex-start' }]}>
+                                  <Info size={14} color={TEXT_MID} style={{ marginTop: 2 }} />
+                                  <Text style={[s.tipText, { flex: 1 }]}>{view.empty}</Text>
+                                </View>
+                              )}
+                            </View>
+                          );
+                        })()
+                      )}
                       <View style={[s.tipBox, s.row, { alignItems: 'flex-start' }]}>
                         <Info size={14} color={TEXT_MID} style={{ marginTop: 2 }} />
                         <Text style={[s.tipText, { flex: 1 }]}>
@@ -1605,6 +1650,9 @@ const createStyles = (scale: number) => StyleSheet.create({
   miniStat: { backgroundColor: '#fff', borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: BORDER },
   miniStatNum: { fontSize: 20 * scale, fontWeight: '900' },
   miniStatLabel: { fontSize: 9 * scale, color: TEXT_MID, fontWeight: '700', textTransform: 'uppercase', textAlign: 'center' },
+  // 可點的統計卡：邊框加深、底色微調，與不可點的統計卡分得開。
+  miniStatTappable: { borderColor: '#D8C9BA', backgroundColor: '#FFFDFB' },
+  miniStatHint: { fontSize: 8 * scale, color: TEXT_MID, fontWeight: '700' },
   emptyEvents: {
     padding: 20, borderRadius: 14, borderWidth: 1.5, borderStyle: 'dashed',
     borderColor: '#94A3B8', backgroundColor: '#fff', alignItems: 'center',
