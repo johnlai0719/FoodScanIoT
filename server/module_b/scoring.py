@@ -25,6 +25,19 @@ SWEETENER_KEYWORDS = [
 ]
 
 
+class InsufficientNutritionData(Exception):
+    """必要的計分輸入缺漏，無法產出等級。
+
+    刻意是例外而不是「回傳 None 分數」：呼叫端必須明確處理，
+    不能一路帶著空值走到回應裡變成某個看起來像分數的東西。
+    2026-09-12 已有前例——三種錯誤 payload 全部長出 health_score=75。
+    """
+
+    def __init__(self, missing):
+        self.missing = list(missing)
+        super().__init__("缺少必要的營養標示欄位：%s" % "、".join(self.missing))
+
+
 def calculate_nutriscore(product, ing_list) -> dict:
     """
     回傳 dict: calc_result, deterministic_score, deterministic_grade
@@ -52,20 +65,43 @@ def calculate_nutriscore(product, ing_list) -> dict:
     # 或推估——缺值時另行處理（見呼叫端 estimated 判斷），不在此填假設。
     estimated = []
 
+    # ⚠ 2026-09-14：扣分項缺值時**不可以填 0，也不可以讓它炸**。
+    #
+    # 原本 energy／sugars／salt／proteins 四項直接 float(product[...])，
+    # 標示沒讀到時是 None，會拋 TypeError 一路傳到 main.py 的
+    # `return {"status": "error", "message": str(e)}`，使用者看到的是
+    # 「float() argument must be a string or a real number, not 'NoneType'」
+    # （2026-09-14 實測，二配鮪魚飯糰）。
+    #
+    # 改法不是填 0。熱量、糖、鈉都是**扣分項**，缺值當 0 等於宣稱這項含量
+    # 為零而少扣分——分數會偏樂觀，方向正好是食安上最不該錯的那邊。
+    # 這三項是法定強制標示，標示上必有；讀不到代表**辨識失敗**，
+    # 那就該說辨識失敗，而不是給一個偏高的等級。
+    missing_required = [k for k in ('calories', 'sugar', 'sodium')
+                        if _num(k) is None]
+    if missing_required:
+        raise InsufficientNutritionData(missing_required)
+
     sfa = _num('saturated_fat')
     if sfa is None:
         # 暫時仍以脂肪×35% 推估以維持等級可產出，但明確標記為推估，
         # 供呈現端加註。實測此推估對堅果類高估近三倍、對油炸類低估，
         # 會改變等級（開心果 E↔D），故僅為過渡，正解是抓取標示實測值。
-        sfa = float(product['fat']) * 0.35
+        fat = _num('fat')
+        if fat is None:
+            # 連脂肪都沒有就推估不出來。同樣不填 0——那會少扣分。
+            raise InsufficientNutritionData(['saturated_fat', 'fat'])
+        sfa = fat * 0.35
         estimated.append('saturated_fat')
 
     ns_data = {
-        "energy": float(product['calories']) * 4.184, # kcal 轉 kJ
-        "sugars": float(product['sugar']),
+        "energy": _num('calories') * 4.184,          # kcal 轉 kJ
+        "sugars": _num('sugar'),
         "sfa": sfa,
-        "salt": float(product['sodium']) / 1000 * 2.5, # mg 鈉 轉 g 鹽
-        "proteins": float(product['protein']),
+        "salt": _num('sodium') / 1000 * 2.5,         # mg 鈉 轉 g 鹽
+        # 蛋白質是**加分項**，缺值當 0 是正確的保守處理：拿不到就不給那份
+        # 加分。與上面三個扣分項的方向相反，不可套用同一條規則。
+        "proteins": _num('protein') or 0.0,
         "fibres": _num('fiber'),          # 缺 → None → 不加分（正確）
         "fruit_veg_pct": _num('fruit_veg_pct'),  # 無來源 → None → 不加分（正確）
     }

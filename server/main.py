@@ -653,7 +653,7 @@ def health():
 # normalize_text 已抽出至 module_a/ingredient_matching.py(2026-07-24),邏輯逐字未改動。
 from module_a.ingredient_matching import normalize_text, match_ingredients
 from module_d.response_builder import build_response
-from module_b.scoring import calculate_nutriscore
+from module_b.scoring import InsufficientNutritionData, calculate_nutriscore
 from module_b.daily_reference import get_daily_reference_payload
 from module_d.diagnosis import generate_ai_diagnosis
 
@@ -1261,10 +1261,28 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
             final_safety_events, raw_allergens, nutrition, daily_reference,
             basic_detail, ns_estimated
         )
+    except InsufficientNutritionData as e:
+        # 營養標示沒讀齊，無法產出等級。**不給分數**——熱量、糖、鈉都是扣分項，
+        # 缺值當 0 會讓分數偏樂觀，那是食安上最不該錯的方向。
+        # 回傳沒有 health_score 的錯誤形狀，App 據此顯示 message
+        # （判準見 CLAUDE.md：判定是否有效看有沒有 health_score）。
+        _ZH = {"calories": "熱量", "sugar": "糖", "sodium": "鈉",
+               "fat": "脂肪", "saturated_fat": "飽和脂肪", "protein": "蛋白質"}
+        miss = "、".join(_ZH.get(k, k) for k in e.missing)
+        print("[WARN] [Analyze] 營養標示缺漏，不計分：%s" % miss)
+        return {"status": "error",
+                "message": "營養標示未辨識完整（缺少 %s），無法計算健康評分。"
+                           "請對準營養標示區域重新拍攝。" % miss}
     except Exception as e:
         import traceback
         traceback.print_exc()
-        return {"status": "error", "message": str(e)}
+        # ⚠ 不可把例外訊息原樣回給使用者。2026-09-14 實測，一個 TypeError
+        # 讓 App 顯示「float() argument must be a string or a real number,
+        # not 'NoneType'」——使用者無從理解，也無從處理。
+        # 細節留在伺服器日誌裡（上面的 traceback），對外只說發生了什麼層級的事。
+        print("[ERROR] [Analyze] 未預期的例外：%r" % (e,))
+        return {"status": "error",
+                "message": "分析過程發生未預期的錯誤，請稍後再試。"}
 
 if __name__ == "__main__":
     import uvicorn
