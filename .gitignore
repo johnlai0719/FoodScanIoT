@@ -176,3 +176,7 @@ PPOCR_TEST/out/_online_*/
 
 # Expo 連線用的 QR（含 Tailscale 內網位址，不進版控）
 APP/expo-qr.png
+
+# 可重現的 Tesseract baseline：程式與說明進版控，辨識輸出不進版控。
+!tools/TESSERACT_BASELINE.md
+.artifacts/
