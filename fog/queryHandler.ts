@@ -26,12 +26,17 @@ const CLOUD_TIMEOUT = 105000;
 // request id 來自 App、會被原樣轉發，不合格就不轉，避免把使用者輸入塞進標頭。
 const SAFE_REQUEST_ID = /^[A-Za-z0-9_.:-]{1,64}$/;
 
-export async function handleQuery(reqData: FogQueryRequest, requestId?: string, bypassCache = false): Promise<{ status: number, data: any, cacheHeader: string, headers: Record<string, string> }> {
+export async function handleQuery(reqData: FogQueryRequest, requestId?: string, bypassCache = false, localOnly = false): Promise<{ status: number, data: any, cacheHeader: string, headers: Record<string, string> }> {
   const { barcode } = reqData;
   const startTime = Date.now();
   // App 產生的 request id 要逐層往下帶，三層的計時紀錄才併得起來。
   const rid = requestId && SAFE_REQUEST_ID.test(requestId) ? requestId : '';
-  const upstreamHeaders: Record<string, string> = { 'Content-Type': 'application/json', ...(rid ? { 'X-Request-Id': rid } : {}) };
+  const upstreamHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(rid ? { 'X-Request-Id': rid } : {}),
+    // 只用本機辨識時往下帶，由 Python 層直接走 local_ocr、不碰雲端。
+    ...(localOnly ? { 'X-Local-Only': '1' } : {}),
+  };
   // 下游（Python → Cloud）自己量的那幾段，原樣往上帶，讓 App 一次收齊三層。
   const passThrough: Record<string, string> = {};
   let upstreamMs: number | null = null;
@@ -57,7 +62,9 @@ export async function handleQuery(reqData: FogQueryRequest, requestId?: string, 
   //
   // ⚠ 刻意**不用** App 每次都送的 `Cache-Control: no-cache` 當判準：
   //   那個標頭每一次請求都在，拿它當開關等於永久關閉快取。
-  const cachedData = bypassCache ? null : getCache(barcode);
+  // 只用本機辨識時也不可讀快取：快取裡是雲端算過的完整結果，拿它回應等於
+  // 沒有照使用者的選擇做，而畫面會顯示成完整分析，使用者無從察覺。
+  const cachedData = (bypassCache || localOnly) ? null : getCache(barcode);
   if (cachedData) {
     console.log(`[HIT] ${barcode} -> Normalizing cached result...`);
     const controller = new AbortController();

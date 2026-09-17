@@ -104,8 +104,12 @@ app.post('/query', validateQuery, async (req: Request, res: Response, next: Next
     // App 每一次請求都送 `Cache-Control: no-cache`，拿它當判準等於永久關閉快取，
     // 那就量不出「Fog 的快取有沒有幫上忙」。
     const bypass = req.header('X-Bypass-Cache') === '1';
+    // X-Local-Only：使用者主動要求只用本機辨識，不轉發雲端。
+    // 這不是故障時的降階，是**使用者選的**——照片因此不離開這台邊緣節點。
+    // 兩者走同一條產出路徑（本機 OCR），但觸發來源不同，畫面上要講清楚是哪一種。
+    const localOnly = req.header('X-Local-Only') === '1';
     const result = await handleQuery(
-      req.body as FogQueryRequest, req.header('X-Request-Id'), bypass);
+      req.body as FogQueryRequest, req.header('X-Request-Id'), bypass, localOnly);
     res.header('X-Cache', result.cacheHeader);
     // 三層的計時標頭。**不放進 body**：`test_cloud_response_contract.py` 是
     // `set(keys) == EXPECTED` 嚴格相等，動 body 等於改 App 的資料契約；

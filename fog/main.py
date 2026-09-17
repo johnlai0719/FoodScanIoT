@@ -210,6 +210,27 @@ async def query(request: Request, response: Response):
         # 🛠️ 優化測試模式：如果有圖片或者是測試模式但快取沒資料，才去 Cloud
         is_test = (barcode == "TEST")
         has_images = (label_images and len(label_images) > 0)
+
+        # ── 使用者主動要求只用本機辨識 ──────────────────────────────────────
+        # 與「Cloud 掛了才降階」走同一條產出路徑，但**觸發來源不同**：
+        # 這一條是使用者選的，照片因此不離開這台邊緣節點。
+        #
+        # 兩件事刻意不做：
+        #   1. **不查快取。** 快取裡是雲端算過的完整結果，拿它回應等於沒有照
+        #      使用者的選擇做，而畫面會顯示成完整分析，使用者無從察覺。
+        #      Node 層已先擋一次，這裡是第二道。
+        #   2. **不在本機 OCR 未就緒時退回雲端。** 那會把照片送出去，
+        #      正好是使用者選這個選項要避免的事。改為明確回錯誤。
+        if request.headers.get("X-Local-Only") == "1" and has_images:
+            if not local_ocr.is_ready():
+                raise HTTPException(
+                    status_code=503,
+                    detail="本機辨識尚未就緒（%s）。已依設定不轉送雲端。"
+                           % (local_ocr.status() or {}).get("detail", ""))
+            print(f"[LOCAL-ONLY] {barcode} -> 依使用者設定只用本機辨識")
+            with sw.lap("localocr"):
+                return await run_in_threadpool(
+                    local_ocr.analyze, label_images, barcode)
         
         # 先查快取是否有 TEST 紀錄
         conn = sqlite3.connect(DB_PATH)

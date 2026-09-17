@@ -138,6 +138,13 @@ export default function HomeScreen() {
   // 測試模式：送 X-Bypass-Cache，讓 Fog 跳過**讀**快取（照常寫）。
   // 量延遲時每一次都要走完整路徑，命中快取的那幾次會把中位數拉到失真。
   const [bypassCache, setBypassCache] = useState(false);
+  // 只用本機辨識：送 X-Local-Only，Fog 直接走本機 OCR，照片不轉送雲端。
+  // 與「雲端掛了才降階」走同一條產出路徑，但**是使用者選的**——結果頁要
+  // 分得出是哪一種，否則使用者會以為系統出問題了。
+  const [localOnly, setLocalOnly] = useState(false);
+  // 這一次的結果是不是在本機模式下拿到的。不可直接用 localOnly 判斷——
+  // 使用者可能在看結果時又去把開關關掉，那樣標示就與實際產出不符。
+  const [resultWasLocalOnly, setResultWasLocalOnly] = useState(false);
   const [activeDetailView, setActiveDetailView] = useState<'additives' | 'history' | 'breakdown' | null>(null);
   // 添加物明細底下再分三頁。null＝三個統計卡的總覽頁。
   // 分頁的理由：成分與添加物同列一頁時，使用者要捲很久才看得完，
@@ -218,6 +225,9 @@ export default function HomeScreen() {
             // 專用標頭而不是沿用上面那個 Cache-Control——它每次都送，
             // 拿它當判準等於永久關閉快取，就量不出快取有沒有幫上忙。
             ...(bypassCache ? { 'X-Bypass-Cache': '1' } : {}),
+            // 只用本機辨識。Fog 端若本機 OCR 未就緒會回 503 而**不會**
+            // 改送雲端——那正是選這個選項要避免的事。
+            ...(localOnly ? { 'X-Local-Only': '1' } : {}),
           },
           signal: ctrl.signal,
           // 個人化比對自 2026-08-04 起完全在本地進行，健康背景不再送往後端。
@@ -288,6 +298,7 @@ export default function HomeScreen() {
       setAnalysisError(msg);
     } finally {
       setIsAnalyzing(false);
+      setResultWasLocalOnly(localOnly);
       {
         // Cloud 自報的分析耗時（X-Timing-Cloud 的 total）。與手機量到的差額
         // 就是網路與各層轉發——兩個都顯示，使用者才看得出慢在哪一段。
@@ -682,6 +693,32 @@ export default function HomeScreen() {
                 </Pressable>
               </View>
 
+              <Text style={[s.settingsLabel, { marginTop: 24 }]}>只用本機辨識</Text>
+              <Text style={s.settingsSub}>
+                開啟後照片只送到邊緣節點（Fog），不再轉送雲端。回傳的是部分結果：
+                有成分與過敏原，但**沒有健康評分與添加物比對**——那兩項需要雲端的
+                知識庫與計分模組。邊緣節點的本機辨識若尚未就緒，會直接回報錯誤而
+                不會改送雲端。
+              </Text>
+              <View style={s.segmentedControl}>
+                <Pressable
+                  style={[s.segBtn, !localOnly && s.segBtnActive]}
+                  onPress={() => setLocalOnly(false)}
+                >
+                  <Text style={[s.segBtnText, !localOnly && s.segBtnTextActive]}>
+                    完整分析
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[s.segBtn, localOnly && s.segBtnActiveCloud]}
+                  onPress={() => setLocalOnly(true)}
+                >
+                  <Text style={[s.segBtnText, localOnly && s.segBtnTextActive]}>
+                    只用本機
+                  </Text>
+                </Pressable>
+              </View>
+
               <Text style={[s.settingsLabel, { marginTop: 20 }]}>實驗量測紀錄</Text>
               <Text style={s.settingsSub}>
                 已累積 {telemetryCount} 筆，存在本機。匯出為 CSV 後可直接做統計。
@@ -858,9 +895,17 @@ export default function HomeScreen() {
                   <View style={[s.card, s.degradedBox]}>
                     <View style={s.row}>
                       <AlertTriangle size={20} color={DEGRADED_FG} />
-                      <Text style={s.degradedTitle}>離線模式・部分結果</Text>
+                      <Text style={s.degradedTitle}>
+                        {resultWasLocalOnly ? '本機辨識・部分結果' : '離線模式・部分結果'}
+                      </Text>
                     </View>
-                    <Text style={s.degradedMsg}>{degradedResult.message}</Text>
+                    {/* 使用者自己選的模式，不該用故障的語氣講。Fog 回的 message
+                        是為「雲端掛了」寫的，這裡覆蓋掉。 */}
+                    <Text style={s.degradedMsg}>
+                      {resultWasLocalOnly
+                        ? '依你的設定，這次只用邊緣節點辨識，照片沒有送往雲端。因此沒有健康評分與添加物比對，成分與過敏原仍以包裝標示為準。'
+                        : degradedResult.message}
+                    </Text>
                     <Text style={s.degradedNote}>
                       本機辨識：{degradedResult.engine?.ocr ?? '—'}・
                       {degradedResult.elapsed_s} 秒

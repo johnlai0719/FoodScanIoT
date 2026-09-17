@@ -222,9 +222,17 @@ def test_bypass_uses_a_dedicated_header_not_cache_control():
 
 
 def test_bypass_skips_reading_but_still_writes():
-    """跳過**讀**、照常**寫**。關掉寫入的話快取本身就量不出來了。"""
+    """跳過**讀**、照常**寫**。關掉寫入的話快取本身就量不出來了。
+
+    2026-09-17 放寬斷言：原本比對整行字串 `bypassCache ? null : getCache(...)`，
+    加入「只用本機辨識」之後那一行變成 `(bypassCache || localOnly) ? null : ...`，
+    意思沒變卻會紅。改為分開斷言兩件事——bypassCache 出現在 getCache 那一行、
+    且不出現在 setCache 那一行——守的仍是「只影響讀取」。
+    """
     node = _read(TS_NODE)
-    assert "bypassCache ? null : getCache(barcode)" in node,         "跳過快取的實作方式變了，請確認它只影響讀取"
+    get_lines = [l for l in node.split(chr(10)) if "getCache(barcode)" in l]
+    assert get_lines, "找不到讀取快取的那一行"
+    assert any("bypassCache" in l and "null" in l for l in get_lines),         "跳過快取的實作方式變了，請確認它仍只影響讀取"
     # setCache 不得被 bypassCache 包住
     for line in node.split(chr(10)):
         if "setCache(" in line:
