@@ -1,0 +1,49 @@
+{
+  "is_food_label": true,
+  "name": "祈福餅乾",
+  "brand": "",
+  "manufacturer": "環宇開發生技食品股份有限公司",
+  "ingredients_raw": "麵粉、精製椰子油、食用烤酥油、糖粉(蔗糖、玉米澱粉)、麥芽抽出精、碳酸氫銨(碳酸氫銨、碳酸鎂)、食鹽、葡萄糖、奶粉、玉米澱粉、碳酸氫鈉、味精(L-麩酸鈉)、蛋白分解酵素P-18(小麥粉、蛋白分解酵素)、偏亞硫酸氫鈉。",
+  "ingredients_list": [
+    "麵粉",
+    "精製椰子油",
+    "食用烤酥油",
+    "糖粉(蔗糖、玉米澱粉)",
+    "麥芽抽出精",
+    "碳酸氫銨(碳酸氫銨、碳酸鎂)",
+    "食鹽",
+    "葡萄糖",
+    "奶粉",
+    "玉米澱粉",
+    "碳酸氫鈉",
+    "味精(L-麩酸鈉)",
+    "蛋白分解酵素P-18(小麥粉、蛋白分解酵素)",
+    "偏亞硫酸氫鈉"
+  ],
+  "nutrition": {
+    "calories": null,
+    "protein": null,
+    "fat": null,
+    "saturated_fat": null,
+    "trans_fat": null,
+    "carbohydrates": null,
+    "sugar": null,
+    "fiber": null,
+    "sodium": null
+  },
+  "nutrition_per_serving": {
+    "calories": 54.4,
+    "protein": 0.6,
+    "fat": 3.2,
+    "saturated_fat": 1.5,
+    "trans_fat": 0,
+    "carbohydrates": 5.8,
+    "sugar": 0.6,
+    "fiber": null,
+    "sodium": 58.8
+  },
+  "serving_size": 10,
+  "servings_per_container": 14,
+  "allergy_warning": "本產品含有麩質穀物、牛奶及其製品",
+  "certification_marks": []
+}

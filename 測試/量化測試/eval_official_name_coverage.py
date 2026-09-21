@@ -20,6 +20,11 @@
 # 用法：cd 測試/量化測試 && ../../server/venv/bin/python eval_official_name_coverage.py
 import os, sys, json, glob, csv, re
 
+# Windows 主控台預設 cp950，案例名稱裡有它編不出來的字（「塩」「菓」…）。
+# 沒有這兩行，整批任務會在中途拋 UnicodeEncodeError 死掉（2026-09-07 炸過兩次）。
+sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 SERVER = os.path.abspath(os.path.join(HERE, '..', '..', 'server'))
 sys.path.insert(0, SERVER)

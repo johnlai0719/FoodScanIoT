@@ -20,6 +20,13 @@ import json
 import os
 import sys
 
+# Windows 主控台預設 cp950，案例名稱裡有它編不出來的字（「塩」「菓」…）。
+# 沒有這兩行的後果不是印出亂碼，而是**整批任務在中途拋 UnicodeEncodeError 死掉**
+# ——2026-09-07 run_eval 炸在第 10 案的「塩」、intake 炸在第 11 案的「菓」，
+# 後者還留下半套用狀態（照片已搬、cases.json 沒存）。
+sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 IMAGES = os.environ.get('EVAL_IMAGE_ROOT') or os.path.join(HERE, 'images')
 MANIFEST = os.path.join(HERE, 'manifest.json')

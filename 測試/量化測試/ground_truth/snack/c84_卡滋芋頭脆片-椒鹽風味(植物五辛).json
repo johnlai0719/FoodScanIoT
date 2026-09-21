@@ -1,0 +1,45 @@
+{
+  "is_food_label": true,
+  "name": "卡滋芋頭脆片-椒鹽風味(植物五辛)",
+  "brand": "卡滋",
+  "manufacturer": "台灣司麥爾食品股份有限公司",
+  "ingredients_raw": "芋頭、棕櫚油(非氫化)、糖粉(砂糖、樹薯澱粉)、麥芽糊精、食鹽、調味劑(L-麩酸鈉、5'-次黃嘌呤核苷磷酸二鈉、5'-鳥嘌呤核苷磷酸二鈉)、香辛料(白胡椒粉、蒜粉(蒜、二氧化矽)、洋蔥粉、甘草粉)、胡椒抽出物、二氧化矽、混合濃縮生育醇(抗氧化劑)。",
+  "ingredients_list": [
+    "芋頭",
+    "棕櫚油(非氫化)",
+    "糖粉(砂糖、樹薯澱粉)",
+    "麥芽糊精",
+    "食鹽",
+    "調味劑(L-麩酸鈉、5'-次黃嘌呤核苷磷酸二鈉、5'-鳥嘌呤核苷磷酸二鈉)",
+    "香辛料(白胡椒粉、蒜粉(蒜、二氧化矽)、洋蔥粉、甘草粉)",
+    "胡椒抽出物",
+    "二氧化矽",
+    "混合濃縮生育醇(抗氧化劑)"
+  ],
+  "nutrition": {
+    "calories": 496,
+    "protein": 3.5,
+    "fat": 23.6,
+    "saturated_fat": 10.8,
+    "trans_fat": 0,
+    "carbohydrates": 67.4,
+    "sugar": 3.1,
+    "fiber": null,
+    "sodium": 270
+  },
+  "nutrition_per_serving": {
+    "calories": 223,
+    "protein": 1.6,
+    "fat": 10.6,
+    "saturated_fat": 4.9,
+    "trans_fat": 0,
+    "carbohydrates": 30.3,
+    "sugar": 1.4,
+    "fiber": null,
+    "sodium": 122
+  },
+  "serving_size": 45,
+  "servings_per_container": 1,
+  "allergy_warning": "無",
+  "certification_marks": []
+}

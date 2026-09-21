@@ -1,0 +1,46 @@
+{
+  "is_food_label": true,
+  "name": "義美黑芝麻薄餅",
+  "brand": "義美",
+  "manufacturer": "義美食品股份有限公司",
+  "ingredients_raw": "麵粉、蔗糖、植物油 (棕櫚油、椰子油、乳化劑 (脂肪酸丙二醇酯)、抗氧化劑 (混合濃縮生育醇))、黑芝麻、奶粉、奶油、白芝麻、膨脹劑 (碳酸氫銨、碳酸氫鈉)、麥芽萃取物、食鹽、乳化劑 (乳酸硬脂酸鈉、脂肪酸甘油酯)。",
+  "ingredients_list": [
+    "麵粉",
+    "蔗糖",
+    "植物油 (棕櫚油、椰子油、乳化劑 (脂肪酸丙二醇酯)、抗氧化劑 (混合濃縮生育醇))",
+    "黑芝麻",
+    "奶粉",
+    "奶油",
+    "白芝麻",
+    "膨脹劑 (碳酸氫銨、碳酸氫鈉)",
+    "麥芽萃取物",
+    "食鹽",
+    "乳化劑 (乳酸硬脂酸鈉、脂肪酸甘油酯)"
+  ],
+  "nutrition": {
+    "calories": 504,
+    "protein": 10.5,
+    "fat": 22,
+    "saturated_fat": 11.5,
+    "trans_fat": 0,
+    "carbohydrates": 65.9,
+    "sugar": 11.3,
+    "fiber": null,
+    "sodium": 288
+  },
+  "nutrition_per_serving": {
+    "calories": 101,
+    "protein": 2.1,
+    "fat": 4.4,
+    "saturated_fat": 2.3,
+    "trans_fat": 0,
+    "carbohydrates": 13.2,
+    "sugar": 2.3,
+    "fiber": null,
+    "sodium": 57.5
+  },
+  "serving_size": 20,
+  "servings_per_container": 6,
+  "allergy_warning": "含麩質的穀物、奶類、芝麻",
+  "certification_marks": []
+}

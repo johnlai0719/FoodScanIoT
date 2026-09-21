@@ -17,6 +17,23 @@ export const FOG_URL = 'http://100.86.249.39:3001/query';
 export const CLOUD_URL = 'http://100.119.217.100:3003/api/analyze';
 
 /**
+ * Cloud 直連時送的 API 金鑰，取自 `APP/.env`（已被 .gitignore 擋住）。
+ *
+ * 2026-09-14 起 Cloud 的 /query、/analyze、/api/analyze 三條都要 X-API-Key，
+ * 直連不帶就回 401。Fog 那條路不受影響——金鑰由 Fog 的 cloud_headers() 持有。
+ *
+ * ⚠ 必須寫成 `process.env.EXPO_PUBLIC_XXX` 這種靜態存取。Expo 是在打包時做
+ *   字面替換，解構或用變數取鍵都會取不到值。
+ *
+ * ⚠ EXPO_PUBLIC_ 的值會被寫進 bundle，拿得到 App 的人就拿得到它。改成這樣
+ *   只是不讓金鑰進版控，不等於它變成祕密了。正式路徑仍是 App → Fog → Cloud，
+ *   只有 Fog 該持有金鑰（見 server/main.py 的 API_SHARED_SECRET 一節）。
+ *
+ * 沒設就是空字串，此時不送 X-API-Key——只走 Fog 的人不必設這個變數。
+ */
+export const CLOUD_API_KEY = process.env.EXPO_PUBLIC_CLOUD_API_KEY ?? '';
+
+/**
  * 分析請求的逾時（毫秒）。
  *
  * 這是**安全網不是預期等待時間**。2026-09-13 改用 vlcrop 之後實測單張

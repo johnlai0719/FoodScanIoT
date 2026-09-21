@@ -1,0 +1,42 @@
+{
+  "is_food_label": true,
+  "name": "聖德科斯芭樂檸檬綜合果汁",
+  "brand": "聖德科斯",
+  "manufacturer": "佳美食品工業股份有限公司",
+  "ingredients_raw": "水、芭樂原汁、砂糖、蘋果果肉、奇異果原汁(含籽)、檸檬原汁、檸檬酸",
+  "ingredients_list": [
+    "水",
+    "芭樂原汁",
+    "砂糖",
+    "蘋果果肉",
+    "奇異果原汁(含籽)",
+    "檸檬原汁",
+    "檸檬酸"
+  ],
+  "nutrition": {
+    "calories": 49.1,
+    "protein": 0.2,
+    "fat": 0.1,
+    "saturated_fat": 0.0,
+    "trans_fat": 0.0,
+    "carbohydrates": 12.0,
+    "sugar": 10.5,
+    "fiber": 0.3,
+    "sodium": 0.4
+  },
+  "nutrition_per_serving": {
+    "calories": 137.5,
+    "protein": 0.6,
+    "fat": 0.3,
+    "saturated_fat": 0.0,
+    "trans_fat": 0.0,
+    "carbohydrates": 33.6,
+    "sugar": 29.4,
+    "fiber": 0.8,
+    "sodium": 1.1
+  },
+  "serving_size": "280毫升",
+  "servings_per_container": 1,
+  "allergy_warning": "本產品含有奇異果，該生產線亦生產芒果、堅果、芝麻類的製品",
+  "certification_marks": []
+}

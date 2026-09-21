@@ -4,11 +4,12 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { Camera, ImagePlus, Trash2, CheckCircle2 } from 'lucide-react-native';
 
-// 上傳前壓縮的參數。與 測試/量化測試/compress_images.py 的預設值相同——
-// 那支腳本用同一組參數處理測試集後重跑辨識，量的就是這裡送出去的東西。
-// 改動這兩個數字前先跑一次該實驗，否則辨識率的變化沒有依據。
-const MAX_WIDTH = 1280;
-const QUALITY = 0.8;
+// 上傳前壓縮的參數。
+// 依據實驗 05（05-壓縮對本地管線之影響），若壓至 1280px 會使本地 vlcrop 管線添加物 F1 重挫 9.7 點；
+// 提升至最長邊 1920px (JPEG quality 0.85) 則可通過統計非劣性驗證（差距僅 -1.6 點，CI 跨 0），
+// 橫向拍攝即對應 1920x1080 (FHD)，直向拍攝寬度保留 1920px 以維護橫排小字辨識率。
+const MAX_WIDTH = 1920;
+const QUALITY = 0.85;
 
 interface Props {
   onImageCaptured: (base64: string) => void;
@@ -30,7 +31,7 @@ export default function PackageImageScanner({ onImageCaptured, images = [], onRe
    */
   const processAndCompressImage = async (uri: string, srcWidth: number) => {
     try {
-      // 只縮不放。resize 設的是**結果尺寸**而非上限，寬度本來就小於 1280 的圖
+      // 只縮不放。resize 設的是**結果尺寸**而非上限，寬度本來就小於 1920 的圖
       // （截圖、網路存下的小圖）若照樣傳進去會被放大：檔案變大，細節一點沒多。
       const actions = srcWidth > MAX_WIDTH ? [{ resize: { width: MAX_WIDTH } }] : [];
       const out = await ImageManipulator.manipulateAsync(uri, actions, {

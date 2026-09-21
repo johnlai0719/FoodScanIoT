@@ -22,10 +22,22 @@
 #   ../../server/venv/bin/python run_eval.py --repeat=3                     # 每案跑 3 次量穩定度
 #   ../../server/venv/bin/python run_eval.py --only-version=core48          # 只跑凍結子集
 #   ../../server/venv/bin/python run_eval.py --tag=compressed_1280          # 為本次執行命名
+#   ../../server/venv/bin/python run_eval.py --out=predictions_struct       # 寫到別的資料夾
+#
+# 實驗開關（皆為環境變數，一律在包裝層覆寫，不改 server/main.py）：
+#   EVAL_MODEL / EVAL_THINKING_BUDGET / EVAL_MAX_OUTPUT_TOKENS
+#   EVAL_STRUCTURED=1     改用 response_schema 約束解碼（見 gemini_schema.py）
+#   EVAL_TEMPERATURE=0.1  線上沒設，2.5-flash 預設 1.0
 #
 # 環境變數 EVAL_IMAGE_ROOT 可改讀別處的圖片（壓縮實驗用），預設為 ./images。
 import os, sys, json, base64, asyncio, time, statistics
 from datetime import datetime
+
+# Windows 主控台預設 cp950，案例名稱裡有它編不出來的字（「塩」「菓」…）。
+# 沒有這兩行的後果不是印出亂碼，而是**整批任務在中途拋 UnicodeEncodeError 死掉**
+# ——2026-09-07 這支跑到第 10 案就炸在 `塩`，intake.py 同一天也炸在 `菓`。
+sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SERVER = os.path.abspath(os.path.join(HERE, '..', '..', 'server'))
@@ -70,6 +82,31 @@ def _install_usage_probe():
     # 的對象，否則線上行為與量到的行為就不再是同一件事。
     #   EVAL_THINKING_BUDGET   0 停用（線上現值）／-1 自動／正整數為 token 上限
     #   EVAL_MAX_OUTPUT_TOKENS 開 thinking 時務必一併設定，見下方說明
+    # 模型覆寫。同一批照片、同一份人工正解、同一支 harness，只換模型——
+    # 「換更強的模型是不是就解決了」這個問題才答得出數字而非印象。
+    # 正式管線寫死於 server/main.py，此處僅在包裝層覆寫，理由同 thinking 開關。
+    #   EVAL_MODEL=<model id>
+    # 產物請用 --tag 命名，否則兩次執行的 predictions/ 會互相覆蓋。
+    model_override = os.environ.get('EVAL_MODEL')
+    if model_override:
+        print(f"[實驗] 模型覆寫為 {model_override}（正式管線仍為 server/main.py 所寫死者）")
+
+    # 結構化輸出的實驗開關。線上是「prompt 裡用散文寫 JSON 形狀 ＋ 正則挖出來」，
+    # 這裡改成 response_schema 約束解碼，並把固定的任務描述搬進 system_instruction。
+    # 目的是量三件事：輸入 token 降多少、延遲降多少、判定品質有沒有動。
+    #   EVAL_STRUCTURED=1   啟用（契約見 gemini_schema.py）
+    #   EVAL_TEMPERATURE    線上沒設，2.5-flash 預設 1.0；0.1 用來壓格式漂移與幻覺
+    structured = os.environ.get('EVAL_STRUCTURED') == '1'
+    temperature = os.environ.get('EVAL_TEMPERATURE')
+    schema = None
+    if structured:
+        import gemini_schema as GS
+        schema = GS
+        print("[實驗] 結構化輸出：response_schema=LabelResult"
+              "、任務描述改由 system_instruction 承載")
+    if temperature is not None:
+        print(f"[實驗] temperature={temperature}")
+
     budget = os.environ.get('EVAL_THINKING_BUDGET')
     max_out = os.environ.get('EVAL_MAX_OUTPUT_TOKENS')
     if budget is not None:
@@ -84,11 +121,32 @@ def _install_usage_probe():
                   "額度不足時回應會是空的，該案會被記為失敗而非低分。")
 
     def wrapper(*a, **kw):
+        if model_override:
+            # main.py 以關鍵字傳 model=；位置參數形式一併處理以免默默沒生效
+            if a:
+                a = (model_override,) + a[1:]
+            else:
+                kw['model'] = model_override
         if budget is not None:
             cfg = dict(kw.get('config') or {})
             cfg['thinking_config'] = {'thinking_budget': int(budget)}
             if max_out:
                 cfg['max_output_tokens'] = int(max_out)
+            kw['config'] = cfg
+        if schema is not None:
+            cfg = dict(kw.get('config') or {})
+            cfg['system_instruction'] = schema.SYSTEM_INSTRUCTION
+            cfg['response_mime_type'] = 'application/json'
+            cfg['response_schema'] = schema.LabelResult
+            kw['config'] = cfg
+            # contents 是 main.py 組的 [prompt(str)] + [PIL.Image...]。
+            # 只換第一個字串，圖片原封不動——換掉的是「每次重講一遍的任務描述」。
+            c = kw.get('contents')
+            if isinstance(c, list) and c and isinstance(c[0], str):
+                kw['contents'] = [schema.USER_PROMPT] + list(c[1:])
+        if temperature is not None:
+            cfg = dict(kw.get('config') or {})
+            cfg['temperature'] = float(temperature)
             kw['config'] = cfg
         resp = inner(*a, **kw)
         u = getattr(resp, 'usage_metadata', None)
@@ -148,20 +206,27 @@ def stats(vals):
 def main():
     args = sys.argv[1:]
     repeat, tag, only_version = 1, None, None
+    # 產物資料夾。預設仍是 predictions/，但實驗組請務必用 --out 指到別處——
+    # 上面那句「用 --tag 命名」其實擋不住覆蓋（tag 只寫進 summary，不換資料夾），
+    # 重跑一次就會蓋掉當基準用的那批預測，而那批要花 API 錢才生得回來。
+    out_name = 'predictions'
     only = set()
     for a in args:
         if a.startswith('--repeat='):
             repeat = max(1, int(a.split('=', 1)[1]))
         elif a.startswith('--tag='):
             tag = a.split('=', 1)[1]
+        elif a.startswith('--out='):
+            out_name = a.split('=', 1)[1]
         elif a.startswith('--only-version='):
             only_version = a.split('=', 1)[1]
         else:
             only.add(a)
 
     cases = json.load(open(os.path.join(HERE, 'cases.json'), encoding='utf-8'))['cases']
-    pred_dir = os.path.join(HERE, 'predictions')
-    res_dir = os.path.join(HERE, 'results')
+    pred_dir = os.path.join(HERE, out_name)
+    res_dir = os.path.join(HERE, 'results' if out_name == 'predictions'
+                           else out_name + '_results')
     os.makedirs(pred_dir, exist_ok=True)
     os.makedirs(res_dir, exist_ok=True)
 

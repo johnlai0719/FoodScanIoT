@@ -1,0 +1,48 @@
+{
+  "is_food_label": true,
+  "name": "無聊派系列大仙貝酥(米果)",
+  "brand": "旺旺",
+  "manufacturer": "宜蘭食品工業股份有限公司",
+  "ingredients_raw": "白米、棕櫚油、蔗糖、釀造醬油、玉米澱粉、甜味劑(D-山梨醇液70%)、馬鈴薯澱粉、磷酸二澱粉、L-麩酸鈉、食鹽、辣椒粉、紅椒色素、糖蜜酵母粉",
+  "ingredients_list": [
+    "白米",
+    "棕櫚油",
+    "蔗糖",
+    "釀造醬油",
+    "玉米澱粉",
+    "甜味劑(D-山梨醇液70%)",
+    "馬鈴薯澱粉",
+    "磷酸二澱粉",
+    "L-麩酸鈉",
+    "食鹽",
+    "辣椒粉",
+    "紅椒色素",
+    "糖蜜酵母粉"
+  ],
+  "nutrition": {
+    "calories": 546,
+    "protein": 4.2,
+    "fat": 32.1,
+    "saturated_fat": 15.8,
+    "trans_fat": 0.3,
+    "carbohydrates": 60.1,
+    "sugar": 13.4,
+    "fiber": null,
+    "sodium": 805
+  },
+  "nutrition_per_serving": {
+    "calories": 169,
+    "protein": 1.3,
+    "fat": 10,
+    "saturated_fat": 4.9,
+    "trans_fat": 0.1,
+    "carbohydrates": 18.6,
+    "sugar": 4.2,
+    "fiber": null,
+    "sodium": 250
+  },
+  "serving_size": 31,
+  "servings_per_container": 5,
+  "allergy_warning": "本產品含有麩質之穀物、大豆及其製品。",
+  "certification_marks": []
+}

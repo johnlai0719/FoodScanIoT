@@ -1,0 +1,40 @@
+{
+  "is_food_label": true,
+  "name": "陽光綜合堅果",
+  "brand": "有機園",
+  "manufacturer": "有機園生物科技(股)公司",
+  "ingredients_raw": "黑豆、黃豆(黃豆(非基因改造)、鹽(亞鐵氰化鉀)、馬鈴薯澱粉)、杏仁豆、腰果、山藥南瓜子(南瓜仁、乙醯化己二酸二澱粉、玉米粉、糖、紅薯粉、山藥粉、鹽)",
+  "ingredients_list": [
+    "黑豆",
+    "黃豆(黃豆(非基因改造)、鹽(亞鐵氰化鉀)、馬鈴薯澱粉)",
+    "杏仁豆",
+    "腰果",
+    "山藥南瓜子(南瓜仁、乙醯化己二酸二澱粉、玉米粉、糖、紅薯粉、山藥粉、鹽)"
+  ],
+  "nutrition": {
+    "calories": 492.3,
+    "protein": 31.4,
+    "fat": 31.7,
+    "saturated_fat": 3.9,
+    "trans_fat": 0,
+    "carbohydrates": 27.5,
+    "sugar": 2.8,
+    "fiber": 14.3,
+    "sodium": 170
+  },
+  "nutrition_per_serving": {
+    "calories": 172.3,
+    "protein": 11,
+    "fat": 11.1,
+    "saturated_fat": 1.4,
+    "trans_fat": 0,
+    "carbohydrates": 9.6,
+    "sugar": 1,
+    "fiber": 5,
+    "sodium": 60
+  },
+  "serving_size": 35,
+  "servings_per_container": 2,
+  "allergy_warning": "本品含大豆、堅果製品",
+  "certification_marks": []
+}

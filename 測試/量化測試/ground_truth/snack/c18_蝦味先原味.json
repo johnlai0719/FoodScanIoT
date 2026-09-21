@@ -34,7 +34,7 @@
   "servings_per_container": 2,
   "nutrition_per_serving": {
     "calories": 149,
-    "protein": 2.0,
+    "protein": 2,
     "fat": 6.7,
     "saturated_fat": 4.4,
     "trans_fat": 0,

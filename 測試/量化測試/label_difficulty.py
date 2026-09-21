@@ -5,6 +5,8 @@
 # 也容易改錯案、拼錯標籤；casetool check 只能驗「拼字合法」，不能替人看圖。
 # 此工具把「看圖判斷」與「寫入檔案」分開：
 #   generate  產生可離線開啟的 HTML（圖片＋勾選欄），逐案勾完按「匯出」存 JSON
+#             若同目錄有 labels.json（上次匯出的標註），自動預勾其內容，
+#             重產工作單不必整批重看；沒有的案例才用 cases.json 的 difficulty
 #   apply     把匯出的 JSON 套回 cases.json（驗證標籤與案例，僅動 difficulty 欄）
 # 套用後仍以 casetool.py check 收尾，維持既有的檢查流程。
 #
@@ -25,27 +27,55 @@ import json
 import os
 import sys
 
+import casetool
+
+# Windows 主控台預設 cp950，案例名稱裡有它編不出來的字（「塩」「菓」…）。
+# 沒有這兩行的後果不是印出亂碼，而是**整批任務在中途拋 UnicodeEncodeError 死掉**
+# ——2026-09-07 run_eval 炸在第 10 案的「塩」、intake 炸在第 11 案的「菓」，
+# 後者還留下半套用狀態（照片已搬、cases.json 沒存）。
+sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 CASES = os.path.join(HERE, 'cases.json')
+LABELS = os.path.join(HERE, 'labels.json')
 OUT_HTML = os.path.join(HERE, '_difficulty_worksheet.html')
 
-# 與 casetool.py 的 VALID_DIFFICULTY 一致；中文僅供顯示，存檔一律英文標籤
-TAGS = [('glare', '反光'), ('curved', '曲面'),
-        ('crease', '摺痕'), ('blurry', '模糊')]
+# 與 casetool.py 的 VALID_DIFFICULTY 一致；中文僅供顯示，存檔一律英文標籤。
+# 依 casetool.DIFFICULTY_FAMILY 分兩族顯示——分族的判準是「重拍能不能改善」，
+# 標註時看得到這個問題，比事後回想更容易標得一致。
+TAGS = [('blurry', '模糊'), ('glare', '反光'),
+        ('curved', '曲面'), ('crease', '摺痕')]
+FAMILY_ZH = {'shot': '重拍可改善', 'pkg': '包裝自帶，重拍無效'}
 
 
 def generate():
     cases = json.load(open(CASES, encoding='utf-8'))['cases']
+
+    # 歷史標註優先序：labels.json（已匯出、可能尚未 apply）＞ cases.json 的
+    # difficulty。瀏覽器不讓 file:// 開啟的 HTML 讀本機檔案，所以歷史標註
+    # 只能在產生 HTML 時預勾進去；沒有這一步，重產工作單就得整批重看。
+    prior = {}
+    if os.path.exists(LABELS):
+        prior = json.load(open(LABELS, encoding='utf-8'))
+        n = sum(1 for ts in prior.values() if ts)
+        print(f"已載入 labels.json 的歷史標註（{len(prior)} 案，{n} 案帶標籤）。")
+
     cards = []
     for c in cases:
         cid = c['case_id']
+        checked = prior[cid] if cid in prior else (c.get('difficulty') or [])
         imgs = ''.join(
             f'<img src="{html.escape(p)}" loading="lazy">' for p in c['images'])
-        boxes = ''.join(
-            f'<label><input type="checkbox" data-cid="{html.escape(cid)}" '
-            f'value="{en}"{" checked" if en in (c.get("difficulty") or []) else ""}>'
-            f'{zh}<span class="en">{en}</span></label>'
-            for en, zh in TAGS)
+        boxes = ''
+        for fam in ('shot', 'pkg'):
+            items = ''.join(
+                f'<label><input type="checkbox" data-cid="{html.escape(cid)}" '
+                f'value="{en}"{" checked" if en in checked else ""}>'
+                f'{zh}<span class="en">{en}</span></label>'
+                for en, zh in TAGS if casetool.DIFFICULTY_FAMILY[en] == fam)
+            boxes += (f'<div class="fam"><span class="famname">{FAMILY_ZH[fam]}</span>'
+                      f'{items}</div>')
         cards.append(
             f'<div class="card"><h3>{html.escape(cid)}'
             f'<span class="cat">{html.escape(c.get("category") or "")}</span></h3>'
@@ -65,6 +95,8 @@ def generate():
   .imgs img { max-width: 100%; max-height: 480px; display: block; margin: 6px 0; }
   .boxes label { display: inline-block; margin: 4px 12px 4px 0; cursor: pointer; }
   .en { color: #999; font-size: .75em; margin-left: 4px; }
+  .fam { margin: 4px 0; }
+  .famname { display: inline-block; min-width: 150px; color: #777; font-size: .8em; }
   #bar { position: sticky; bottom: 0; background: #f4f4f4; padding: 10px;
          border-top: 2px solid #bbb; text-align: center; }
   button { font-size: 1em; padding: 8px 18px; cursor: pointer; }

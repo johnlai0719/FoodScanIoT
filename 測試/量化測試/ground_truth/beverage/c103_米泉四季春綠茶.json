@@ -1,0 +1,40 @@
+{
+  "is_food_label": true,
+  "name": "光泉四季春綠茶",
+  "brand": "光泉",
+  "manufacturer": "光泉牧場股份有限公司",
+  "ingredients_raw": "水、茶葉、維生素C(抗氧化劑)",
+  "ingredients_list": [
+    "水",
+    "茶葉",
+    "維生素C(抗氧化劑)"
+  ],
+  "nutrition": {
+    "calories": 1.2,
+    "protein": 0,
+    "fat": 0,
+    "saturated_fat": 0,
+    "trans_fat": 0,
+    "carbohydrates": 0.3,
+    "sugar": 0,
+    "fiber": null,
+    "sodium": 15
+  },
+  "nutrition_per_serving": {
+    "calories": 3.6,
+    "protein": 0,
+    "fat": 0,
+    "saturated_fat": 0,
+    "trans_fat": 0,
+    "carbohydrates": 0.9,
+    "sugar": 0,
+    "fiber": null,
+    "sodium": 47
+  },
+  "serving_size": 312,
+  "servings_per_container": 3,
+  "allergy_warning": "本生產線亦生產含芒果、花生、芝麻、牛奶、蛋、堅果類、含麩質之穀物及大豆製品",
+  "certification_marks": [
+    "TQF"
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "is_food_label": true,
+  "name": "明治燕麥蘇打餅乾",
+  "brand": "meiji",
+  "manufacturer": "明治製菓(新加坡)有限公司",
+  "ingredients_raw": "小麥粉、植物油(棕櫚油、氫化油菜籽油)、燕麥、奶油、食鹽、碳酸氫鈉、麥芽萃取物(大麥)、麥芽粉(大麥)、酵母、味噌粉(大豆、食鹽)、麵糰添加物〔玉米澱粉、複方膨脹劑(氯化銨、碳酸鈣)〕",
+  "ingredients_list": [
+    "小麥粉",
+    "植物油(棕櫚油、氫化油菜籽油)",
+    "燕麥",
+    "奶油",
+    "食鹽",
+    "碳酸氫鈉",
+    "麥芽萃取物(大麥)",
+    "麥芽粉(大麥)",
+    "酵母",
+    "味噌粉(大豆、食鹽)",
+    "麵糰添加物〔玉米澱粉、複方膨脹劑(氯化銨、碳酸鈣)〕"
+  ],
+  "nutrition": {
+    "calories": 458,
+    "protein": 9.8,
+    "fat": 15.8,
+    "saturated_fat": 7.4,
+    "trans_fat": 0,
+    "carbohydrates": 71.4,
+    "sugar": 0,
+    "fiber": 4.3,
+    "sodium": 484
+  },
+  "nutrition_per_serving": {
+    "calories": 119,
+    "protein": 2.5,
+    "fat": 4.1,
+    "saturated_fat": 1.9,
+    "trans_fat": 0,
+    "carbohydrates": 18.6,
+    "sugar": 0,
+    "fiber": 1.1,
+    "sodium": 126
+  },
+  "serving_size": 26,
+  "servings_per_container": 4,
+  "allergy_warning": "過敏原：本產品含有牛奶、含麩質之穀物、大豆及其製品。本產品生產製程廠房，其設備或生產管線有處理芝麻及其製品。",
+  "certification_marks": []
+}

@@ -1,0 +1,41 @@
+{
+  "is_food_label": true,
+  "name": "得意的一天極選肉鬆",
+  "brand": "得意的一天",
+  "manufacturer": "佳格食品股份有限公司",
+  "ingredients_raw": "台灣純後腿豬肉、糖、釀造醬油、得意的一天純葵花油、葡萄糖、混合濃縮生育醇(抗氧化劑)",
+  "ingredients_list": [
+    "台灣純後腿豬肉",
+    "糖",
+    "釀造醬油",
+    "得意的一天純葵花油",
+    "葡萄糖",
+    "混合濃縮生育醇(抗氧化劑)"
+  ],
+  "nutrition": {
+    "calories": null,
+    "protein": null,
+    "fat": null,
+    "saturated_fat": null,
+    "trans_fat": null,
+    "carbohydrates": null,
+    "sugar": null,
+    "fiber": null,
+    "sodium": null
+  },
+  "nutrition_per_serving": {
+    "calories": 91,
+    "protein": 7,
+    "fat": 4,
+    "saturated_fat": 0.9,
+    "trans_fat": 0,
+    "carbohydrates": 6.7,
+    "sugar": 6.7,
+    "fiber": null,
+    "sodium": 180
+  },
+  "serving_size": 18,
+  "servings_per_container": 10,
+  "allergy_warning": "本產品含有大豆、含麩質之穀物(來自醬油)",
+  "certification_marks": []
+}

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
@@ -26,7 +26,7 @@ import DropdownEvent from '../components/DropdownEvent';
 import PackageImageScanner from '../components/PackageImageScanner';
 import BarcodeScanner from '../components/BarcodeScanner';
 import { analyzePersonalRisks, getProductAllergenWarnings } from '../utils/personalization';
-import { FOG_URL, CLOUD_URL, ANALYSIS_TIMEOUT_MS } from '../constants/endpoints';
+import { FOG_URL, CLOUD_URL, CLOUD_API_KEY, ANALYSIS_TIMEOUT_MS } from '../constants/endpoints';
 import * as Telemetry from '../utils/telemetry';
 import { getDataFreshness } from '../utils/dataFreshness';
 import {
@@ -228,6 +228,8 @@ export default function HomeScreen() {
             // 只用本機辨識。Fog 端若本機 OCR 未就緒會回 503 而**不會**
             // 改送雲端——那正是選這個選項要避免的事。
             ...(localOnly ? { 'X-Local-Only': '1' } : {}),
+            // Cloud 直連時帶上金鑰，以通過 Cloud 的 API 保護。
+            ...(serverEndpoint === 'cloud' && CLOUD_API_KEY ? { 'X-API-Key': CLOUD_API_KEY } : {}),
           },
           signal: ctrl.signal,
           // 個人化比對自 2026-08-04 起完全在本地進行，健康背景不再送往後端。
@@ -638,7 +640,11 @@ export default function HomeScreen() {
               </View>
 
               <Text style={s.settingsLabel}>食品檢核計算節點</Text>
-              <Text style={s.settingsSub}>選擇分析請求要送往哪個後端節點</Text>
+              <Text style={s.settingsSub}>
+                {serverEndpoint === 'cloud'
+                  ? '目前為【雲端直連模式】：繞過 Fog 邊緣節點，直接由雲端進行完整分析（對照實驗用）。'
+                  : '目前為【微型邊緣霧節點模式】：透過 Fog 進行快取、資料脫敏與邊緣降階（主要推薦路徑）。'}
+              </Text>
               <View style={s.segmentedControl}>
                 <Pressable
                   style={[s.segBtn, serverEndpoint === 'fog' && s.segBtnActive]}
@@ -650,7 +656,10 @@ export default function HomeScreen() {
                 </Pressable>
                 <Pressable
                   style={[s.segBtn, serverEndpoint === 'cloud' && s.segBtnActiveCloud]}
-                  onPress={() => setServerEndpoint('cloud')}
+                  onPress={() => {
+                    setServerEndpoint('cloud');
+                    if (localOnly) setLocalOnly(false);
+                  }}
                 >
                   <Text style={[s.segBtnText, serverEndpoint === 'cloud' && s.segBtnTextActive]}>
                     雲端伺服器 (Cloud)
@@ -693,9 +702,9 @@ export default function HomeScreen() {
                 </Pressable>
               </View>
 
-              <Text style={[s.settingsLabel, { marginTop: 24 }]}>只用本機辨識</Text>
+              <Text style={[s.settingsLabel, { marginTop: 24 }]}>只用本機辨識（降階用 FOG）</Text>
               <Text style={s.settingsSub}>
-                開啟後照片只送到邊緣節點（Fog），不再轉送雲端。回傳的是部分結果：
+                開啟後啟用 Fog 邊緣降階模式，照片只送到微型邊緣節點（Fog），不再轉送雲端。回傳的是部分結果：
                 有成分與過敏原，但**沒有健康評分與添加物比對**——那兩項需要雲端的
                 知識庫與計分模組。邊緣節點的本機辨識若尚未就緒，會直接回報錯誤而
                 不會改送雲端。
@@ -706,15 +715,18 @@ export default function HomeScreen() {
                   onPress={() => setLocalOnly(false)}
                 >
                   <Text style={[s.segBtnText, !localOnly && s.segBtnTextActive]}>
-                    完整分析
+                    完整分析 (Cloud)
                   </Text>
                 </Pressable>
                 <Pressable
                   style={[s.segBtn, localOnly && s.segBtnActiveCloud]}
-                  onPress={() => setLocalOnly(true)}
+                  onPress={() => {
+                    setLocalOnly(true);
+                    setServerEndpoint('fog');
+                  }}
                 >
                   <Text style={[s.segBtnText, localOnly && s.segBtnTextActive]}>
-                    只用本機
+                    啟用降階用 FOG
                   </Text>
                 </Pressable>
               </View>

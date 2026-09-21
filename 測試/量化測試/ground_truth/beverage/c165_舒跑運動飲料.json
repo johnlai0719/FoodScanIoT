@@ -1,0 +1,51 @@
+{
+  "is_food_label": true,
+  "name": "舒跑運動飲料",
+  "brand": "舒跑",
+  "manufacturer": "維他露食品股份有限公司第二廠",
+  "ingredients_raw": "水、蔗糖、異麥芽寡醣漿、檸檬酸、香料(含阿拉伯膠、脂肪酸蔗糖酯、中鏈三酸甘油酯)、葡萄糖、檸檬酸鈉、氯化鈉、胺基乙酸、維生素C、乳酸蓋、L-天門冬酸鈉、氯化鎂、綜合胺基酸(L-精胺酸、鹽酸L-二胺基己酸、L-異白胺酸、L-α-胺基異戊酸、L-白胺酸)",
+  "ingredients_list": [
+    "水",
+    "蔗糖",
+    "異麥芽寡醣漿",
+    "檸檬酸",
+    "香料(含阿拉伯膠、脂肪酸蔗糖酯、中鏈三酸甘油酯)",
+    "葡萄糖",
+    "檸檬酸鈉",
+    "氯化鈉",
+    "胺基乙酸",
+    "維生素C",
+    "乳酸蓋",
+    "L-天門冬酸鈉",
+    "氯化鎂",
+    "綜合胺基酸(L-精胺酸、鹽酸L-二胺基己酸、L-異白胺酸、L-α-胺基異戊酸、L-白胺酸)"
+  ],
+  "nutrition": {
+    "calories": 26,
+    "protein": 0,
+    "fat": 0,
+    "saturated_fat": 0,
+    "trans_fat": 0,
+    "carbohydrates": 6.5,
+    "sugar": 6,
+    "fiber": null,
+    "sodium": 42
+  },
+  "nutrition_per_serving": {
+    "calories": 63.6,
+    "protein": 0,
+    "fat": 0,
+    "saturated_fat": 0,
+    "trans_fat": 0,
+    "carbohydrates": 15.9,
+    "sugar": 14.7,
+    "fiber": null,
+    "sodium": 103
+  },
+  "serving_size": 245,
+  "servings_per_container": 1,
+  "allergy_warning": "",
+  "certification_marks": [
+    "TQF"
+  ]
+}

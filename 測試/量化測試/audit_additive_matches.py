@@ -16,6 +16,11 @@
 # 用法：cd 測試/量化測試 && ../../server/venv/bin/python audit_additive_matches.py
 import os, sys, json, glob, csv, re
 
+# Windows 主控台預設 cp950，案例名稱裡有它編不出來的字（「塩」「菓」…）。
+# 沒有這兩行，整批任務會在中途拋 UnicodeEncodeError 死掉（2026-09-07 炸過兩次）。
+sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 SERVER = os.path.abspath(os.path.join(HERE, '..', '..', 'server'))
 sys.path.insert(0, SERVER)
@@ -72,7 +77,8 @@ def load_knowledge(cursor) -> list:
         a['_n_zh_parts'] = [x for x in
                             (normalize_text(p) for p in re.split(r"[;；、]", a.get('name_zh') or ''))
                             if x]
-        a['_n_ins'] = normalize_text(a.get('ins_or_e_number') or '')
+        # ins_or_e_number 不再預先正規化：比對層已無編號規則（2026-08-06 移除）。
+        # SELECT 仍取該欄，供報表顯示配到哪一筆的官方編號。
         _al = a.get('aliases')
         if isinstance(_al, str):
             try:
@@ -88,8 +94,12 @@ def classify_hit(ing: str, knowledge: list) -> dict:
     這一項添加物判定是**憑什麼**命中的。
 
     分「名稱完全相等或官方別名」與「非完全相等」兩類，因為兩者的錯誤風險不同：
-    官方採正面表列，名稱完全相符即為查表結果，不可能配錯人；編號相符與片段相符
-    才有誤配空間（「麩酸鈉」片段命中「L-麩酸」就是這樣配錯的）。
+    官方採正面表列，名稱完全相符即為查表結果，不可能配錯人；片段相符才有誤配空間
+    （「麩酸鈉」片段命中「L-麩酸」就是這樣配錯的）。
+
+    2026-08-06：`ins_number` 一類已移除。比對層的編號規則實測命中 0 次後刪除，
+    此處若保留該標籤，會把實際靠片段命中、而編號恰好出現在成分名裡的項目
+    標成「靠編號命中」，讓稽核報表與實際規則不一致。
 
     命中的候選名稱必須跟正式流程取同一個——一項成分會展開成多個候選（括號內外
     都試），正式流程是「第一個命中的候選就採用」。若這裡改成「找有沒有任何一個
@@ -105,8 +115,6 @@ def classify_hit(ing: str, knowledge: list) -> dict:
             basis = 'exact_name'           # 與官方品名完全相等
         elif cand in match['_n_aliases']:
             basis = 'exact_alias'          # 與官方公告之通用名稱／別名完全相等
-        elif match['_n_ins'] and match['_n_ins'] in cand:
-            basis = 'ins_number'           # 靠 INS／E 編號命中
         else:
             basis = 'substring'            # 片段相符
         return {'basis': basis, 'candidate': cand,

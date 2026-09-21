@@ -17,6 +17,16 @@
 import os, json, glob, re, csv
 from statistics import mean
 
+import casetool   # DIFFICULTY_FAMILY（切片用），第 384 行需要
+import sys
+
+# Windows 主控台預設 cp950，案例名稱裡有它編不出來的字（「塩」「菓」…）。
+# 沒有這兩行的後果不是印出亂碼，而是**整批任務在中途拋 UnicodeEncodeError 死掉**
+# ——2026-09-07 run_eval 炸在第 10 案的「塩」、intake 炸在第 11 案的「菓」，
+# 後者還留下半套用狀態（照片已搬、cases.json 沒存）。
+sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 GT = os.path.join(HERE, 'ground_truth')
 PRED = os.path.join(HERE, 'predictions')
@@ -72,8 +82,15 @@ def num_ok(g, p):
 
 
 # 巢狀括號的分隔符與括號符號（標示上四種括號都出現過）
-_BRACKETS = r'（()）\[\]{}［］｛｝'
-_SEPS = r'、,，/;；'
+# 2026-09-07 補【】〔〕。正解裡 〔〕出現 21 次、【】4 次（泡麵的分包標題與
+# 巢狀配方），漏掉它們會產生 `豬肉風味粉〔麥芽糊精` 這種橫跨兩個成分的 token。
+# **刻意不收「」『』**——那是品名引號（「可口可樂zero」），不是巢狀括號。
+_BRACKETS = r'（()）\[\]{}［］｛｝【】〔〕'
+_SEPS = r'、,，/／;；'
+
+# 純數字／百分比／單位不是成分。`小麥麵粉(67%)` 應只產生 `小麥麵粉`。
+# 兩側一起濾，否則預測吐出 `40%`、`543oz`、`20mg` 會被當成命中或誤判。
+_NUMERIC = re.compile(r'^[\d.]+%?$|^[\d.]+[a-z]{0,3}$')
 
 
 def flatten_items(items):
@@ -87,6 +104,18 @@ def flatten_items(items):
 
     攤平後只量「有沒有讀到這個成分」，不受拆解粒度影響；與原樣比對併陳，
     可分離「辨識能力」與「拆解慣例差異」兩件事。
+
+    ⚠ **回傳 set，同一成分出現多次只算一個。** 2026-09-07 實測：正解攤平後
+    原始 5614 個 token、去重剩 4533 個，**19.3% 是重複**，且幾乎全在泡麵——
+    麵體／調味粉包／調味油包各有一次食鹽（`食鹽` 單獨被併掉 141 次，
+    c59 少 63、c78 少 61、c83 少 56）。
+
+    去重是刻意的，因為**次數本身不可靠**：系統把 `食鹽` 讀成兩次還是三次，
+    取決於有沒有讀到第三個調味包的標題——那是「有沒有讀到那一段」的問題，
+    不是「有沒有讀到食鹽」的問題。改用 multiset 會把段落漏讀的帳記到成分辨識頭上。
+
+    代價是「這個成分出現在哪幾個分包」這項標示上真實存在的資訊看不到
+    （使用者可能只吃麵不加調味包）。**這是已知限制，報告要寫出來。**
     """
     out = set()
     for it in (items or []):
@@ -96,7 +125,11 @@ def flatten_items(items):
         t = re.sub(f'[{_BRACKETS}]', '、', str(it))
         for piece in re.split(f'[{_SEPS}]', t):
             n = norm(piece)
-            if len(n) >= 2:          # 一字詞多為殘留雜訊，捨去
+            # 2026-09-07：原本是 len(n) >= 2，理由寫「一字詞多為殘留雜訊」——
+            # 那個判斷在中文成分表上不成立。實測正解的單字 token 有 13 種、
+            # **水 195 次、鹽 144 次、糖 84 次**，全是真成分，等於憑空少算
+            # 292 個單位（6.4%）。改為只濾掉純數字／單位。
+            if n and not _NUMERIC.match(n):
                 out.add(n)
     return out
 
@@ -126,12 +159,14 @@ def set_prf(gt_list, pred_list):
 
 
 def load_case_meta():
-    """case_id → {set_version, category, difficulty}。cases.json 不在時切片自動關閉。"""
+    """case_id → {set_version, category, difficulty, gt_source}。
+    cases.json 不在時切片自動關閉。"""
     if not os.path.exists(CASES):
         return {}
     return {c['case_id']: {'set_version': c.get('set_version') or 'unknown',
                            'category': c.get('category') or 'unknown',
-                           'difficulty': c.get('difficulty') or []}
+                           'difficulty': c.get('difficulty') or [],
+                           'gt_source': c.get('gt_source') or 'unknown'}
             for c in json.load(open(CASES, encoding='utf-8'))['cases']}
 
 
@@ -217,6 +252,7 @@ def main():
                     'set_version': m.get('set_version', 'unknown'),
                     'category': m.get('category', 'unknown'),
                     'difficulty': m.get('difficulty', []),
+                    'gt_source': m.get('gt_source', 'unknown'),
                     'gate': None, 'ing_prf': None, 'ing_flat_prf': None,
                     'nut_ok': 0, 'nut_n': 0}
         case_recs.append(rec_case)
@@ -369,21 +405,36 @@ def main():
 
     # ── 切片 ──────────────────────────────────────────────────────────────
     if meta:
-        by_ver, by_cat, by_diff = {}, {}, {}
+        by_ver, by_cat, by_diff, by_src, by_fam = {}, {}, {}, {}, {}
         for r in case_recs:
             by_ver.setdefault(r['set_version'], []).append(r)
             by_cat.setdefault(r['category'], []).append(r)
+            by_src.setdefault(r['gt_source'], []).append(r)
             for d in r['difficulty']:
                 by_diff.setdefault(d, []).append(r)   # 一案可帶多個標籤，故可重複計入
+            # 併族後每格的 n 大得多（實測 12 / 8，各標籤則是 1–8），
+            # 且回答的是可操作的問題：這種失敗叫使用者重拍有沒有用。
+            for fam in {casetool.DIFFICULTY_FAMILY[d] for d in r['difficulty']
+                        if d in casetool.DIFFICULTY_FAMILY}:
+                by_fam.setdefault(fam, []).append(r)
 
         summary['slices'] = {
             'by_set_version': {k: slice_metrics(v) for k, v in sorted(by_ver.items())},
             'by_category': {k: slice_metrics(v) for k, v in sorted(by_cat.items())},
             'by_difficulty': ({k: slice_metrics(v) for k, v in sorted(by_diff.items())}
                               or {'_說明': '尚無案例標註 difficulty，見 cases.json 的說明'}),
+            'by_gt_source': {k: slice_metrics(v) for k, v in sorted(by_src.items())},
+            'by_difficulty_family': {k: slice_metrics(v) for k, v in sorted(by_fam.items())},
             '_說明': ('跨期比較請只引用 by_set_version.core48 —— 它是凍結子集，'
                       '整體數字會隨測試集擴充而變動。by_difficulty 一案可屬多個標籤，'
-                      '各組 n 相加會大於案例總數。'),
+                      '各組 n 相加會大於案例總數。'
+                      'by_gt_source.hand 是正解全程人工轉錄的案例；llm_checked 為 LLM '
+                      '起草後人工校對，其正解可能與受測模型共用誤讀，分數偏高是預期的。'
+                      '對外引用時應同時呈現兩組，或只引用 hand。'
+                      'by_difficulty_family.shot 為重拍可改善者（模糊、反光）、'
+                      'pkg 為包裝自帶者（曲面、摺痕）；兩族有重疊案例，相加大於帶標籤總數。'
+                      '拍攝條件與品項高度共線（反光 8 案中 7 案為零食），'
+                      '此切片僅描述問題集中於何處，不足以支持條件本身的因果宣稱。'),
         }
     else:
         summary['slices'] = {'_說明': f'找不到 {CASES}，未計算切片'}

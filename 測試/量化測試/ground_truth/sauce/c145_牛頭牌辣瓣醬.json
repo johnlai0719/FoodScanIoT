@@ -1,0 +1,47 @@
+{
+  "is_food_label": true,
+  "name": "牛頭牌辣拌醬",
+  "brand": "牛頭牌",
+  "manufacturer": "好帝一食品有限公司",
+  "ingredients_raw": "大豆沙拉油、辣椒(辣椒、水、鹽)、碎脯〔蘿蔔、水、鹽、乳酸鈣、乳酸胺基乙酸、醋酸鈉(無水)、DL-蘋果酸、脂肪酸蔗糖酯〕、純釀造黃豆醬油、蒜頭、豆豉(黑豆、水、鹽)、蔗糖、香菇、L-麩酸鈉、混合濃縮生育醇(抗氧化劑)、5'-次黃嘌呤核苷磷酸二鈉、5'-鳥嘌呤核苷磷酸二鈉。",
+  "ingredients_list": [
+    "大豆沙拉油",
+    "辣椒(辣椒、水、鹽)",
+    "碎脯〔蘿蔔、水、鹽、乳酸鈣、乳酸胺基乙酸、醋酸鈉(無水)、DL-蘋果酸、脂肪酸蔗糖酯〕",
+    "純釀造黃豆醬油",
+    "蒜頭",
+    "豆豉(黑豆、水、鹽)",
+    "蔗糖",
+    "香菇",
+    "L-麩酸鈉",
+    "混合濃縮生育醇(抗氧化劑)",
+    "5'-次黃嘌呤核苷磷酸二鈉",
+    "5'-鳥嘌呤核苷磷酸二鈉"
+  ],
+  "nutrition": {
+    "calories": null,
+    "protein": null,
+    "fat": null,
+    "saturated_fat": null,
+    "trans_fat": null,
+    "carbohydrates": null,
+    "sugar": null,
+    "fiber": null,
+    "sodium": null
+  },
+  "nutrition_per_serving": {
+    "calories": null,
+    "protein": null,
+    "fat": null,
+    "saturated_fat": null,
+    "trans_fat": null,
+    "carbohydrates": null,
+    "sugar": null,
+    "fiber": null,
+    "sodium": null
+  },
+  "serving_size": null,
+  "servings_per_container": null,
+  "allergy_warning": "本產品含有大豆、麩質之穀物",
+  "certification_marks": []
+}

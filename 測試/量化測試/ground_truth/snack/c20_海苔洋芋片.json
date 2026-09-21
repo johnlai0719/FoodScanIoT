@@ -13,10 +13,10 @@
   "nutrition": {
     "calories": 564,
     "protein": 7.2,
-    "fat": 35.0,
+    "fat": 35,
     "saturated_fat": 17.5,
     "trans_fat": 0,
-    "carbohydrates": 55.0,
+    "carbohydrates": 55,
     "sugar": 3.6,
     "fiber": null,
     "sodium": 585
@@ -27,7 +27,7 @@
     "calories": 192,
     "protein": 2.4,
     "fat": 11.9,
-    "saturated_fat": 6.0,
+    "saturated_fat": 6,
     "trans_fat": 0,
     "carbohydrates": 18.7,
     "sugar": 1.2,

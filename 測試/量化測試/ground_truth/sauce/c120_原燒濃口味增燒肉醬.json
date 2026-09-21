@@ -1,0 +1,47 @@
+{
+  "is_food_label": true,
+  "name": "原燒濃口味噌燒肉醬",
+  "brand": "原燒",
+  "manufacturer": "萬鮮股份有限公司",
+  "ingredients_raw": "蔗糖、米霖(糯米、米麴、蔗糖、水、釀造米醡、鹽)、水、辣椒醬[辣椒粉、鹽、小麥粉、水、辣椒醬(辣椒粉、鹽、大蒜、洋蔥)、辣椒粉、鹽、脫脂大豆粉、酒精、混合米粉(米、小麥)、L-麩酸鈉、米麴]、味噌、釀造醬油、釀造糯米醋、乙醯化己二酸二澱粉、L-麩酸鈉、辣椒粉、玉米糖膠、防腐劑(己二烯酸鉀)",
+  "ingredients_list": [
+    "蔗糖",
+    "米霖(糯米、米麴、蔗糖、水、釀造米醡、鹽)",
+    "水",
+    "辣椒醬[辣椒粉、鹽、小麥粉、水、辣椒醬(辣椒粉、鹽、大蒜、洋蔥)、辣椒粉、鹽、脫脂大豆粉、酒精、混合米粉(米、小麥)、L-麩酸鈉、米麴]",
+    "味噌",
+    "釀造醬油",
+    "釀造糯米醋",
+    "乙醯化己二酸二澱粉",
+    "L-麩酸鈉",
+    "辣椒粉",
+    "玉米糖膠",
+    "防腐劑(己二烯酸鉀)"
+  ],
+  "nutrition": {
+    "calories": 203.4,
+    "protein": 2.7,
+    "fat": 1,
+    "saturated_fat": 0,
+    "trans_fat": 0,
+    "carbohydrates": 45.9,
+    "sugar": 37.9,
+    "fiber": null,
+    "sodium": 1403
+  },
+  "nutrition_per_serving": {
+    "calories": 40.6,
+    "protein": 0.5,
+    "fat": 0.2,
+    "saturated_fat": 0,
+    "trans_fat": 0,
+    "carbohydrates": 9.2,
+    "sugar": 7.6,
+    "fiber": null,
+    "sodium": 281
+  },
+  "serving_size": 20,
+  "servings_per_container": 10,
+  "allergy_warning": "本產品含有含麩質之穀物、大豆及其製品。本產品與其他含有花生、奶類、魚、堅果、芝麻、甲殼類、蛋、芹菜、芥末及亞硫酸鹽類及其製品的產品於同一工廠生產，食物過敏者請留意。",
+  "certification_marks": []
+}
