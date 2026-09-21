@@ -1,0 +1,52 @@
+{
+  "is_food_label": true,
+  "name": "牛頭牌三杯醬",
+  "brand": "牛頭牌",
+  "manufacturer": "好帝一食品有限公司",
+  "ingredients_raw": "非基改純釀造黃豆醬油、D-山梨醇液70%、高果糖糖漿、大豆沙拉油、L-麩酸鈉、芝麻油、薑母粉、乙醯化己二酸二澱粉、辣椒粉、蒜抽出物(蒜抽出物、糖)、5'-次黃嘌呤核苷磷酸二鈉、5'-鳥嘌呤核苷磷酸二鈉、麻油香料(芝麻油、香料)、九層塔精油、羅勒抽出物(芥花油、單及雙脂肪酸甘油二乙醯酒石酸酯、羅勒抽出物)、玉米糖膠、混合濃縮生育醇(抗氧化劑)。",
+  "ingredients_list": [
+    "非基改純釀造黃豆醬油",
+    "D-山梨醇液70%",
+    "高果糖糖漿",
+    "大豆沙拉油",
+    "L-麩酸鈉",
+    "芝麻油",
+    "薑母粉",
+    "乙醯化己二酸二澱粉",
+    "辣椒粉",
+    "蒜抽出物(蒜抽出物、糖)",
+    "5'-次黃嘌呤核苷磷酸二鈉",
+    "5'-鳥嘌呤核苷磷酸二鈉",
+    "麻油香料(芝麻油、香料)",
+    "九層塔精油",
+    "羅勒抽出物(芥花油、單及雙脂肪酸甘油二乙醯酒石酸酯、羅勒抽出物)",
+    "玉米糖膠",
+    "混合濃縮生育醇(抗氧化劑)"
+  ],
+  "nutrition": {
+    "calories": 305,
+    "protein": 8.3,
+    "fat": 18.5,
+    "saturated_fat": 3.1,
+    "trans_fat": 0,
+    "carbohydrates": 26.4,
+    "sugar": 11.9,
+    "fiber": null,
+    "sodium": 3284
+  },
+  "nutrition_per_serving": {
+    "calories": 46,
+    "protein": 1.3,
+    "fat": 2.8,
+    "saturated_fat": 0.5,
+    "trans_fat": 0,
+    "carbohydrates": 4,
+    "sugar": 1.8,
+    "fiber": null,
+    "sodium": 493
+  },
+  "serving_size": 15,
+  "servings_per_container": 4,
+  "allergy_warning": "※過敏原：本產品含有大豆、芝麻、麩質之穀物。",
+  "certification_marks": []
+}

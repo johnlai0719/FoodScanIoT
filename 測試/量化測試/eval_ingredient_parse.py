@@ -24,6 +24,13 @@ load_dotenv(os.path.join(SERVER, '.env'))
 from module_a.ingredient_matching import match_ingredients, normalize_text  # noqa: E402
 from module_a import ingredient_matching as im     # noqa: E402
 
+# Windows 主控台預設 cp950，案例名稱裡有它編不出來的字（「塩」「菓」…）。
+# 沒有這兩行的後果不是印出亂碼，而是**整批任務在中途拋 UnicodeEncodeError 死掉**
+# ——2026-09-07 run_eval 炸在第 10 案的「塩」、intake 炸在第 11 案的「菓」，
+# 後者還留下半套用狀態（照片已搬、cases.json 沒存）。
+sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 
 class NoVectorRAG:
     """停用語義比對的替身，見檔頭說明。"""
@@ -83,11 +90,16 @@ def summarize(result: dict) -> dict:
     return {
         'n_items': cov['total'],
         'n_additive': len(result['chemical']),
-        'n_raw_material': cov['by_basis'].get('raw_material_db', 0),
+        # n_raw_material 欄位於 2026-08-06 移除：系統範圍限縮為只查添加物，
+        # raw_material_db 這個 basis 不再產生，留著只會是一欄恆為 0 的數字，
+        # 容易被讀成「這批樣本沒有原料」，而不是「本系統不再判定原料」。
         'n_water': cov['by_basis'].get('water', 0),
         'n_generic': len(cov['generic_terms']),
         'n_unknown': cov['unknown'],
-        'coverage_rate': cov['coverage_rate'],
+        # coverage_rate 於 2026-08-06 隨上游一併移除。該比率的分母是整張標示的成分數，
+        # 而系統只負責其中的添加物，故它量的是「這張標示添加物佔多少」——商品配方的
+        # 屬性，不是系統能力（鮮乳恆為 0%，但那是鮮乳沒有添加物，非系統失敗）。
+        # 這裡只留筆數；要不要相除由讀數字的人自行決定並載明口徑。
         'covered': cov['covered'],
         'denominator': cov['denominator'],
     }
@@ -97,7 +109,7 @@ def main():
     conn, cursor = db_cursor()
     rag = NoVectorRAG()
     rows, review = [], []
-    agg = {k: {'n_items': 0, 'n_additive': 0, 'n_raw_material': 0, 'n_water': 0,
+    agg = {k: {'n_items': 0, 'n_additive': 0, 'n_water': 0,
                'n_generic': 0, 'n_unknown': 0, 'covered': 0, 'denominator': 0}
            for k in ('old', 'new')}
     n_cases = 0
@@ -137,7 +149,8 @@ def main():
             'items_old': so['n_items'], 'items_new': sn['n_items'],
             'additive_old': so['n_additive'], 'additive_new': sn['n_additive'],
             'unknown_old': so['n_unknown'], 'unknown_new': sn['n_unknown'],
-            'coverage_old': so['coverage_rate'], 'coverage_new': sn['coverage_rate'],
+            # coverage_old／coverage_new 兩欄（百分比）於 2026-08-06 移除，改列筆數。
+            'covered_old': so['covered'], 'covered_new': sn['covered'],
             'additive_gained': len(gained), 'additive_lost': len(lost),
         })
 
@@ -155,9 +168,8 @@ def main():
 
     cursor.close(); conn.close()
 
-    for k in agg:
-        d = agg[k]['denominator']
-        agg[k]['coverage_rate'] = round(agg[k]['covered'] / d, 3) if d else None
+    # 原本此處由 covered / denominator 算出彙總 coverage_rate，2026-08-06 移除。
+    # covered 與 denominator 兩個筆數仍照常彙總輸出，判讀時直接看筆數即可。
 
     gained_exact = sum(1 for r in review if r['change'] == 'gained' and r['match'] == 'exact')
     gained_sub = sum(1 for r in review if r['change'] == 'gained' and r['match'] == 'substring')

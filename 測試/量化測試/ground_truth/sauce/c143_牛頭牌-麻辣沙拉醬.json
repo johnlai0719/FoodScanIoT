@@ -1,0 +1,48 @@
+{
+  "is_food_label": true,
+  "name": "牛頭牌麻辣沙茶醬",
+  "brand": "牛頭牌",
+  "manufacturer": "",
+  "ingredients_raw": "大豆沙拉油、魚乾、南薑粉、蒜頭、辣椒粉、椰子粉、食鹽、芝麻、蔥乾、花椒、赤尾青、咖哩粉、胡椒。",
+  "ingredients_list": [
+    "大豆沙拉油",
+    "魚乾",
+    "南薑粉",
+    "蒜頭",
+    "辣椒粉",
+    "椰子粉",
+    "食鹽",
+    "芝麻",
+    "蔥乾",
+    "花椒",
+    "赤尾青",
+    "咖哩粉",
+    "胡椒"
+  ],
+  "nutrition": {
+    "calories": null,
+    "protein": null,
+    "fat": null,
+    "saturated_fat": null,
+    "trans_fat": null,
+    "carbohydrates": null,
+    "sugar": null,
+    "fiber": null,
+    "sodium": null
+  },
+  "nutrition_per_serving": {
+    "calories": 68,
+    "protein": 0.9,
+    "fat": 6.3,
+    "saturated_fat": 1.3,
+    "trans_fat": 0.03,
+    "carbohydrates": 1.9,
+    "sugar": 0.06,
+    "fiber": null,
+    "sodium": 122
+  },
+  "serving_size": 10,
+  "servings_per_container": 60,
+  "allergy_warning": "※過敏原：本產品含有大豆、魚類、堅果類、甲殼類、芝麻。※本生產線亦生產含麩質之穀物產品。",
+  "certification_marks": []
+}

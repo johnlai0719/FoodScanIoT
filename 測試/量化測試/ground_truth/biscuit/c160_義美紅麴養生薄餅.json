@@ -1,0 +1,45 @@
+{
+  "is_food_label": true,
+  "name": "義美紅麴養生薄餅",
+  "brand": "義美",
+  "manufacturer": "義美食品股份有限公司",
+  "ingredients_raw": "麵粉、植物油(棕櫚油、椰子油、乳化劑(脂肪酸丙二醇酯)、抗氧化劑(混合濃縮生育醇))、紅麴、蔗糖、奶粉、芝麻、奶油、膨脹劑(碳酸氫銨、碳酸氫鈉)、食鹽、乳化劑(乳酸硬脂酸鈉、脂肪酸甘油酯)",
+  "ingredients_list": [
+    "麵粉",
+    "植物油(棕櫚油、椰子油、乳化劑(脂肪酸丙二醇酯)、抗氧化劑(混合濃縮生育醇))",
+    "紅麴",
+    "蔗糖",
+    "奶粉",
+    "芝麻",
+    "奶油",
+    "膨脹劑(碳酸氫銨、碳酸氫鈉)",
+    "食鹽",
+    "乳化劑(乳酸硬脂酸鈉、脂肪酸甘油酯)"
+  ],
+  "nutrition": {
+    "calories": 490,
+    "protein": 8.8,
+    "fat": 19.6,
+    "saturated_fat": 12.4,
+    "trans_fat": 0,
+    "carbohydrates": 69.8,
+    "sugar": 14.7,
+    "fiber": null,
+    "sodium": 200
+  },
+  "nutrition_per_serving": {
+    "calories": 98.1,
+    "protein": 1.8,
+    "fat": 3.9,
+    "saturated_fat": 2.5,
+    "trans_fat": 0,
+    "carbohydrates": 14,
+    "sugar": 2.9,
+    "fiber": null,
+    "sodium": 40
+  },
+  "serving_size": 20,
+  "servings_per_container": 6,
+  "allergy_warning": "過敏原資訊：含麩質的穀物、奶類、芝麻",
+  "certification_marks": []
+}

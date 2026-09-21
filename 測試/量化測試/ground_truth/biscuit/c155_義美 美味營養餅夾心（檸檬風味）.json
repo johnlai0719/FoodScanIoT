@@ -1,0 +1,51 @@
+{
+  "is_food_label": true,
+  "name": "義美 美味營養餅乾夾心 (檸檬風味)",
+  "brand": "義美",
+  "manufacturer": "I-MEI FOODS CO., LTD.",
+  "ingredients_raw": "麵粉、植物油 (棕櫚油、椰子油、乳化劑 (脂肪酸丙二醇酯)、抗氧化劑 (混合濃縮生育醇))、蔗糖、奶粉、葡萄糖、乳糖、膨脹劑(碳酸氫銨、碳酸氫鈉)、麥芽萃取物、食鹽、乳化劑(脂肪酸甘油酯、乳酸硬脂酸鈉)、檸檬酸、香料、麥芽糊精、婀娜多色素、薑黃色素、β-胡蘿蔔素(β-胡蘿蔔素、玉米油、抗氧化劑 (維生素E))",
+  "ingredients_list": [
+    "麵粉",
+    "植物油 (棕櫚油、椰子油、乳化劑 (脂肪酸丙二醇酯)、抗氧化劑 (混合濃縮生育醇))",
+    "蔗糖",
+    "奶粉",
+    "葡萄糖",
+    "乳糖",
+    "膨脹劑(碳酸氫銨、碳酸氫鈉)",
+    "麥芽萃取物",
+    "食鹽",
+    "乳化劑(脂肪酸甘油酯、乳酸硬脂酸鈉)",
+    "檸檬酸",
+    "香料",
+    "麥芽糊精",
+    "婀娜多色素",
+    "薑黃色素",
+    "β-胡蘿蔔素(β-胡蘿蔔素、玉米油、抗氧化劑 (維生素E))"
+  ],
+  "nutrition": {
+    "calories": 527,
+    "protein": 8.1,
+    "fat": 26.9,
+    "saturated_fat": 13.6,
+    "trans_fat": 0,
+    "carbohydrates": 63.1,
+    "sugar": 19,
+    "fiber": null,
+    "sodium": 184
+  },
+  "nutrition_per_serving": {
+    "calories": 116,
+    "protein": 1.8,
+    "fat": 5.9,
+    "saturated_fat": 3,
+    "trans_fat": 0,
+    "carbohydrates": 13.9,
+    "sugar": 4.2,
+    "fiber": null,
+    "sodium": 40.5
+  },
+  "serving_size": 22,
+  "servings_per_container": 7,
+  "allergy_warning": "含麩質的穀物、奶類\n*本生產線亦生產包含蛋類、大豆類、堅果類、芝麻、花生等過敏原的製品",
+  "certification_marks": []
+}

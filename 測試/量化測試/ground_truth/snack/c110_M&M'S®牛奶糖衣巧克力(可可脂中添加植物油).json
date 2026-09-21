@@ -1,0 +1,49 @@
+{
+  "is_food_label": true,
+  "name": "M&M's®牛奶糖衣巧克力(可可脂中添加植物油)",
+  "brand": "M&M's",
+  "manufacturer": "瑪氏食品(嘉興)有限公司",
+  "ingredients_raw": "牛奶巧克力(砂糖，可可膏，脫脂奶粉，乳糖，可可脂，植物油(棕櫚油，牛油樹油，葵花油)，乳脂，大豆卵磷脂，鹽，香料)，砂糖，玉米澱粉，葡萄糖漿，阿拉伯膠，糊精，棕櫚蠟，食用黃色五號，食用紅色四十號，食用黃色四號，碳酸氫鈉，碳酸鈣，食用藍色一號鋁麗基，食用藍色一號。",
+  "ingredients_list": [
+    "牛奶巧克力(砂糖，可可膏，脫脂奶粉，乳糖，可可脂，植物油(棕櫚油，牛油樹油，葵花油)，乳脂，大豆卵磷脂，鹽，香料)",
+    "砂糖",
+    "玉米澱粉",
+    "葡萄糖漿",
+    "阿拉伯膠",
+    "糊精",
+    "棕櫚蠟",
+    "食用黃色五號",
+    "食用紅色四十號",
+    "食用黃色四號",
+    "碳酸氫鈉",
+    "碳酸鈣",
+    "食用藍色一號鋁麗基",
+    "食用藍色一號"
+  ],
+  "nutrition": {
+    "calories": null,
+    "protein": null,
+    "fat": null,
+    "saturated_fat": null,
+    "trans_fat": null,
+    "carbohydrates": null,
+    "sugar": null,
+    "fiber": null,
+    "sodium": null
+  },
+  "nutrition_per_serving": {
+    "calories": 70,
+    "protein": 0.7,
+    "fat": 2.6,
+    "saturated_fat": 1.6,
+    "trans_fat": 0,
+    "carbohydrates": 10.8,
+    "sugar": 9.4,
+    "fiber": null,
+    "sodium": 9
+  },
+  "serving_size": 14.5,
+  "servings_per_container": 10,
+  "allergy_warning": "過敏原資訊：本產品含有牛奶及大豆。",
+  "certification_marks": []
+}

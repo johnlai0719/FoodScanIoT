@@ -1,0 +1,46 @@
+{
+  "is_food_label": true,
+  "name": "黑松汽水C&C氣泡飲(檸檬口味)",
+  "brand": "黑松",
+  "manufacturer": "黑松股份有限公司 中壢廠",
+  "ingredients_raw": "碳酸水、砂糖、濃縮檸檬果汁、香料(含阿拉伯膠、脂肪酸蔗糖酯、中鏈三酸甘油酯)、檸檬酸、檸檬酸鈉、維生素C、紅花黃(含糊精)、維生素B6",
+  "ingredients_list": [
+    "碳酸水",
+    "砂糖",
+    "濃縮檸檬果汁",
+    "香料(含阿拉伯膠、脂肪酸蔗糖酯、中鏈三酸甘油酯)",
+    "檸檬酸",
+    "檸檬酸鈉",
+    "維生素C",
+    "紅花黃(含糊精)",
+    "維生素B6"
+  ],
+  "nutrition": {
+    "calories": null,
+    "protein": null,
+    "fat": null,
+    "saturated_fat": null,
+    "trans_fat": null,
+    "carbohydrates": null,
+    "sugar": null,
+    "fiber": null,
+    "sodium": null
+  },
+  "nutrition_per_serving": {
+    "calories": 132,
+    "protein": 0,
+    "fat": 0,
+    "saturated_fat": 0,
+    "trans_fat": 0,
+    "carbohydrates": 33,
+    "sugar": 32,
+    "fiber": null,
+    "sodium": 63
+  },
+  "serving_size": 330,
+  "servings_per_container": 1,
+  "allergy_warning": "本產品生產線同時生產含有牛乳、大豆製品。",
+  "certification_marks": [
+    "TQF"
+  ]
+}

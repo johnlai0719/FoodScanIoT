@@ -1,0 +1,45 @@
+{
+  "is_food_label": true,
+  "name": "名糖檸檬鹽糖",
+  "brand": "meito",
+  "manufacturer": "佑賓貿易有限公司",
+  "ingredients_raw": "砂糖,水飴,食鹽,棕櫚油,濃縮檸檬汁,檸檬酸,維生素C,香料,脂肪酸甘油酯,食用色素(梔子黃,紅麴色素).",
+  "ingredients_list": [
+    "砂糖",
+    "水飴",
+    "食鹽",
+    "棕櫚油",
+    "濃縮檸檬汁",
+    "檸檬酸",
+    "維生素C",
+    "香料",
+    "脂肪酸甘油酯",
+    "食用色素(梔子黃,紅麴色素)"
+  ],
+  "nutrition": {
+    "calories": 379,
+    "protein": 0,
+    "fat": 0,
+    "saturated_fat": 0,
+    "trans_fat": 0,
+    "carbohydrates": 94.7,
+    "sugar": 63.2,
+    "fiber": null,
+    "sodium": 789
+  },
+  "nutrition_per_serving": {
+    "calories": 14,
+    "protein": 0,
+    "fat": 0,
+    "saturated_fat": 0,
+    "trans_fat": 0,
+    "carbohydrates": 3.6,
+    "sugar": 2.4,
+    "fiber": null,
+    "sodium": 30
+  },
+  "serving_size": 3.8,
+  "servings_per_container": 12,
+  "allergy_warning": "",
+  "certification_marks": []
+}

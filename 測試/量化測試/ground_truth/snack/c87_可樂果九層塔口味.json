@@ -1,0 +1,47 @@
+{
+  "is_food_label": true,
+  "name": "可樂果九層塔口味",
+  "brand": "可樂果",
+  "manufacturer": "",
+  "ingredients_raw": "可樂果餅(豌豆、玉米澱粉、麵粉、樹薯澱粉、小蘇打、碳酸氫銨、脂肪酸甘油酯)、棕櫚油、鹽、糖、味精、酵母抽出物、洋蔥粉、複方香料(阿拉伯膠、中鏈三酸甘油酯、九層塔抽出物、芥花油、玉米油、香料)、水解植物蛋白(水解大豆蛋白、油菜籽油)、高麗菜抽出物(麥芽糊精、高麗菜)、蒜粉、二氧化矽",
+  "ingredients_list": [
+    "可樂果餅(豌豆、玉米澱粉、麵粉、樹薯澱粉、小蘇打、碳酸氫銨、脂肪酸甘油酯)",
+    "棕櫚油",
+    "鹽",
+    "糖",
+    "味精",
+    "酵母抽出物",
+    "洋蔥粉",
+    "複方香料(阿拉伯膠、中鏈三酸甘油酯、九層塔抽出物、芥花油、玉米油、香料)",
+    "水解植物蛋白(水解大豆蛋白、油菜籽油)",
+    "高麗菜抽出物(麥芽糊精、高麗菜)",
+    "蒜粉",
+    "二氧化矽"
+  ],
+  "nutrition": {
+    "calories": 523,
+    "protein": 11.3,
+    "fat": 25.9,
+    "saturated_fat": 11.8,
+    "trans_fat": 0,
+    "carbohydrates": 61.1,
+    "sugar": 2.2,
+    "fiber": null,
+    "sodium": 634
+  },
+  "nutrition_per_serving": {
+    "calories": 154,
+    "protein": 3.3,
+    "fat": 7.6,
+    "saturated_fat": 3.5,
+    "trans_fat": 0,
+    "carbohydrates": 18,
+    "sugar": 0.6,
+    "fiber": null,
+    "sodium": 187
+  },
+  "serving_size": 29.5,
+  "servings_per_container": 4,
+  "allergy_warning": "本產品含有含麩質之穀物及大豆製品。",
+  "certification_marks": []
+}

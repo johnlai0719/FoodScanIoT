@@ -1,0 +1,40 @@
+{
+  "is_food_label": true,
+  "name": "鹹蛋黃餅",
+  "brand": "老楊",
+  "manufacturer": "老楊食品股份有限公司",
+  "ingredients_raw": "麵粉、棕櫚油、糖、鹹蛋黃、鹽",
+  "ingredients_list": [
+    "麵粉",
+    "棕櫚油",
+    "糖",
+    "鹹蛋黃",
+    "鹽"
+  ],
+  "nutrition": {
+    "calories": 503,
+    "protein": 8.6,
+    "fat": 24.3,
+    "saturated_fat": 10.6,
+    "trans_fat": 0,
+    "carbohydrates": 62.4,
+    "sugar": 10.7,
+    "fiber": null,
+    "sodium": 465
+  },
+  "nutrition_per_serving": {
+    "calories": 252,
+    "protein": 4.3,
+    "fat": 12.2,
+    "saturated_fat": 5.3,
+    "trans_fat": 0,
+    "carbohydrates": 31.2,
+    "sugar": 5.4,
+    "fiber": 0.6,
+    "sodium": 233
+  },
+  "serving_size": 50,
+  "servings_per_container": 2,
+  "allergy_warning": "過敏原資訊：本產品含有麩質的穀類、蛋及其製品，但生產製程廠房有處理花生、芝麻、牛奶、堅果類、芥末、蕎麥、甲殼類、魚類。",
+  "certification_marks": []
+}

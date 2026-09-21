@@ -17,6 +17,9 @@ secrets.json
 Cloud_Server/database/mysql_data/
 mysql_data/
 mysql_data_old/
+# compose 的 postgres 資料卷。2026-09-21 發現它一直是未追蹤狀態（49MB），
+# 上面那三行只擋了 mysql，改用 postgres 之後沒有人補這一行。
+postgres_data/
 *.tar.gz
 *.zip
 *.7z
@@ -170,6 +173,12 @@ PPOCR_TEST/*
 # 備份檔（`*.py.bak-0907`、`*.py.bak3`）結尾不是 .py，白名單自然擋掉，
 # 這一行只是把意圖寫明。venv 內嵌絕對路徑，換機器一定要重建，也不收。
 PPOCR_TEST/*.bak*
+# 量化測試集也會留同樣形式的手動備份（`cases.json.bak-0906-material`、
+# `ground_truth.bak-0902-cert/`），以及 PPOCRLabel 的暫存檔。
+測試/量化測試/**/*.bak*
+測試/量化測試/ground_truth/Cache.cach
+測試/量化測試/ground_truth/Label.txt
+測試/量化測試/ground_truth/fileState.txt
 PPOCR_TEST/.venv_*/
 reader/_work/
 PPOCR_TEST/out/_online_*/

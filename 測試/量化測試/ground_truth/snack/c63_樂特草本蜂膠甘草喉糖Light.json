@@ -1,0 +1,41 @@
+{
+  "is_food_label": true,
+  "name": "樂特草本蜂膠甘草喉糖 Light薄荷配方",
+  "brand": "",
+  "manufacturer": "",
+  "ingredients_raw": "濃縮甘草、米澱粉、糖蜜、蜂膠、薄荷、香料(尤加利葉)",
+  "ingredients_list": [
+    "濃縮甘草",
+    "米澱粉",
+    "糖蜜",
+    "蜂膠",
+    "薄荷",
+    "香料(尤加利葉)"
+  ],
+  "nutrition": {
+    "calories": null,
+    "protein": null,
+    "fat": null,
+    "saturated_fat": null,
+    "trans_fat": null,
+    "carbohydrates": null,
+    "sugar": null,
+    "fiber": null,
+    "sodium": null
+  },
+  "nutrition_per_serving": {
+    "calories": 6.8,
+    "protein": 0,
+    "fat": 0,
+    "saturated_fat": 0,
+    "trans_fat": 0,
+    "carbohydrates": 1.7,
+    "sugar": 0.4,
+    "fiber": null,
+    "sodium": 0
+  },
+  "serving_size": 2.6,
+  "servings_per_container": 1,
+  "allergy_warning": "",
+  "certification_marks": []
+}

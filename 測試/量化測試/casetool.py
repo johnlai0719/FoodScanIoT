@@ -21,6 +21,13 @@ import re
 import shutil
 import sys
 
+# Windows 主控台預設 cp950，案例名稱裡有它編不出來的字（「塩」「菓」…）。
+# 沒有這兩行的後果不是印出亂碼，而是**整批任務在中途拋 UnicodeEncodeError 死掉**
+# ——2026-09-07 run_eval 炸在第 10 案的「塩」、intake 炸在第 11 案的「菓」，
+# 後者還留下半套用狀態（照片已搬、cases.json 沒存）。
+sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 CASES = os.path.join(HERE, 'cases.json')
 GT = os.path.join(HERE, 'ground_truth')
@@ -34,11 +41,190 @@ _EXTS = ('.jpg', '.jpeg', '.png', '.webp', '.heic')
 # README「困難食品」一節（small_text 由品項軸涵蓋、low_light 由 blurry 承接、
 # angled/occluded 待切片顯示需要再加回）。
 VALID_DIFFICULTY = {'glare', 'curved', 'crease', 'blurry'}
+
+# 四個標籤分屬兩族（2026-08-11）。分族的依據是「重拍能不能改善」，
+# 而這決定了失敗時的正確處置：
+#   shot 拍攝造成 —— 可由重拍或改變角度改善，App 應提示使用者重拍
+#   pkg  包裝自帶 —— 圓瓶仍是圓的、皺褶仍在，重拍無效，須由系統自行處理
+# 另一個作用是把四個薄切片併成兩個較厚的（實測 12 案 / 8 案，遠優於各自 1–8 案）。
+# 注意 glare 概念上屬拍攝端，但實測 8 案中 7 案為零食——鋁箔材質使然，
+# 故它與品項軸的共線程度接近 pkg 族，解讀時不可視為獨立因子（見 README）。
+DIFFICULTY_FAMILY = {'blurry': 'shot', 'glare': 'shot',
+                     'curved': 'pkg', 'crease': 'pkg'}
+# 2026-08-11 自七類縮減為四類＋非食品。canned_food(1 案)與 supplement_food(2 案)
+# 併入 snack——理由同 difficulty 詞彙的縮減：n=1、n=2 的切片沒有判讀價值，
+# 類別要少到每格養得起樣本。案例本身未刪除，只是不再各自成為一個切片。
+# non_food 不是品項而是負例類別，獨立於前四類之外，v3.0 要補的 15 案全在此格。
+#   beverage 飲料／prepared_meal 調理食品（便當、飯糰、三明治、涼麵等）
+#   snack 零食／instant_noodle 泡麵／non_food 非食品
+# 2026-09-02 自四類擴為六類。0901 批加入 100 案，其中醬料 16、餅乾 23
+# 各自都養得起一個切片（現有 snack 才 11 案、instant_noodle 4 案），
+# 而且它們在**包裝形狀與反光特性**上與既有類別不同——醬料是玻璃／PET 曲面、
+# 餅乾是紙盒霧面，那正是教授 08-29 指定的選品維度。
+# 糖果 5 案併入 snack、湯粉／調味粉 5 案併入 sauce，理由同上方那條原則：
+# n=5 的切片讀不出東西。
+#   sauce 醬料與調味料（不直接食用，用於調味）
+#   biscuit 餅乾（含夾心餅、蘇打餅、薄餅）
 VALID_CATEGORY = {'beverage', 'prepared_meal', 'snack', 'instant_noodle',
-                  'canned_food', 'supplement_food', 'non_food'}
+                  'sauce', 'biscuit', 'non_food'}
+
+# 正解的產生方式。記錄它是為了能算出「只看手工轉錄案例」的分數——
+# LLM 起草的正解與受測對象可能共用同一種誤讀，那一格會變成「模型答對」，
+# 分數在模型最容易出錯的地方被系統性灌水（同一個坑 ingredient_types 踩過一次，
+# 見 score_eval.py 該區塊的廢止理由）。有了這個欄位，兩組數字可以互相對照，
+# 差距本身就是校對品質的證據。
+#   hand         人工逐字轉錄
+#   llm_checked  LLM 起草、人工校對過
+#   unknown      2026-08-11 開始記錄之前建立的案例，來源已不可考
+VALID_GT_SOURCE = {'hand', 'llm_checked', 'unknown'}
+
+# 包裝形狀與反光材質（教授 08-29 建議 13）。
+#
+# **這兩欄是選品的描述,不是分析的切片。** 教授要的是能證明配對組涵蓋了不同的
+# 物理特性——影響 OCR 的是曲面、皺褶、鋁箔鍍膜,不是「這是零食還是飲料」,
+# 所以分層維度要用材質與形狀,不要用商品類別。
+#
+# ⚠ **不可以拿它分組報數字。** 32 組切成四種材質是 n=8,量不出任何東西
+# （添加物層 57 案都分辨不出 8 點以下的差異）。配對實驗的 README 自己就寫了
+# 「材質只作事後描述,不拿來分組報數字」。
+#
+# 值是**商品的屬性,不是照片的屬性**——低反光臂與高反光臂共用同一個值。
+VALID_PKG_SHAPE = {
+    'carton',       # 平面紙盒
+    'can',          # 圓柱罐
+    'pouch',        # 軟袋
+    'bottle',       # 曲面瓶
+    'shrink_wrap',  # 收縮膜
+    'tray',         # 塑膠盒（含微波餐盒）
+    'cup',          # 杯裝（杯麵、杯湯）
+}
+VALID_REFLECT = {
+    'foil',            # 鋁箔鍍膜（軟袋鍍鋁內層：洋芋片、調理包）
+    'glossy_plastic',  # 亮面塑膠膜
+    'matte_paper',     # 霧面紙（紙盒、紙罐）
+    'clear_film',      # 透明膜（看得到內容物）
+    'metal',           # 金屬罐（鋁罐、鐵罐）      2026-09-06 補
+    'glass',           # 玻璃瓶罐                2026-09-06 補
+}
+# **判準：reflect 看最外層，pkg_shape 看容器**（2026-09-06 定）。
+#   reflect     記「光打得到的那一面」——這欄描述的是反光，而反光產生在最外層。
+#               杯麵外面套印刷收縮膜就記那層膜；紙罐包亮面膜記膜不記紙；
+#               裡面是什麼材質，光到不了就與辨識無關。
+#   pkg_shape   記容器本身的幾何。外面包一層膜不會讓杯子變成別的東西，
+#               套了收縮膜的杯麵仍是 cup。`shrink_wrap` 只給「沒有硬容器、
+#               整包就是一層膜」的情況——所以目前 0 案是對的，不是漏填。
+#   clear_film  意思是**最外層是透明膜**，不是「看得到食物」。整袋印刷、
+#               只有一小塊開窗的（c147 炒麵袋）算 glossy_plastic。
+#
+# 實物判準（照片上看不出來的兩組）：
+#   紙罐 vs 金屬罐    看罐底有沒有金屬捲邊
+#   鋁箔 vs 亮面塑膠  看撕口斷面或內層是不是銀色
+#
+# metal 與 glass 是 2026-09-06 補的。教授舉例時列的四個值
+# （鋁箔鍍膜／亮面塑膠／霧面紙／透明膜）是照**軟性包裝**寫的，
+# 但 31 個配對案例裡有 13 案（42%）是鋁罐、玻璃罐或紙罐——沒有正確選項可選，
+# 結果 21 個 can 幾乎全被硬塞成 glossy_plastic，把真正的鋁箔軟袋
+# （多力多滋、卡迪那）跟鋁罐混進同一格。補值是為了讓紀錄對應實物，
+# 不是改變定義；這欄不進任何數字，改動可逆。
+
+# 正解不唯一而不計分的理由。**值域現在鎖死,不得因為分數難看而新增。**
+#
+# 起因 c134_旺旺小小酥：一個包裝內並排兩個商品的營養標示（輕辣 571 大卡／
+# 香蔥雞汁 555 大卡），兩欄都是對的。讀取器沒有任何線索知道該挑哪一欄,
+# 把它算成錯是在量「標註者挑了哪一欄」,不是在量系統。
+#
+# ⚠ 這個機制的存在本身有風險——它讓「事後排除不方便的案例」變得容易,
+# 而那正是教授從 07-30 起一直在防的事。三道約束：
+#   1. 理由必須是**包裝的性質**,不能是分數的性質
+#   2. 排除哪些欄位由理由決定（下面這張表）,不可逐案挑
+#   3. 值域要改必須留紀錄,不能靜默加一個
+#
+# 分數上其實不需要這個欄位：正解留 null 時 score_eval.num_ok() 回 None,
+# 那一格本來就跳過。它存在是為了**可稽核**——120 案裡有 23 案 nutrition 全空,
+# 沒有這個標記就分不出「刻意排除」與「忘了填」。
+VALID_EXCLUDE_REASON = {'multi_product_panel'}
+EXCLUDE_FIELDS_BY_REASON = {
+    'multi_product_panel': ('nutrition', 'nutrition_per_serving',
+                            'servings_per_container'),
+    # serving_size 不在內：c134 兩個口味都是 30 公克,沒有歧義
+}
+
+# 逐字原文本身的瑕疵，**來源是包裝印刷而非轉錄錯誤**。
+#
+# 起因 c60_乖乖玉米脆條蝦乖乖：`蝦粉(…、蝦香精))` 多印一個收尾括號，對照照片
+# 確認是廠商印錯。正解的規矩是逐字照抄，所以那個括號必須留著——但那會讓
+# `gt_split.py` 的機械切分永遠失敗、每次跑都叫人「去修 raw」，遲早有人真的去改，
+# 逐字原文就毀了。標記起來，把「印刷錯誤」與「還沒轉錄好」分開。
+#
+# ⚠ 值域鎖死，標之前要對著照片確認。切分時該案的括號深度夾在 0 以上
+# （多出來的收尾括號＝後面的成分回到最上層）。
+VALID_RAW_ISSUE = {'print_error_bracket'}
+
+# 高反光臂的存放處。有這個資料夾的案例就是配對案例,pkg_shape/reflect 必填。
+PAIR_DIRTY = os.path.join(HERE, 'images_pair_dirty')
+
+
+def paired_ids():
+    """有拍高反光配對臂的 case_id。掃 _待轉（未轉檔）與 images（已就位）兩處。"""
+    out = set()
+    for sub in ('_待轉', 'images'):
+        root = os.path.join(PAIR_DIRTY, sub)
+        if not os.path.isdir(root):
+            continue
+        for cat in os.listdir(root):
+            d = os.path.join(root, cat)
+            if os.path.isdir(d):
+                out |= {cid for cid in os.listdir(d) if os.path.isdir(os.path.join(d, cid))}
+    return out
+
+# 認證標章的標準名稱。**只收食品驗證**——2026-09-02 定案。
+#
+# 範圍：包裝材料認證（FSC，紙材來源）與素食標示（全素／奶素／植物五辛素）
+# **不收**。前者與食品安全無關；後者不是第三方驗證而是廠商自我宣告，
+# 性質不同，要收的話應另立欄位。
+#
+# 一律用英文簡稱，比對時逐字相同才算對。
+# ⚠ 下面三個**沒有官方英文簡稱，是本專案自訂的慣例**，不要當成標準引用：
+#     HEALTHFOOD  健康食品標章（小綠人）。官方英文只有 "Health Food Mark"
+#     FRESHMILK   鮮乳標章。官方英文只有 "Fresh Milk Mark"
+#     ORGANIC     有機農產品驗證
+# 其餘為官方簡稱。
+#
+# ⚠ **這個欄位的天花板只有 64%**：現有 25 個標章裡，OCR 文字讀得到的只有 16 個
+# （2026-09-02 實測）。TQF 有些版本只有圖案沒有字母，標註者辨識的是**圖形**。
+# 也就是說這不是 OCR 任務，驗收時要註明「僅計文字可讀者」。
+VALID_CERT = {
+    'TQF',         # Taiwan Quality Food 台灣優良食品
+    'CAS',         # Certified Agricultural Standards 台灣優良農產品
+    'TAP',         # Traceable Agricultural Product 產銷履歷
+    'HACCP',
+    'ISO22000',
+    'HALAL',       # 清真
+    'ORGANIC',     # 有機農產品驗證（自訂）
+    'HEALTHFOOD',  # 健康食品／小綠人（自訂）
+    'FRESHMILK',   # 鮮乳標章（自訂）
+}
+
+
 
 # 食品案例的正解骨架。欄位名與 score_eval.py 讀取的一致；填不到的留 null，
 # **不可填 0**——「標示上沒有」與「含量為零」是兩件事，混淆會讓評分失真。
+#
+# ⚠ **`nutrition`（每 100 公克）整欄是 null 通常不是漏抄。** 台灣的營養標示
+# 法規允許兩種格式：
+#     格式一   每一份量 ＋ 每份 ＋ 每 100 公克（或毫升）
+#     格式二   每一份量 ＋ 每份 ＋ **每日參考值百分比**
+# 用格式二的商品，每 100 公克那一欄根本不存在。2026-09-07 清點時 25 案是這個
+# 狀態，一度被當成轉錄疏漏；查 OCR 文字後 14 案直接讀到「每日參考值」、
+# **25 案沒有任何一案出現「每 100」**，放大照片也確認表頭是「每份｜每日參考值
+# 百分比」。**那 25 案留空是正確的，不要去「修」它。**
+#
+# `score_eval.num_ok()` 對 null 的格子直接跳過，所以 B 類的分母本來就是
+# 「標示上真的有印的格子」，會因商品而異——這是設計，不是缺陷。
+#
+# 「每日參考值百分比」目前**刻意不收**：下游要的是每份的絕對值（Nutri-Score
+# 與閾值警示都用絕對量），百分比是拿參考值換算出來的衍生量。這是範圍宣告，
+# 要寫進驗收文件，不是默默沒有。
 FOOD_SKELETON = {
     "is_food_label": True,
     "name": "", "brand": "", "manufacturer": "",
@@ -118,6 +304,7 @@ def check():
 
     gt_at = scan_gt()          # case_id → 正解所在的類別資料夾
     img_at = scan_img_dirs()   # case_id → 圖片所在的類別資料夾
+    _paired = paired_ids()     # 有高反光配對臂者，pkg_shape/reflect 必填
 
     for cid in sorted(set(cases) - set(gt_at)):
         problems.append(f"[缺正解] {cid} 在 cases.json 內，但 ground_truth/ 底下找不到"
@@ -165,6 +352,60 @@ def check():
             if d not in VALID_DIFFICULTY:
                 problems.append(f"[未知 difficulty] {cid} → '{d}'"
                                 f"（可用：{sorted(VALID_DIFFICULTY)}）")
+
+        # 標章只收 VALID_CERT 裡的英文簡稱（2026-09-02 定案）。
+        # 沒有這道檢查，`CAS` 與 `CAS優良農產品` 這種同物異名會靜默累積，
+        # 一年後沒人知道兩者是不是同一個標章。
+        gt_at_cat = gt_at.get(cid)
+        if gt_at_cat:
+            import json as _json
+            _p = os.path.join(GT, gt_at_cat, cid + '.json')
+            if os.path.exists(_p):
+                _g = _json.load(open(_p, encoding='utf-8'))
+                for m in _g.get('certification_marks') or []:
+                    if m not in VALID_CERT:
+                        problems.append(
+                            f"[未知標章] {cid} → '{m}'（可用：{sorted(VALID_CERT)}）")
+
+        # 包裝形狀／反光材質：配對案例必填（教授建議 13 要求證明選品涵蓋
+        # 不同物理特性）；非配對案例填了也檢查值，沒填不算問題
+        for fld, vocab in (('pkg_shape', VALID_PKG_SHAPE), ('reflect', VALID_REFLECT)):
+            v = c.get(fld)
+            if v and v not in vocab:
+                problems.append(f"[未知 {fld}] {cid} → '{v}'（可用：{sorted(vocab)}）")
+            elif not v and cid in _paired:
+                problems.append(f"[缺 {fld}] {cid} 有高反光配對臂 → 無法說明選品涵蓋範圍")
+
+        ri = c.get('raw_issue')
+        if ri and ri not in VALID_RAW_ISSUE:
+            problems.append(f"[未知 raw_issue] {cid} → '{ri}'"
+                            f"（可用：{sorted(VALID_RAW_ISSUE)}）")
+
+        # 不計分理由：值域鎖死，且宣告了就必須真的留空（否則等於兩套正解）
+        er = c.get('exclude_reason')
+        if er:
+            if er not in VALID_EXCLUDE_REASON:
+                problems.append(f"[未知 exclude_reason] {cid} → '{er}'"
+                                f"（可用：{sorted(VALID_EXCLUDE_REASON)}）")
+            else:
+                _gp = gt_path(cid, gt_at.get(cid, cat or ''))
+                if os.path.exists(_gp):
+                    _g = json.load(open(_gp, encoding='utf-8'))
+                    for fld in EXCLUDE_FIELDS_BY_REASON[er]:
+                        v = _g.get(fld)
+                        filled = (any(x is not None for x in v.values())
+                                  if isinstance(v, dict) else v is not None)
+                        if filled:
+                            problems.append(
+                                f"[排除欄位仍有值] {cid} 宣告 {er} 但 {fld} 有填"
+                                f" → 正解不唯一時填了等於自己選一個答案")
+
+        gs = c.get('gt_source')
+        if not gs:
+            problems.append(f"[缺 gt_source] {cid} → 不會出現在 by_gt_source 切片中")
+        elif gs not in VALID_GT_SOURCE:
+            problems.append(f"[未知 gt_source] {cid} → '{gs}'"
+                            f"（可用：{sorted(VALID_GT_SOURCE)}）")
 
         # 正解與 category 是否自相矛盾
         gp = gt_path(cid, gt_at.get(cid, cat or ''))
@@ -278,6 +519,9 @@ def new(argv):
         "set_version": opts.get('set-version') or opts.get('set_version') or 'v3.0',
         "category": category,
         "difficulty": difficulty,
+        # 預設 hand：新案例的正解骨架是空的，填寫方式由人決定。
+        # 若改用 LLM 起草，請自行改為 llm_checked——這個欄位的價值全在誠實。
+        "gt_source": opts.get('gt-source') or opts.get('gt_source') or 'hand',
     })
     data['cases'].sort(key=lambda c: c['case_id'])
     save_cases(data)

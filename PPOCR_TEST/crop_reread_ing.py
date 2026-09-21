@@ -49,12 +49,20 @@ def main():
     ap.add_argument("--max-scale", type=float, default=2.5)
     ap.add_argument("--min-scale", type=float, default=1.15)
     ap.add_argument("--dump", default=None)
+    ap.add_argument("--src", default=os.path.basename(SRC),
+                    help="out/ 底下的整頁 PP-OCR 輸出目錄")
+    ap.add_argument("--out", default=os.path.basename(OUT),
+                    help="out/ 底下的輸出目錄")
+    ap.add_argument("--crop-only", action="store_true",
+                    help="只保留裁切重讀文字；用於隔離是否裁切的消融")
     a = ap.parse_args()
 
-    files = sorted(f for f in os.listdir(SRC) if f.endswith(".json"))
+    src_dir = os.path.join(HERE, "out", a.src)
+    out_dir = os.path.join(HERE, "out", a.out)
+    files = sorted(f for f in os.listdir(src_dir) if f.endswith(".json"))
     if a.cases:
         files = [f for f in files if any(f.startswith(c) for c in a.cases)]
-    os.makedirs(OUT, exist_ok=True)
+    os.makedirs(out_dir, exist_ok=True)
     if a.dump:
         os.makedirs(a.dump, exist_ok=True)
 
@@ -65,7 +73,7 @@ def main():
     n_crop = n_skip = 0
     t0 = time.time()
     for n, f in enumerate(files, 1):
-        d = json.load(open(os.path.join(SRC, f), encoding="utf-8"))
+        d = json.load(open(os.path.join(src_dir, f), encoding="utf-8"))
         cid = d["case_id"]
         rec = {"case_id": cid, "preset": "ing_crop",
                "set_version": d.get("set_version"),
@@ -73,7 +81,7 @@ def main():
         for im in d["images"]:
             rel = im["path"]
             lines = im.get("lines") or []
-            out_lines = list(lines)          # 聯集：基準那一遍先留著
+            out_lines = [] if a.crop_only else list(lines)
             p = os.path.join(RB.EVAL_ROOT, *rel.split("/"))
             if not os.path.exists(p) or not lines:
                 rec["images"].append({**im, "lines": out_lines,
@@ -132,12 +140,14 @@ def main():
                      len(lines), len(add)))
             rec["images"].append({**im, "lines": out_lines,
                                   "n_lines": len(out_lines)})
-        json.dump(rec, open(os.path.join(OUT, f), "w", encoding="utf-8"),
+        rec["preset"] = a.out
+        rec["crop_only"] = a.crop_only
+        json.dump(rec, open(os.path.join(out_dir, f), "w", encoding="utf-8"),
                   ensure_ascii=False, indent=1)
 
-    print("\n重讀 %d 張、跳過 %d 張，共 %.0fs -> out/ing_crop/"
-          % (n_crop, n_skip, time.time() - t0))
-    print("驗收（看筆數，不看 F1）： python miss_ocr_check.py ing_crop")
+    print("\n重讀 %d 張、跳過 %d 張，共 %.0fs -> out/%s/"
+          % (n_crop, n_skip, time.time() - t0, a.out))
+    print("驗收：python score_items.py %s --boxes %s" % (a.out, a.src))
 
 
 if __name__ == "__main__":

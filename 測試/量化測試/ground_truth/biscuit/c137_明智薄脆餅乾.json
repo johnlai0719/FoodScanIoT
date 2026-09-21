@@ -1,0 +1,44 @@
+{
+  "is_food_label": true,
+  "name": "明治薄脆餅乾",
+  "brand": "明治",
+  "manufacturer": "",
+  "ingredients_raw": "小麥粉, 植物油(棕櫚油, 完全氫化菜籽油), 牛油(奶類製品), 鹽, 膨脹劑(E500), (麥芽提取物, 大麥芽粉)(含有麩質的穀類), 酵母, 麵豉粉(大豆, 鹽), 麵團調節劑(玉米澱粉, 麵粉處理劑(氯化銨, 碳酸鈣))",
+  "ingredients_list": [
+    "小麥粉",
+    "植物油(棕櫚油, 完全氫化菜籽油)",
+    "牛油(奶類製品)",
+    "鹽",
+    "膨脹劑(E500)",
+    "(麥芽提取物, 大麥芽粉)(含有麩質的穀類)",
+    "酵母",
+    "麵豉粉(大豆, 鹽)",
+    "麵團調節劑(玉米澱粉, 麵粉處理劑(氯化銨, 碳酸鈣))"
+  ],
+  "nutrition": {
+    "calories": 447,
+    "protein": 10.2,
+    "fat": 12.5,
+    "saturated_fat": 6.4,
+    "trans_fat": 0,
+    "carbohydrates": 75,
+    "sugar": 1.5,
+    "fiber": 1.6,
+    "sodium": 487
+  },
+  "nutrition_per_serving": {
+    "calories": null,
+    "protein": null,
+    "fat": null,
+    "saturated_fat": null,
+    "trans_fat": null,
+    "carbohydrates": null,
+    "sugar": null,
+    "fiber": null,
+    "sodium": null
+  },
+  "serving_size": null,
+  "servings_per_container": null,
+  "allergy_warning": "本產品含有麩質的穀類, 奶類及大豆製品。",
+  "certification_marks": []
+}

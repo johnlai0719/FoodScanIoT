@@ -1,0 +1,44 @@
+{
+  "is_food_label": true,
+  "name": "老媽拌麵(蔥香椒麻)",
+  "brand": "老媽拌麵",
+  "manufacturer": "好食樂食品股份有限公司",
+  "ingredients_raw": "麵條成分：小麥麵粉、水、食鹽、碳酸鈉\n油蔥醬包成分：大豆沙拉油、紅蔥頭香料、抗氧化劑(混合濃縮生育醇)\n椒麻醬包成分：調味醬(水、純釀造醬油、糖、鹽、調味劑(L-麩酸鈉、5′-次黃嘌呤核苷磷酸二鈉、5′-鳥嘌呤核苷磷酸二鈉)、著色劑(焦糖色素)、甜味劑(醋磺內酯鉀))、椒麻油(大豆沙拉油、花椒香料、辣椒香料、抗氧化劑(混合濃縮生育醇))",
+  "ingredients_list": [
+    "小麥麵粉",
+    "水",
+    "食鹽",
+    "碳酸鈉",
+    "大豆沙拉油",
+    "紅蔥頭香料",
+    "抗氧化劑(混合濃縮生育醇)",
+    "調味醬(水、純釀造醬油、糖、鹽、調味劑(L-麩酸鈉、5′-次黃嘌呤核苷磷酸二鈉、5′-鳥嘌呤核苷磷酸二鈉)、著色劑(焦糖色素)、甜味劑(醋磺內酯鉀))",
+    "椒麻油(大豆沙拉油、花椒香料、辣椒香料、抗氧化劑(混合濃縮生育醇))"
+  ],
+  "nutrition": {
+    "calories": 369.8,
+    "protein": 11.7,
+    "fat": 11.4,
+    "saturated_fat": 2.3,
+    "trans_fat": 0,
+    "carbohydrates": 55.1,
+    "sugar": 2.9,
+    "fiber": null,
+    "sodium": 941.6
+  },
+  "nutrition_per_serving": {
+    "calories": 454.9,
+    "protein": 14.4,
+    "fat": 14,
+    "saturated_fat": 2.8,
+    "trans_fat": 0,
+    "carbohydrates": 67.8,
+    "sugar": 3.6,
+    "fiber": null,
+    "sodium": 1158.2
+  },
+  "serving_size": 123,
+  "servings_per_container": 3,
+  "allergy_warning": "過敏原資訊：本產品含有含麩質之穀物、大及其製品",
+  "certification_marks": []
+}

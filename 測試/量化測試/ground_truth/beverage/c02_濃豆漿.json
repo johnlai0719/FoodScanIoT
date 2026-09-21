@@ -1,40 +1,40 @@
 {
-"is_food_label": true,
-"reject_reason": "",
-"name": "光泉無加糖濃豆漿",
-"brand": "光泉",
-"ingredients_raw": "水、非基因改造黃豆",
-"ingredients_list": [
-"水",
-"非基因改造黃豆"
-],
-"nutrition": {
-"calories": 50.6,
-"protein": 5.1,
-"fat": 2.6,
-"saturated_fat": 0.5,
-"trans_fat": 0,
-"carbohydrates": 2.1,
-"sugar": 0.7,
-"fiber": 0.8,
-"sodium": 16
-},
-"serving_size": 375,
-"servings_per_container": 1,
-"nutrition_per_serving": {
-"calories": 190.2,
-"protein": 19.1,
-"fat": 9.8,
-"saturated_fat": 1.9,
-"trans_fat": 0,
-"carbohydrates": 7.9,
-"sugar": 2.6,
-"fiber": 3.0,
-"sodium": 60
-},
-"manufacturer": "光泉牧場股份有限公司",
-"allergy_warning": "本產品含大豆，對其過敏者不宜飲用。該生產線亦生產含芒果、花生、芝麻、牛奶、蛋、堅果類、含麩質之穀物及大豆製品。",
-"certification_marks": [
-"TQF"
-]
+  "is_food_label": true,
+  "reject_reason": "",
+  "name": "光泉無加糖濃豆漿",
+  "brand": "光泉",
+  "ingredients_raw": "水、非基因改造黃豆",
+  "ingredients_list": [
+    "水",
+    "非基因改造黃豆"
+  ],
+  "nutrition": {
+    "calories": 50.6,
+    "protein": 5.1,
+    "fat": 2.6,
+    "saturated_fat": 0.5,
+    "trans_fat": 0,
+    "carbohydrates": 2.1,
+    "sugar": 0.7,
+    "fiber": 0.8,
+    "sodium": 16
+  },
+  "serving_size": 375,
+  "servings_per_container": 1,
+  "nutrition_per_serving": {
+    "calories": 190.2,
+    "protein": 19.1,
+    "fat": 9.8,
+    "saturated_fat": 1.9,
+    "trans_fat": 0,
+    "carbohydrates": 7.9,
+    "sugar": 2.6,
+    "fiber": 3,
+    "sodium": 60
+  },
+  "manufacturer": "光泉牧場股份有限公司",
+  "allergy_warning": "本產品含大豆，對其過敏者不宜飲用。該生產線亦生產含芒果、花生、芝麻、牛奶、蛋、堅果類、含麩質之穀物及大豆製品。",
+  "certification_marks": [
+    "TQF"
+  ]
 }

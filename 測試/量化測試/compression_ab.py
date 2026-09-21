@@ -24,6 +24,9 @@
 # 用法：
 #   python compression_ab.py run                    # 3 遍 × 2 條件，約 55 分鐘
 #   python compression_ab.py run --passes=1
+#
+# 執行順序自 2026-08-25 起採 ABBA 對調（偶數遍反向），預設四遍。
+# 實際順序寫入 <out_root>/_run_order.json。
 #   python compression_ab.py report                 # 只重新彙整既有快照，不打 API
 import csv
 import json
@@ -33,6 +36,13 @@ import subprocess
 import sys
 from collections import defaultdict
 from datetime import datetime
+
+# Windows 主控台預設 cp950，案例名稱裡有它編不出來的字（「塩」「菓」…）。
+# 沒有這兩行的後果不是印出亂碼，而是**整批任務在中途拋 UnicodeEncodeError 死掉**
+# ——2026-09-07 run_eval 炸在第 10 案的「塩」、intake 炸在第 11 案的「菓」，
+# 後者還留下半套用狀態（照片已搬、cases.json 沒存）。
+sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RES = os.path.join(HERE, 'results')
@@ -101,10 +111,34 @@ def one_pass(out_root, cond, image_root, k):
 
 
 def cmd_run(out_root, passes):
+    """ABBA：偶數遍把兩個條件的順序對調。
+
+    出自 2026-08-16 教授回饋建議 1（randomize or counterbalance test order）。
+    08-06 那次三遍都是原圖先、壓縮後，中間相隔約九分鐘，於是「壓縮」與
+    「跑第二個」完全共線——雲端 API 在那段時間內的任何狀態變化，看起來都會
+    跟壓縮的效果一模一樣。對調之後「跑第二個」兩種條件都輪得到，該解釋即被切斷。
+
+    **遍數請用偶數。**三遍是 2:1，仍有殘餘不平衡；四遍才是 2:2。逐案隨機更理想
+    （分析單位本來就是逐案配對差值），但 run_eval.py 於啟動時就固定
+    EVAL_IMAGE_ROOT 並一次跑完整批，逐案切換得改動量測工具本身，風險不划算。
+    """
+    if passes % 2:
+        print(f"[WARN] passes={passes} 為奇數，兩種順序次數不等（殘餘不平衡）。"
+              f"建議用偶數，例如 --passes=4。")
+    order_log = []
     for k in range(1, passes + 1):
-        for cond, root in CONDITIONS:
+        order = CONDITIONS if k % 2 else list(reversed(CONDITIONS))
+        names = [c for c, _ in order]
+        order_log.append({'pass': k, 'order': names})
+        print("\n--- 第 %d 遍執行順序：%s ---" % (k, ' → '.join(names)))
+        for cond, root in order:
             if not one_pass(out_root, cond, root, k):
                 sys.exit(1)
+    # 實際順序落地。沒有這份紀錄，事後無從證明對調真的執行了。
+    os.makedirs(out_root, exist_ok=True)
+    with open(os.path.join(out_root, '_run_order.json'), 'w', encoding='utf-8') as f:
+        json.dump({'_說明': 'ABBA 對調的實際執行順序，對應教授回饋建議 1',
+                   'passes': order_log}, f, ensure_ascii=False, indent=2)
     print("\n全部跑完。predictions/ 已被覆寫，用 git checkout -- predictions/ 復原。")
 
 
@@ -317,7 +351,7 @@ def cmd_report(out_root):
 def main():
     args = sys.argv[1:]
     cmd = args[0] if args and not args[0].startswith('--') else 'run'
-    passes, out_root = 3, os.path.join(RES, 'compression_1280q80')
+    passes, out_root = 4, os.path.join(RES, 'compression_1280q80')
     for a in args:
         if a.startswith('--passes='):
             passes = int(a.split('=', 1)[1])

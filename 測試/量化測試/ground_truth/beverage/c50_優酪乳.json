@@ -1,0 +1,49 @@
+{
+  "is_food_label": true,
+  "name": "統一AB原味優酪乳",
+  "brand": "統一",
+  "manufacturer": "統一企業(股)公司",
+  "ingredients_raw": "水、脫脂乳粉、蔗糖、生乳、全脂乳粉、異麥芽寡醣、果膠(柑橘果膠、蔗糖)、半乳糖寡醣、酵母萃取物、香料、乳酸菌(嗜熱鏈球菌 Streptococcus thermophilus、亞斯菲德菌 Lactobacillus acidophilus La-5、雷特氏B菌 Bifidobacterium lactis Bb-12、保加利亞乳酸桿菌 Lactobacillus bulgaricus)",
+  "ingredients_list": [
+    "水",
+    "脫脂乳粉",
+    "蔗糖",
+    "生乳",
+    "全脂乳粉",
+    "異麥芽寡醣",
+    "果膠(柑橘果膠、蔗糖)",
+    "半乳糖寡醣",
+    "酵母萃取物",
+    "香料",
+    "乳酸菌(嗜熱鏈球菌 Streptococcus thermophilus、亞斯菲德菌 Lactobacillus acidophilus La-5、雷特氏B菌 Bifidobacterium lactis Bb-12、保加利亞乳酸桿菌 Lactobacillus bulgaricus)"
+  ],
+  "nutrition": {
+    "calories": 59.8,
+    "protein": 3.0,
+    "fat": 0.6,
+    "saturated_fat": 0.5,
+    "trans_fat": 0.0,
+    "carbohydrates": 10.6,
+    "sugar": 8.6,
+    "fiber": null,
+    "sodium": 52.0
+  },
+  "nutrition_per_serving": {
+    "calories": 123.0,
+    "protein": 6.2,
+    "fat": 1.2,
+    "saturated_fat": 1.0,
+    "trans_fat": 0.0,
+    "carbohydrates": 21.8,
+    "sugar": 17.7,
+    "fiber": null,
+    "sodium": 107.0
+  },
+  "serving_size": "206毫升",
+  "servings_per_container": 1,
+  "allergy_warning": "本產品含牛奶及其製品，該生產線亦生產含有麩質之穀物及堅果類製品",
+  "certification_marks": [
+    "HEALTHFOOD",
+    "TQF"
+  ]
+}

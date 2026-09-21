@@ -1,0 +1,46 @@
+{
+  "is_food_label": true,
+  "name": "得意的一天 蕃茄牛肉高湯粥",
+  "brand": "得意的一天",
+  "manufacturer": "佳格食品股份有限公司",
+  "ingredients_raw": "成分:高湯[水、濃縮牛骨高湯(牛骨、水、維生素E-抗氧化劑)、滴雞精]、綜合蔬菜(蕃茄、西芹、洋蔥、紅蘿蔔、蕃茄泥、黑木耳絲)、綜合穀物(糙米、燕麥、大麥、小米)、牛肉、橄欖油、食鹽、蔗糖、酵母抽出物、維生素E-抗氧化劑、黑胡椒粉、白胡椒粉。",
+  "ingredients_list": [
+    "高湯[水、濃縮牛骨高湯(牛骨、水、維生素E-抗氧化劑)、滴雞精]",
+    "綜合蔬菜(蕃茄、西芹、洋蔥、紅蘿蔔、蕃茄泥、黑木耳絲)",
+    "綜合穀物(糙米、燕麥、大麥、小米)",
+    "牛肉",
+    "橄欖油",
+    "食鹽",
+    "蔗糖",
+    "酵母抽出物",
+    "維生素E-抗氧化劑",
+    "黑胡椒粉",
+    "白胡椒粉"
+  ],
+  "nutrition": {
+    "calories": null,
+    "protein": null,
+    "fat": null,
+    "saturated_fat": null,
+    "trans_fat": null,
+    "carbohydrates": null,
+    "sugar": null,
+    "fiber": null,
+    "sodium": null
+  },
+  "nutrition_per_serving": {
+    "calories": 220,
+    "protein": 10.6,
+    "fat": 6.1,
+    "saturated_fat": 1.6,
+    "trans_fat": 0,
+    "carbohydrates": 30.7,
+    "sugar": 4.5,
+    "fiber": null,
+    "sodium": 758
+  },
+  "serving_size": 320,
+  "servings_per_container": 1,
+  "allergy_warning": "本產品含有含麩質之穀物",
+  "certification_marks": []
+}

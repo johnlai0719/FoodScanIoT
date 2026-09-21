@@ -1,0 +1,37 @@
+{
+  "is_food_label": true,
+  "name": "每日C100%葡萄汁",
+  "brand": "DailyC 每日C",
+  "manufacturer": "味全食品工業股份有限公司",
+  "ingredients_raw": "水、葡萄濃縮汁",
+  "ingredients_list": [
+    "水",
+    "葡萄濃縮汁"
+  ],
+  "nutrition": {
+    "calories": 62.0,
+    "protein": 0.3,
+    "fat": 0.0,
+    "saturated_fat": 0.0,
+    "trans_fat": 0.0,
+    "carbohydrates": 15.2,
+    "sugar": 13.1,
+    "fiber": null,
+    "sodium": 18.0
+  },
+  "nutrition_per_serving": {
+    "calories": 192.0,
+    "protein": 0.9,
+    "fat": 0.0,
+    "saturated_fat": 0.0,
+    "trans_fat": 0.0,
+    "carbohydrates": 47.1,
+    "sugar": 40.6,
+    "fiber": null,
+    "sodium": 56.0
+  },
+  "serving_size": "310毫升",
+  "servings_per_container": 1,
+  "allergy_warning": "",
+  "certification_marks": []
+}

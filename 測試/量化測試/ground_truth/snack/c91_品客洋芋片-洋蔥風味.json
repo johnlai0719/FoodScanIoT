@@ -1,0 +1,43 @@
+{
+  "is_food_label": true,
+  "name": "品客® 洋芋片(洋蔥口味)",
+  "brand": "品客",
+  "manufacturer": "美商家樂氏行銷有限公司 台灣分公司",
+  "ingredients_raw": "成分(台灣):馬鈴薯粉、軟質棕油、玉米粉、小麥澱粉、調味粉〔鹽、乳清、調味劑(L-麩酸鈉、檸檬酸、乳酸、5'-鳥嘌呤核苷磷酸二鈉、5'-次黃嘌呤核苷磷酸二鈉、DL-蘋果酸)、葡萄糖、洋蔥粉、麥芽糊精、糖、香料、椰子油、脫脂奶粉、酸化乳脂粉、發酵乳、酵母萃取物、品質改良劑(二氧化矽、磷酸鈣)〕、乳化劑(脂肪酸甘油酯)、麥芽糊精、調味劑(檸檬酸)。",
+  "ingredients_list": [
+    "馬鈴薯粉",
+    "軟質棕油",
+    "玉米粉",
+    "小麥澱粉",
+    "調味粉〔鹽、乳清、調味劑(L-麩酸鈉、檸檬酸、乳酸、5'-鳥嘌呤核苷磷酸二鈉、5'-次黃嘌呤核苷磷酸二鈉、DL-蘋果酸)、葡萄糖、洋蔥粉、麥芽糊精、糖、香料、椰子油、脫脂奶粉、酸化乳脂粉、發酵乳、酵母萃取物、品質改良劑(二氧化矽、磷酸鈣)〕",
+    "乳化劑(脂肪酸甘油酯)",
+    "麥芽糊精",
+    "調味劑(檸檬酸)"
+  ],
+  "nutrition": {
+    "calories": 509,
+    "protein": 5.6,
+    "fat": 27.3,
+    "saturated_fat": 12.1,
+    "trans_fat": 0,
+    "carbohydrates": 61.7,
+    "sugar": 2.3,
+    "fiber": 3,
+    "sodium": 888
+  },
+  "nutrition_per_serving": {
+    "calories": 130,
+    "protein": 1.4,
+    "fat": 7,
+    "saturated_fat": 3.1,
+    "trans_fat": 0,
+    "carbohydrates": 15.7,
+    "sugar": 0.6,
+    "fiber": 0.8,
+    "sodium": 226
+  },
+  "serving_size": 25.5,
+  "servings_per_container": 4,
+  "allergy_warning": "本產品含有牛奶、堅果類(椰子)及含有麩質的穀類及其製品。",
+  "certification_marks": []
+}
