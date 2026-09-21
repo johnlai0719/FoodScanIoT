@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, Linking, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { Calendar, ChevronUp, ChevronDown, ExternalLink, Landmark, Newspaper, Users } from 'lucide-react-native';
 import { FoodSafetyEvent, SourceLink } from '../types';
@@ -87,7 +87,7 @@ function SourceSection({ styles, event }: { styles: ReturnType<typeof createStyl
 
 export default function DropdownEvent({ event, index }: Props) {
   const { fontScale } = useFontScale();
-  const styles = createStyles(fontScale);
+  const styles = useMemo(() => createStyles(fontScale), [fontScale]);
   const [isOpen, setIsOpen] = useState(index === 0);
 
   const isViolation = /違規|不合格|超標|罰|警示/.test(event.type);

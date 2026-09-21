@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, LayoutAnimation, Platform, UIManager, Linking } from 'react-native';
 import { ChevronUp, ChevronDown, ExternalLink } from 'lucide-react-native';
 import { IngredientDetail } from '../types';
@@ -15,7 +15,7 @@ interface Props {
 
 export default function IngredientsList({ ingredients }: Props) {
   const { fontScale } = useFontScale();
-  const styles = createStyles(fontScale);
+  const styles = useMemo(() => createStyles(fontScale), [fontScale]);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(0);
 
   const toggle = (idx: number) => {

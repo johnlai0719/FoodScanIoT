@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
@@ -15,6 +15,8 @@ import {
   StyleSheet,
   Share,
 } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Sparkles, Sliders, Database, ShoppingBag, AlertOctagon, RotateCcw, Layers, ShieldCheck, ChevronRight, Zap, ArrowLeft, AlertTriangle, CheckCircle2, Info, ScanLine, Activity, Settings2 } from 'lucide-react-native';
 
 import { useFontScale } from '../contexts/FontScaleContext';
@@ -74,11 +76,130 @@ const CHRONIC_DISEASES = [
   { key: 'hyperlipidemia', label: '高血脂' },
 ];
 
+// ─── 畫面縮放 ─────────────────────────────────────────────────────────────────
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 4;
+
+/** 下限是 1：縮到比原尺寸小沒有用途，只會在四周留白。 */
+const clampZoom = (value: number) => {
+  'worklet';
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
+};
+
+/**
+ * 夾住位移，讓放大後的內容永遠蓋滿可視區。
+ *
+ * 放大 s 倍後內容比可視區多出 size*(s-1)，往任一邊最多只能移動它的一半；
+ * 超過就會把內容邊緣拖進畫面，露出後面的底色。
+ */
+const clampPan = (value: number, scale: number, size: number) => {
+  'worklet';
+  const max = (size * (scale - 1)) / 2;
+  return Math.min(max, Math.max(-max, value));
+};
+
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function HomeScreen() {
   const { fontScale, toggleFontScale, isLarge } = useFontScale();
-  const s = createStyles(fontScale);
+  // createStyles 會重建整份 StyleSheet，掛 useMemo 之後只有倍率真的變了才重建，
+  // 而不是每次 setState 都跑一遍。
+  const s = useMemo(() => createStyles(fontScale), [fontScale]);
+
+  // ── 畫面縮放（雙指）────────────────────────────────────────────────────────
+  // 放大的是整個畫面，不是字級：版面完全不重排，只是等比拉大，因此圖表、圓環、
+  // 表格的相對位置都跟原本一模一樣，放大只是為了看清楚。字級調整是另一回事，
+  // 仍由右下角的「Aa」負責。
+  //
+  // 全程都在 UI 執行緒的 shared value 上算，不碰 React state——這一頁的
+  // createStyles 很重，若縮放途中觸發重新渲染會直接掉幀。
+  const zoomScale = useSharedValue(1);
+  const zoomX = useSharedValue(0);
+  const zoomY = useSharedValue(0);
+  // 可視區尺寸由 onLayout 量到，別用螢幕尺寸推——上面還有安全區與浮動按鈕。
+  const viewW = useSharedValue(0);
+  const viewH = useSharedValue(0);
+  // 兩個手勢各自記上一幀的值，用「增量」而不是「相對起手的絕對值」更新。
+  // 這樣縮放與拖曳同時進行時不會互相覆蓋對方寫進去的位移。
+  const prevPinchScale = useSharedValue(1);
+  const prevPanX = useSharedValue(0);
+  const prevPanY = useSharedValue(0);
+  const prevSwipeX = useSharedValue(0);
+
+  const zoomGesture = useMemo(() => {
+    const pinch = Gesture.Pinch()
+      .onStart(() => {
+        prevPinchScale.value = 1;
+      })
+      .onUpdate(e => {
+        const factor = e.scale / prevPinchScale.value;
+        prevPinchScale.value = e.scale;
+        const next = clampZoom(zoomScale.value * factor);
+        // 夾到上下限後真正生效的倍率，可能小於手指給的——位移要用生效的那個，
+        // 否則撐到頂之後畫面還會繼續飄。
+        const applied = next / zoomScale.value;
+        const fx = e.focalX - viewW.value / 2;
+        const fy = e.focalY - viewH.value / 2;
+        // 把兩指中心底下的那一點釘住，放大才是「從手指的位置展開」。
+        zoomX.value = clampPan(fx - (fx - zoomX.value) * applied, next, viewW.value);
+        zoomY.value = clampPan(fy - (fy - zoomY.value) * applied, next, viewH.value);
+        zoomScale.value = next;
+      })
+      .onEnd(() => {
+        // 縮回原尺寸就順手回正，免得留著一個看不出來的偏移。
+        if (zoomScale.value <= MIN_ZOOM + 0.01) {
+          zoomScale.value = withTiming(MIN_ZOOM, { duration: 160 });
+          zoomX.value = withTiming(0, { duration: 160 });
+          zoomY.value = withTiming(0, { duration: 160 });
+        }
+      });
+
+    // 兩指拖曳平移，兩個方向都能動。
+    const pan = Gesture.Pan()
+      .minPointers(2)
+      .onStart(() => {
+        prevPanX.value = 0;
+        prevPanY.value = 0;
+      })
+      .onUpdate(e => {
+        const dx = e.translationX - prevPanX.value;
+        const dy = e.translationY - prevPanY.value;
+        prevPanX.value = e.translationX;
+        prevPanY.value = e.translationY;
+        zoomX.value = clampPan(zoomX.value + dx, zoomScale.value, viewW.value);
+        zoomY.value = clampPan(zoomY.value + dy, zoomScale.value, viewH.value);
+      });
+
+    // 單指左右平移。垂直方向刻意讓它失敗，把上下完整留給 ScrollView——這一頁很長，
+    // 放大時不能捲頁會很難用；而垂直看不到的部分本來就能靠捲動帶進畫面。
+    //
+    // 不需要另外判斷「有沒有放大」：1 倍時 clampPan 的上限是 0，橫拖算出來的位移
+    // 一律是 0，等於沒作用。少一個要跟 UI 執行緒同步的開關。
+    const swipe = Gesture.Pan()
+      .maxPointers(1)
+      // 先橫移超過 10px 才接手，縱向超過 8px 就放棄。兩個門檻一起決定了
+      // 「這一下是平移還是捲動」，沒有這組判斷會兩邊搶同一個手勢。
+      .activeOffsetX([-10, 10])
+      .failOffsetY([-8, 8])
+      .onStart(() => {
+        prevSwipeX.value = 0;
+      })
+      .onUpdate(e => {
+        const dx = e.translationX - prevSwipeX.value;
+        prevSwipeX.value = e.translationX;
+        zoomX.value = clampPan(zoomX.value + dx, zoomScale.value, viewW.value);
+      });
+
+    return Gesture.Simultaneous(pinch, pan, swipe);
+  }, []);
+
+  const zoomStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: zoomX.value },
+      { translateY: zoomY.value },
+      { scale: zoomScale.value },
+    ],
+  }));
 
   // 掃描是進入 App 的第一個畫面；健康設定改由右下角齒輪進入（2026-08-05）
   const [view, setView] = useState<'scan' | 'profile' | 'result' | 'settings'>('scan');
@@ -502,6 +623,8 @@ export default function HomeScreen() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={s.root}>
+      {/* 浮動控制項刻意留在縮放層外面：跟著一起放大的話，拉到 4 倍時它們會被
+          推出畫面，使用者就回不去了。 */}
       <Pressable onPress={toggleFontScale} style={[s.fontScaleBtn, isLarge && s.fontScaleBtnActive]}>
         <Text style={[s.fontScaleBtnText, isLarge && s.fontScaleBtnTextActive]}>Aa</Text>
       </Pressable>
@@ -522,6 +645,17 @@ export default function HomeScreen() {
           )}
         </Pressable>
       )}
+      {/* GestureDetector 掛在沒有被 transform 的那一層，手勢回報的焦點座標才會是
+          可視區座標；掛在縮放層上的話座標會跟著一起縮，錨點就對不準。 */}
+      <GestureDetector gesture={zoomGesture}>
+        <View
+          style={s.zoomViewport}
+          onLayout={e => {
+            viewW.value = e.nativeEvent.layout.width;
+            viewH.value = e.nativeEvent.layout.height;
+          }}
+        >
+          <Animated.View style={[s.zoomLayer, zoomStyle]}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
 
@@ -1493,6 +1627,9 @@ export default function HomeScreen() {
           <View style={{ height: 40 }} />
         </ScrollView>
       </KeyboardAvoidingView>
+          </Animated.View>
+        </View>
+      </GestureDetector>
 
     </SafeAreaView>
   );
@@ -1542,6 +1679,11 @@ const SEL_TEXT = '#007380';
 const createStyles = (scale: number) => StyleSheet.create({
   root: { flex: 1, backgroundColor: '#F5F5F5' },
   scroll: { paddingHorizontal: 20, paddingVertical: 16, gap: 0 },
+
+  // 雙指縮放。overflow: hidden 是必要的——放大後內容會超出這一層的邊界，
+  // 不裁掉會蓋到浮動按鈕。
+  zoomViewport: { flex: 1, overflow: 'hidden' },
+  zoomLayer: { flex: 1 },
 
   // Card — no box, content directly on background
   card: {
