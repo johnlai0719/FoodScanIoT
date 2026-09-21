@@ -229,3 +229,33 @@ class EventCandidate(Base):
     event_id = Column(Integer, ForeignKey("events.id"), nullable=True)  # 核准後掛到哪個事件
     discovered_at = Column(String(50), nullable=True)
     reviewed_at = Column(String(50), nullable=True)
+
+
+class ScanUpload(Base):
+    """使用者與測試者上傳的標示照片紀錄。
+
+    刻意與 products 分開。products 存的是「已採用的產品資料」，這張表存的是
+    **原始輸入與當下的辨識結果**——同一張照片換個讀取器就會得到不同的值，
+    把它塞進 products 等於讓共享資料庫跟著每次實驗變動。
+
+    閘門沒過的照片也收。它們先前在 `_save_scan_images` 之前就被 return 掉，
+    而那些正是最值得拿來改管線的樣本：能通過閘門的照片代表管線已經讀得動它了。
+    gate_passed 記下當下的判定，之後要只取通過的或只取失敗的都查得到。
+
+    sha256 是原圖位元組的雜湊，與 `測試/量化測試/manifest_tool.py` 同一套
+    識別方式，收進測試集時可以直接比對是不是同一張，不必靠檔名。
+    """
+    __tablename__ = "scan_uploads"
+    id = Column(Integer, primary_key=True, index=True)
+    created_at = Column(String(32), index=True)          # ISO8601、UTC
+    tester_id = Column(String(64), nullable=True, index=True)  # X-Tester-Id，一般使用者為 NULL
+    barcode = Column(String(50), nullable=True, index=True)    # 沒掃條碼就是 NULL，不填 IMG_xxx
+    image_index = Column(Integer)                        # 同一次請求裡的第幾張
+    stored_path = Column(String(255))                    # /uploads/<檔名>
+    sha256 = Column(String(64), index=True)
+    size_bytes = Column(Integer)
+    request_id = Column(String(64), nullable=True, index=True) # X-Request-Id，可與三層計時對起來
+    vision_backend = Column(String(32), nullable=True)   # 當下的讀取器，換模型後才分得出新舊樣本
+    gate_passed = Column(Boolean, default=False, index=True)
+    gate_reason = Column(String(255), nullable=True)     # 沒過的原因，通過時為 NULL
+    recognized = Column(JSON, nullable=True)             # 當下的辨識結果，不是正解

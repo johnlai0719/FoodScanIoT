@@ -82,7 +82,9 @@ def test_env_example_documents_it():
 
 def test_fog_only_sends_the_key_when_configured(fog_src):
     """兩邊都沒設定時，行為要與加入這道之前完全相同。"""
-    m = re.search(r'def cloud_headers\(\).*?return h', fog_src, re.S)
+    # 簽章允許帶參數（2026-09-21 加了 tester_id 轉發），這裡測的是
+    # 「沒設定金鑰時不送空標頭」，與有沒有參數無關。
+    m = re.search(r'def cloud_headers\(.*?return h', fog_src, re.S)
     assert m, '找不到 cloud_headers()'
     body = m.group(0)
     assert 'if API_SHARED_SECRET' in body, '未設定時不應送出空的金鑰標頭'

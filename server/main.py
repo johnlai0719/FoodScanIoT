@@ -9,7 +9,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 import json as _json
 import psycopg2
 import psycopg2.extras
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import re
 import time
 from google import genai
@@ -108,6 +108,7 @@ from module_c.dedup import merge_events
 
 from typing import List, Dict, Any
 import base64
+import hashlib
 import io
 from PIL import Image
 
@@ -562,6 +563,9 @@ app.mount("/admin", StaticFiles(directory=ADMIN_UI_DIR), name="admin")
 #    正式路徑是 App → Fog → Cloud，只有 Fog 需要持有密鑰。
 API_SHARED_SECRET = os.getenv("API_SHARED_SECRET", "").strip()
 API_KEY_HEADER = "X-API-Key"
+# 測試者身分標頭。不是憑證——只標記「這批上傳是誰提供的」，
+# 讓 scan_uploads 事後分得出哪些樣本來自測試，哪些來自一般使用。
+TESTER_ID_HEADER = "X-Tester-Id"
 if not API_SHARED_SECRET:
     print("[WARNING] 未設定 API_SHARED_SECRET，/api/analyze 未受保護。"
           "公開端點（Cloudflare Tunnel）上線前必須設定。")
@@ -782,20 +786,70 @@ async def analyze_image_with_gemini(base64_images: list, barcode: str = "Unknown
         return None
 
 def _save_scan_images(base64_images, barcode):
-    """將上傳圖片存至 uploads/。僅在通過相關性閘門後呼叫,避免無關照片佔用硬碟。"""
+    """將上傳圖片存至 uploads/，回傳每張的 path、sha256 與位元組數。
+
+    2026-09-21 起**不論有沒有通過相關性閘門都呼叫**。先前只在通過後才存，
+    於是被判定為「非食品標籤」「無實質內容」的照片全部丟掉——而那正是最該
+    收集的一批：能通過閘門的照片代表管線已經讀得動它了，讀不動的才有改進空間。
+
+    佔硬碟的疑慮改用別的方式處理（uploads/ 已掛成 bind mount，容量看得到也
+    清得掉），不該用「丟掉證據」來換。
+    """
     saved = []
     for i, b64 in enumerate(base64_images or []):
         try:
             if "base64," in b64:
                 b64 = b64.split("base64,")[1]
+            raw = base64.b64decode(b64)
+            # sha256 取**解碼後的原始位元組**，與 manifest_tool.py 同一套識別方式；
+            # 取 base64 字串的雜湊會因為換行或 padding 差異而對不起來。
+            digest = hashlib.sha256(raw).hexdigest()
             fn = f"scan_{int(time.time())}_{barcode}_{i}.jpg"
             with open(os.path.join(UPLOADS_DIR, fn), "wb") as f:
-                f.write(base64.b64decode(b64))
-            saved.append(f"/uploads/{fn}")
-            print(f"[INFO] [Storage] Image saved to: /uploads/{fn}")
+                f.write(raw)
+            saved.append({
+                "path": f"/uploads/{fn}",
+                "sha256": digest,
+                "size_bytes": len(raw),
+                "image_index": i,
+            })
+            print(f"[INFO] [Storage] Image saved to: /uploads/{fn} ({len(raw)} bytes)")
         except Exception as e:
             print(f"[WARN] [Storage] 圖片存檔失敗: {e}")
     return saved
+
+
+def _record_scan_uploads(cursor, saved, *, tester_id, barcode, request_id,
+                         vision_backend, gate_passed, gate_reason, recognized):
+    """把存下來的圖片寫進 scan_uploads。
+
+    **絕不讓這裡的失敗影響分析結果。** 這是資料蒐集，不是使用者要的東西；
+    寫不進去就記一行警告，照樣把分析結果回給使用者。
+
+    barcode 只在使用者真的掃了條碼時才填。`IMG_<timestamp>` 那種合成值不寫進
+    來——它是 products 的主鍵需要才造的，寫進這裡會讓「有沒有條碼」查不出來。
+    """
+    if not saved:
+        return
+    created_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    real_barcode = barcode if barcode and barcode not in ("NEW", "TEST", "") else None
+    payload = _json.dumps(recognized, ensure_ascii=False) if recognized else None
+    for item in saved:
+        try:
+            cursor.execute(
+                """
+                INSERT INTO scan_uploads
+                    (created_at, tester_id, barcode, image_index, stored_path,
+                     sha256, size_bytes, request_id, vision_backend,
+                     gate_passed, gate_reason, recognized)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (created_at, tester_id, real_barcode, item["image_index"],
+                 item["path"], item["sha256"], item["size_bytes"], request_id,
+                 vision_backend, gate_passed, gate_reason, payload),
+            )
+        except Exception as e:
+            print(f"[WARN] [ScanUpload] 紀錄寫入失敗（不影響分析結果）: {e}")
 
 
 def _is_valid_food_scan(vision_data) -> tuple:
@@ -847,6 +901,21 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
         print(f"[DEBUG] [Request] Keys: {list(data.keys())}, Has Images: {bool(data.get('label_images'))}")
         barcode = data.get("barcode")
         is_test_mode = (barcode == "TEST")
+        # 測試者模式。用標頭而不是條碼值：條碼是「掃到了什麼」，身分是「誰在傳」，
+        # 兩件事擠進同一個欄位就沒辦法同時表達「我是測試者」和「這罐的條碼是 X」。
+        #
+        # ⚠ 與 is_test_mode 的差別：TEST 條碼的用意是「不要污染資料庫」，測試者
+        #   模式的用意是「把樣本留下來」。兩者都跳過 products／producers 的寫入，
+        #   但測試者的上傳一定會進 scan_uploads，TEST 條碼的不保證。
+        #
+        # 不驗證這個值——它不是憑證，只是來源標籤。要防冒用得靠 API 金鑰，
+        # 那一層已經在 require_api_key 擋過了。
+        tester_id = (request.headers.get(TESTER_ID_HEADER) or "").strip()[:64] or None
+        if tester_id:
+            print(f"[INFO] [Tester] 測試者上傳：{tester_id}（不寫入 products／producers）")
+        # 共享資料庫的寫入閘。測試者與 TEST 條碼都不寫——辨識結果會隨讀取器版本
+        # 變動，寫進 products 之後就分不出哪些是實驗殘留。
+        skip_shared_writes = is_test_mode or bool(tester_id)
         label_images = data.get("label_images")
         user_conditions = data.get("user_conditions", {"group": "adult", "allergens": []})
         
@@ -973,6 +1042,29 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
 
             # --- 相關性／品質閘門：非食品標籤或無實質內容者，不寫入共享資料庫 ---
             scan_ok, scan_reason = _is_valid_food_scan(vision_data)
+
+            # 存圖與建檔在閘門**之前**做，通過與否都做。
+            # 先前這件事排在閘門之後，於是沒通過的照片連同它失敗的原因一起消失，
+            # 想知道「管線讀不動什麼」就只剩日誌裡的一行字。
+            target_barcode = barcode or f"IMG_{int(time.time())}"
+            _saved = _save_scan_images(label_images, target_barcode)
+            _record_scan_uploads(
+                cursor, _saved,
+                tester_id=tester_id,
+                barcode=barcode,
+                request_id=T.safe_request_id(request.headers.get(T.REQUEST_ID_HEADER)),
+                vision_backend=vision_backend.backend_name(),
+                gate_passed=scan_ok,
+                gate_reason=None if scan_ok else scan_reason,
+                recognized=vision_data,
+            )
+            # 紀錄自己 commit：後面的流程可能因為閘門未過而提早 return，
+            # 那時這些 INSERT 還在交易裡，會跟著被丟掉。
+            try:
+                db.commit()
+            except Exception as _e:
+                print(f"[WARN] [ScanUpload] commit 失敗（不影響分析結果）: {_e}")
+
             if not scan_ok:
                 print(f"[GATE] 上傳圖片未通過相關性/品質閘門：{scan_reason}，不寫入 DB")
                 if not barcode or barcode in ("NEW", "TEST", ""):
@@ -986,11 +1078,7 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
             if vision_data is not None:
                 try:
                     # 即使 vision_data 是空字典 {}，也要繼續處理
-                    target_barcode = barcode or f"IMG_{int(time.time())}"
 
-                    # 通過相關性閘門後才存圖,避免無關照片佔用硬碟
-                    _save_scan_images(label_images, target_barcode)
-                    
                     # 偵錯：印出 AI 回傳的欄位
                     print(f"[DEBUG] [Vision] Fields received: {list(vision_data.keys())}")
                     
@@ -1007,12 +1095,13 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
                         prod_row = cursor.fetchone()
                         if not prod_row:
                             cursor.execute("INSERT INTO producers (name, risk_level) VALUES (%s, %s) RETURNING id", (mfg_name, "Low"))
-                            if not is_test_mode:
+                            if not skip_shared_writes:
                                 db.commit()
                                 prod_id = cursor.fetchone()['id']
                             else:
                                 prod_id = cursor.fetchone()['id']
-                                print(f"[TEST MODE] Skipping DB write for producer {mfg_name}")
+                                print(f"[SKIP-SHARED] 不寫入 producers：{mfg_name}"
+                                      f"（tester={tester_id or '-'}, test_barcode={is_test_mode}）")
                         else:
                             prod_id = prod_row['id']
                     except Exception as mfg_e:
@@ -1081,11 +1170,12 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
                               other_nut_json)
                         
                         cursor.execute(sql, params)
-                        if not is_test_mode:
+                        if not skip_shared_writes:
                             db.commit()
                             print(f"✅ [SUCCESS] [DB] Saved to PostgreSQL: {v_name} ({target_barcode})")
                         else:
-                            print(f"[TEST MODE] Skipping DB write for product {v_name} ({target_barcode})")
+                            print(f"[SKIP-SHARED] 不寫入 products：{v_name}（{target_barcode}）"
+                                  f"（tester={tester_id or '-'}, test_barcode={is_test_mode}）")
                     except Exception as db_e:
                         import traceback
                         error_msg = traceback.format_exc()
@@ -1150,10 +1240,11 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
         # 但其產出已決定不對使用者呈現，繼續執行只是持續累積不會被使用的資料。
         if SAFETY_EVENTS_ENABLED and product.get('producer_id'):
             mfg = product.get('manufacturer') or '未知製造商'
-            if not is_test_mode:
+            if not skip_shared_writes:
                 background_tasks.add_task(update_producer_safety_events, product['producer_id'], mfg)
             else:
-                print(f"[TEST MODE] Skipping safety monitor background task for producer {mfg}")
+                print(f"[SKIP-SHARED] 不觸發食安監控背景任務：{mfg}"
+                      f"（tester={tester_id or '-'}, test_barcode={is_test_mode}）")
 
         # Define variables for downstream processing
         raw_ingredients = product.get('ingredients_list', '[]')

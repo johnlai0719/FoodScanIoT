@@ -27,11 +27,23 @@ export const CLOUD_URL = 'http://100.119.217.100:3003/api/analyze';
  *
  * ⚠ EXPO_PUBLIC_ 的值會被寫進 bundle，拿得到 App 的人就拿得到它。改成這樣
  *   只是不讓金鑰進版控，不等於它變成祕密了。正式路徑仍是 App → Fog → Cloud，
- *   只有 Fog 該持有金鑰（見 server/main.py 的 API_SHARED_SECRET 一節）。
+ *   只有 Fog 該持有金鑰（見 server/main.py 裡共享密鑰那一節的說明）。
  *
  * 沒設就是空字串，此時不送 X-API-Key——只走 Fog 的人不必設這個變數。
  */
 export const CLOUD_API_KEY = process.env.EXPO_PUBLIC_CLOUD_API_KEY ?? '';
+
+/**
+ * 測試者代號，取自 `APP/.env` 的 EXPO_PUBLIC_TESTER_ID。
+ *
+ * 設了就會在每次分析請求帶上 X-Tester-Id，後端據此把這次上傳的照片記進
+ * scan_uploads，並且**不寫入 products／producers**——測試拍的東西不該混進
+ * 共享產品庫。沒設就是一般使用者，行為與先前完全相同。
+ *
+ * 刻意不做成畫面上的開關：一個人的代號在整支測試期間都是同一個，做成開關
+ * 只會多一個可以忘記打開的東西。每位測試者在自己的 .env 填一次即可。
+ */
+export const TESTER_ID = process.env.EXPO_PUBLIC_TESTER_ID ?? '';
 
 /**
  * 分析請求的逾時（毫秒）。

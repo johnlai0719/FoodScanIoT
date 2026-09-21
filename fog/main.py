@@ -58,11 +58,19 @@ API_SHARED_SECRET = os.getenv("API_SHARED_SECRET", "").strip()
 CLOUD_READ_TIMEOUT = float(os.getenv("CLOUD_READ_TIMEOUT", "90"))
 
 
-def cloud_headers() -> dict:
-    """轉發給 Cloud 的標頭。密鑰只存在於 Fog，不會下發到 App。"""
+def cloud_headers(tester_id: str | None = None) -> dict:
+    """轉發給 Cloud 的標頭。密鑰只存在於 Fog，不會下發到 App。
+
+    tester_id 是原樣轉發的來源標籤（X-Tester-Id），Fog 不解讀也不驗證——
+    快取、降階與脫敏都與是誰上傳的無關。它只在 Cloud 端決定「這批照片要記進
+    scan_uploads 且不寫入 products」，漏轉的話走 Fog 的請求就收不到樣本，
+    而那正是正式路徑。
+    """
     h = {"Content-Type": "application/json"}
     if API_SHARED_SECRET:
         h["X-API-Key"] = API_SHARED_SECRET
+    if tester_id:
+        h["X-Tester-Id"] = tester_id
     return h
 
 cloud_online = True
@@ -247,7 +255,7 @@ async def query(request: Request, response: Response):
                 masked_data = mask_sensitive_data(data)
                 masked_data_bytes = json.dumps(masked_data).encode()
                 
-                _h = cloud_headers()
+                _h = cloud_headers(request.headers.get("X-Tester-Id"))
                 if rid:
                     _h[T.REQUEST_ID_HEADER] = rid
                 with sw.lap("upstream"):
@@ -339,7 +347,7 @@ async def query(request: Request, response: Response):
             # 執行脫敏 (Task A)
             masked_data = mask_sensitive_data(data)
             masked_data_bytes = json.dumps(masked_data).encode()
-            _h = cloud_headers()
+            _h = cloud_headers(request.headers.get("X-Tester-Id"))
             if rid:
                 _h[T.REQUEST_ID_HEADER] = rid
             

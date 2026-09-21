@@ -104,6 +104,10 @@ RoadMap/
 !測試/量化測試/ground_truth/**/*.json
 !測試/量化測試/predictions/*.json
 !測試/量化測試/README.md
+# 建議 8 的回歸集定義。與主測試集獨立，量的是「該擋的有沒有擋下來」。
+# 2026-09-21 才發現它一直被上面的 *.json 擋住：檔案只在部署機上，
+# tests/contract/test_guard_set.py 在任何新簽出都是紅的。照片不收，同原圖的理由。
+!測試/量化測試/guard_set/cases.json
 # results/ 每跑一次就覆寫，屬暫存產物，不進版控。
 # 但底線開頭的 _baseline_* 是刻意留存的參考點——報告引用的數字、以及日後
 # 比較的基準都在裡面，其中延遲與稽核類的數字要重跑得花 API 錢或連本機資料庫，
@@ -182,6 +186,13 @@ PPOCR_TEST/*.bak*
 PPOCR_TEST/.venv_*/
 reader/_work/
 PPOCR_TEST/out/_online_*/
+
+# 使用者與測試者上傳的標示照片。compose 把它 bind mount 進容器（見
+# docker-compose.yml 的 cloud-server volumes）。內容是實拍照片，量會一直長，
+# 且屬於營運資料不是原始碼；要收進測試集的請走 測試/量化測試 的流程，
+# 身分由 scan_uploads.sha256 比對，不靠把檔案推上 GitHub。
+uploads/
+server/uploads/
 
 # Expo 連線用的 QR（含 Tailscale 內網位址，不進版控）
 APP/expo-qr.png

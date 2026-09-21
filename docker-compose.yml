@@ -36,5 +36,14 @@ services:
       - DB_NAME=product_db
       - DB_USER=postgres
       - DB_PASSWORD=password
+    volumes:
+      # 上傳的標示照片。**沒有這一行，圖片只活到下一次 --build 為止。**
+      # 2026-09-21 進容器看過：服務跑了四天，uploads/ 裡只剩 3 個檔——
+      # 不是沒人上傳，是每次重建都從頭開始。scan_uploads 表存的 stored_path
+      # 指向這裡，檔案沒了紀錄就變成一堆指不到東西的路徑。
+      #
+      # 用 bind mount 而不是 named volume：這批圖的用途就是要被拿去看、拿去
+      # 收進測試集，放在主機上看得到的路徑才方便；容量也才一眼看得出來。
+      - ./uploads:/app/uploads
     depends_on:
       - db

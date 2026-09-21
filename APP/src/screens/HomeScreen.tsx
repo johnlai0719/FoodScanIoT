@@ -28,7 +28,7 @@ import DropdownEvent from '../components/DropdownEvent';
 import PackageImageScanner from '../components/PackageImageScanner';
 import BarcodeScanner from '../components/BarcodeScanner';
 import { analyzePersonalRisks, getProductAllergenWarnings } from '../utils/personalization';
-import { FOG_URL, CLOUD_URL, CLOUD_API_KEY, ANALYSIS_TIMEOUT_MS } from '../constants/endpoints';
+import { FOG_URL, CLOUD_URL, CLOUD_API_KEY, TESTER_ID, ANALYSIS_TIMEOUT_MS } from '../constants/endpoints';
 import * as Telemetry from '../utils/telemetry';
 import { getDataFreshness } from '../utils/dataFreshness';
 import {
@@ -351,6 +351,9 @@ export default function HomeScreen() {
             ...(localOnly ? { 'X-Local-Only': '1' } : {}),
             // Cloud 直連時帶上金鑰，以通過 Cloud 的 API 保護。
             ...(serverEndpoint === 'cloud' && CLOUD_API_KEY ? { 'X-API-Key': CLOUD_API_KEY } : {}),
+            // 測試者代號。有設才送——沒設的人就是一般使用者，行為不變。
+            // 兩條路徑都送：走 Fog 時由 Fog 原樣轉發給 Cloud。
+            ...(TESTER_ID ? { 'X-Tester-Id': TESTER_ID } : {}),
           },
           signal: ctrl.signal,
           // 個人化比對自 2026-08-04 起完全在本地進行，健康背景不再送往後端。

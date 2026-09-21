@@ -108,8 +108,11 @@ app.post('/query', validateQuery, async (req: Request, res: Response, next: Next
     // 這不是故障時的降階，是**使用者選的**——照片因此不離開這台邊緣節點。
     // 兩者走同一條產出路徑（本機 OCR），但觸發來源不同，畫面上要講清楚是哪一種。
     const localOnly = req.header('X-Local-Only') === '1';
+    // X-Tester-Id：測試者代號，原樣往下帶到 Cloud。Fog 自己不用它做任何判斷——
+    // 快取、降階、脫敏都與是誰傳的無關，這裡只負責不要把它弄丟。
     const result = await handleQuery(
-      req.body as FogQueryRequest, req.header('X-Request-Id'), bypass, localOnly);
+      req.body as FogQueryRequest, req.header('X-Request-Id'), bypass, localOnly,
+      req.header('X-Tester-Id'));
     res.header('X-Cache', result.cacheHeader);
     // 三層的計時標頭。**不放進 body**：`test_cloud_response_contract.py` 是
     // `set(keys) == EXPECTED` 嚴格相等，動 body 等於改 App 的資料契約；

@@ -26,7 +26,7 @@ const CLOUD_TIMEOUT = 105000;
 // request id 來自 App、會被原樣轉發，不合格就不轉，避免把使用者輸入塞進標頭。
 const SAFE_REQUEST_ID = /^[A-Za-z0-9_.:-]{1,64}$/;
 
-export async function handleQuery(reqData: FogQueryRequest, requestId?: string, bypassCache = false, localOnly = false): Promise<{ status: number, data: any, cacheHeader: string, headers: Record<string, string> }> {
+export async function handleQuery(reqData: FogQueryRequest, requestId?: string, bypassCache = false, localOnly = false, testerId?: string): Promise<{ status: number, data: any, cacheHeader: string, headers: Record<string, string> }> {
   const { barcode } = reqData;
   const startTime = Date.now();
   // App 產生的 request id 要逐層往下帶，三層的計時紀錄才併得起來。
@@ -36,6 +36,9 @@ export async function handleQuery(reqData: FogQueryRequest, requestId?: string, 
     ...(rid ? { 'X-Request-Id': rid } : {}),
     // 只用本機辨識時往下帶，由 Python 層直接走 local_ocr、不碰雲端。
     ...(localOnly ? { 'X-Local-Only': '1' } : {}),
+    // 測試者代號：Fog 只轉發不解讀。不帶的話 Cloud 就分不出哪些樣本來自測試，
+    // 而正式路徑是 App → Fog → Cloud，漏在這一層等於整個功能只有直連能用。
+    ...(testerId ? { 'X-Tester-Id': testerId } : {}),
   };
   // 下游（Python → Cloud）自己量的那幾段，原樣往上帶，讓 App 一次收齊三層。
   const passThrough: Record<string, string> = {};
