@@ -55,6 +55,21 @@ def test_fog_轉發標頭而不是自己重建():
         'cloud_headers() 的呼叫點必須帶上 request 收到的 X-Tester-Id'
 
 
+def test_只收測試者的照片():
+    """一般使用者的照片一張都不留。
+
+    這條與專案既有的界線一致（個人化只在 App 本地、健康背景不送後端、Fog 還有
+    mask_sensitive_data 作為深度防禦），而蒐集樣本的目的靠測試者就達得到。
+    無條件存圖會讓這個界線在沒人注意的情況下被推翻。
+    """
+    src = read(CLOUD)
+    assert re.search(r'if tester_id:\s+_saved = _save_scan_images\(', src), \
+        '存圖必須包在 if tester_id: 之內，一般使用者的照片不留存'
+    # 只有定義處與這一個呼叫點。多出來的呼叫多半是日後又加了一條無條件的路徑。
+    assert src.count('_save_scan_images(') == 2, \
+        '_save_scan_images 的呼叫點變多了，請確認新增的那處有沒有繞過 tester_id'
+
+
 def test_存圖在閘門之前():
     src = read(CLOUD)
     save_at = src.index('_save_scan_images(label_images')

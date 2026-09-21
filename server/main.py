@@ -1043,27 +1043,40 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
             # --- 相關性／品質閘門：非食品標籤或無實質內容者，不寫入共享資料庫 ---
             scan_ok, scan_reason = _is_valid_food_scan(vision_data)
 
-            # 存圖與建檔在閘門**之前**做，通過與否都做。
-            # 先前這件事排在閘門之後，於是沒通過的照片連同它失敗的原因一起消失，
-            # 想知道「管線讀不動什麼」就只剩日誌裡的一行字。
             target_barcode = barcode or f"IMG_{int(time.time())}"
-            _saved = _save_scan_images(label_images, target_barcode)
-            _record_scan_uploads(
-                cursor, _saved,
-                tester_id=tester_id,
-                barcode=barcode,
-                request_id=T.safe_request_id(request.headers.get(T.REQUEST_ID_HEADER)),
-                vision_backend=vision_backend.backend_name(),
-                gate_passed=scan_ok,
-                gate_reason=None if scan_ok else scan_reason,
-                recognized=vision_data,
-            )
-            # 紀錄自己 commit：後面的流程可能因為閘門未過而提早 return，
-            # 那時這些 INSERT 還在交易裡，會跟著被丟掉。
-            try:
-                db.commit()
-            except Exception as _e:
-                print(f"[WARN] [ScanUpload] commit 失敗（不影響分析結果）: {_e}")
+
+            # --- 樣本蒐集：**只收測試者的照片** ---------------------------------
+            # 一般使用者的照片一張都不留。這與本專案既有的界線一致：個人化只在
+            # App 端本地跑、健康背景不送往後端、Fog 還有 mask_sensitive_data()
+            # 作為深度防禦。在那個脈絡下「所有人的照片一律留存」是不相稱的。
+            #
+            # 測試者是自己人，知道自己在提供資料，所以收；而蒐集的目的（知道管線
+            # 讀不動什麼）靠測試者的樣本就達得到，不需要動到一般使用者。
+            #
+            # ⚠ 2026-09-21 這裡一度是無條件執行。改成有條件之後，「沒收到樣本」
+            #   最可能的原因是 App 沒送 X-Tester-Id（.env 的 EXPO_PUBLIC_TESTER_ID
+            #   沒填，或走 Fog 時哪一層沒轉發），而不是後端壞了。
+            #
+            # 存圖與建檔刻意排在相關性閘門**之前**：閘門沒過的照片正是最該收的
+            # 一批——能通過閘門的代表管線已經讀得動它了。
+            if tester_id:
+                _saved = _save_scan_images(label_images, target_barcode)
+                _record_scan_uploads(
+                    cursor, _saved,
+                    tester_id=tester_id,
+                    barcode=barcode,
+                    request_id=T.safe_request_id(request.headers.get(T.REQUEST_ID_HEADER)),
+                    vision_backend=vision_backend.backend_name(),
+                    gate_passed=scan_ok,
+                    gate_reason=None if scan_ok else scan_reason,
+                    recognized=vision_data,
+                )
+                # 紀錄自己 commit：後面的流程可能因為閘門未過而提早 return，
+                # 那時這些 INSERT 還在交易裡，會跟著被丟掉。
+                try:
+                    db.commit()
+                except Exception as _e:
+                    print(f"[WARN] [ScanUpload] commit 失敗（不影響分析結果）: {_e}")
 
             if not scan_ok:
                 print(f"[GATE] 上傳圖片未通過相關性/品質閘門：{scan_reason}，不寫入 DB")
