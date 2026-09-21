@@ -735,20 +735,49 @@ def match_ingredients(ing_list_raw, vision_data, cursor, vector_rag,
         if match and match['description']:
             final_desc = match['description']
             final_purpose = match['food_tech_purpose']
+        elif match:
+            # 資料庫**有這一項但沒有說明**：標示未載明，不拿模型生成的描述頂上。
+            #
+            # 2026-09-22：原本這種情形會掉到下面的 `elif ai_desc`，於是顯示的是
+            # 視覺模型當場產生的說明。知識庫的填寫紀律是「只填有確定性文獻可佐證
+            # 的部分」，需要毒理或醫學判斷的欄位一律留空（iarc_class、
+            # jecfa_summary、medical_caution 都是 0 覆蓋），而留空的欄位若在呈現時
+            # 被模型補上，那條紀律就等於沒有——使用者看到的仍是未查證的內容，
+            # 而且它旁邊還掛著這一項的正式出處連結，看起來像有根據。
+            #
+            # 用與 caution／iarcRating 同一個標籤：見 NO_FIELD_DATA_LABEL 的說明，
+            # 不可寫成「無」或「無特定風險」——那會被讀成「經評估無需注意」。
+            final_desc = NO_FIELD_DATA_LABEL
+            final_purpose = match['food_tech_purpose']
+            # 仍然記進待更新清單，讓「哪些項目缺說明」查得到。
+            # 註：清單目前只收集不套用（見本檔末尾註解掉的自動補齊），
+            # 補齊與否是資料層的決定，不在這裡做。
+            db_updates.append({
+                "name": ing,
+                "description": None,
+                "purpose": ai_purpose,
+                "exists": True,
+                "id": match['id'],
+            })
         elif ai_desc:
             final_desc = ai_desc
             final_purpose = ai_purpose
-            # 如果資料庫已有此項但沒描述，或根本沒有此項，則加入更新清單
+            # 走到這裡表示資料庫**根本沒有這一項**（有這一項但缺說明的情形已由
+            # 上面的 `elif match` 接走），故 exists 必為 False。
             db_updates.append({
                 "name": ing,
                 "description": ai_desc,
                 "purpose": ai_purpose,
-                "exists": bool(match),
-                "id": match['id'] if match else None
+                "exists": False,
+                "id": None,
             })
-        elif match:
-            final_desc = f"此成分為{match['food_tech_purpose'] or '食品添加物'}，建議依個人體質適量攝取。"
-            final_purpose = match['food_tech_purpose']
+        # 註：原本此處還有一條 `elif match` 分支，內容是
+        #     f"此成分為{food_tech_purpose}，建議依個人體質適量攝取。"
+        # 2026-09-22 移除，兩個理由：
+        #   1. 它已被上面新增的 `elif match` 完全遮蔽，永遠不會執行。
+        #   2. food_tech_purpose 裝的是食藥署的使用範圍及限量原文（含劑量與換行，
+        #      最長 319 字），套進那個句型會產生一大段不成話的文字；而
+        #      「建議依個人體質適量攝取」本身也是憑空給的建議，沒有出處。
         elif matched_by is None:
             # 兩個資料庫都沒命中：不得以「無特定風險紀錄」帶過。沒有紀錄的原因是
             # 未收錄，不是評估後認定無風險，兩者對使用者的意義完全相反。

@@ -77,8 +77,15 @@ export default function IngredientsList({ ingredients }: Props) {
 
             {isExpanded && (
               <View style={styles.body}>
+                {/* 退路分兩種。先前一律用「一般成分，無特定化學危害紀錄。」，
+                    但那句話套在**添加物**身上是錯的兩次：它不是一般成分，而
+                    「無特定化學危害紀錄」會被讀成「經評估無需注意」——沒有紀錄
+                    的原因是資料庫未載明，不是評估後認定無害，兩者意義相反。
+                    伺服器端 NO_FIELD_DATA_LABEL 的註解講的是同一件事。 */}
                 <Text style={styles.description}>
-                  {shortDesc || ing.description || '一般成分，無特定化學危害紀錄。'}
+                  {shortDesc ||
+                    ing.description ||
+                    (isAdditive ? '資料庫未載明此項的說明。' : '一般成分，無特定化學危害紀錄。')}
                 </Text>
 
                 {/* 掃到的原文與疑似對象**並列**。只給疑似對象就是替換，
