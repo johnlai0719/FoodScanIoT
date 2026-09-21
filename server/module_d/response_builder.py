@@ -182,6 +182,9 @@ def build_response(product, ai_data, calc_result, deterministic_score,
     overall_summary = build_overall_summary(
         deterministic_score, calc_result.get("grade"), formatted_score_breakdown)
     additives_summary = build_additives_summary(chemical, basic_detail)
+    from .grounded_summary import summarize
+    grounded = summarize(overall_summary, additives_summary, chemical)
+    overall_summary, additives_summary = grounded['overall'], grounded['additives']
 
     # 為維持與行動 App 分割邏輯的相容性，將總結結合並加入「[AI 深度分析]：」分割符。
     # 原本是三段，現在是兩段。
@@ -191,6 +194,8 @@ def build_response(product, ai_data, calc_result, deterministic_score,
 
     # 建立滿足 React Native App 與 API_SPEC_APP.md 串接要求的診斷物件
     final_health_diagnosis_obj = {
+        "summary_generation": {"mode":grounded['mode'], "fallback_reason":grounded['reason'],
+                               "citations":grounded['citations']},
         "score": ai_data.get("score", deterministic_score),
         "summary": combined_summary,
         "overall_summary": overall_summary,
