@@ -30,6 +30,10 @@ import BarcodeScanner from '../components/BarcodeScanner';
 import { analyzePersonalRisks, getProductAllergenWarnings } from '../utils/personalization';
 import { FOG_URL, CLOUD_URL, CLOUD_API_KEY, TESTER_ID, ANALYSIS_TIMEOUT_MS } from '../constants/endpoints';
 import * as Telemetry from '../utils/telemetry';
+import {
+  loadHistory, recordScan, clearHistory, relativeTime,
+  HistoryEntry, MAX_HISTORY,
+} from '../utils/scanHistory';
 import { getDataFreshness } from '../utils/dataFreshness';
 import {
   getScoreBreakdownList,
@@ -277,6 +281,12 @@ export default function HomeScreen() {
   const [lastTiming, setLastTiming] = useState<
     { totalMs: number; cloudMs: number | null; cached: boolean } | null>(null);
   const [isScoreExpanded, setIsScoreExpanded] = useState(false);
+  // 本機查詢歷史。存整份結果，點回去能離線重現同一個結果頁——理由見 utils/scanHistory.ts。
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+
+  useEffect(() => {
+    loadHistory().then(setHistory);
+  }, []);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const toggleAllergen = (key: string) => {
@@ -414,6 +424,8 @@ export default function HomeScreen() {
 
       recResult = result;
       setAnalysisResult(result);
+      // 失敗與降階的形狀沒有 health_score，recordScan 會自己擋掉，這裡不必再判斷。
+      recordScan(result).then(setHistory);
     } catch (err: any) {
       // AbortError 要單獨講：「連不上」與「等太久」對使用者是不同的下一步，
       // 前者去檢查網路或伺服器，後者重試或少拍幾張就好。
@@ -972,6 +984,54 @@ export default function HomeScreen() {
                     <Text style={s.btnPrimaryText}>開始分析</Text>
                   </Pressable>
                 </View>
+
+                {/* ── 最近查過 ────────────────────────────────────────────────
+                    點回去直接重現當時的結果，不重打分析：重打不只是再等十秒，
+                    同一張照片重跑辨識未必得到一樣的結果，那樣「歷史」就名不副實。
+                    只留 {MAX_HISTORY} 筆，整份結果約 68 KB／筆。 */}
+                {history.length > 0 && (
+                  <View style={s.historyBox}>
+                    <View style={s.historyHeader}>
+                      <Text style={s.historyTitle}>最近查過</Text>
+                      <Pressable
+                        onPress={() => { clearHistory(); setHistory([]); }}
+                        hitSlop={8}
+                        accessibilityRole="button"
+                        accessibilityLabel="清除查詢紀錄"
+                      >
+                        <Text style={s.historyClear}>清除</Text>
+                      </Pressable>
+                    </View>
+                    {history.map(item => (
+                      <Pressable
+                        key={item.id + item.savedAt}
+                        style={s.historyRow}
+                        onPress={() => {
+                          // 直接還原成結果頁。刻意不改 barcodeInput／uploadedImages——
+                          // 那兩個是「接下來要查什麼」，不是「剛剛看了什麼」。
+                          setAnalysisResult(item.result);
+                          setDegradedResult(null);
+                          setAnalysisError(null);
+                          setIsAnalyzing(false);
+                          setView('result');
+                        }}
+                      >
+                        <View style={s.historyRowMain}>
+                          <Text style={s.historyName} numberOfLines={1}>{item.name}</Text>
+                          <Text style={s.historyMeta}>
+                            {item.brand ? `${item.brand}・` : ''}{relativeTime(item.savedAt)}
+                          </Text>
+                        </View>
+                        {!!item.nutriGrade && (
+                          <View style={s.historyGrade}>
+                            <Text style={s.historyGradeText}>{item.nutriGrade}</Text>
+                          </View>
+                        )}
+                        <ChevronRight size={14} color={TEXT_MID} />
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
 
                 {/* 進階設定：開發／展示用（選後端節點、清快取），故置於主要動作之後 */}
                 <Pressable style={s.advancedBtn} onPress={() => setView('settings')}>
@@ -1699,6 +1759,32 @@ const createStyles = (scale: number) => StyleSheet.create({
   // 不裁掉會蓋到浮動按鈕。
   zoomViewport: { flex: 1, overflow: 'hidden' },
   zoomLayer: { flex: 1 },
+
+  // 最近查過
+  historyBox: { marginTop: 20, gap: 2 },
+  historyHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  historyTitle: {
+    fontSize: 10 * scale, fontWeight: '800', color: TEXT_DARK,
+    textTransform: 'uppercase', letterSpacing: 0.6,
+  },
+  historyClear: { fontSize: 11 * scale, color: TEXT_MID, fontWeight: '600' },
+  historyRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: 'rgba(200,184,154,0.4)',
+  },
+  historyRowMain: { flex: 1, gap: 2 },
+  historyName: { fontSize: 13 * scale, fontWeight: '700', color: TEXT_DARK },
+  historyMeta: { fontSize: 10 * scale, color: TEXT_MID },
+  historyGrade: {
+    minWidth: 22, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6,
+    backgroundColor: BRAND_LIGHT, borderWidth: 1, borderColor: BRAND,
+    alignItems: 'center',
+  },
+  historyGradeText: { fontSize: 11 * scale, fontWeight: '800', color: BRAND },
 
   // Card — no box, content directly on background
   card: {
