@@ -16,10 +16,11 @@
 2. **輸出指不出來源的條目。** 庫內有 5 條標著 confidence "verified" 卻
    source_type "none"、網址空白——schema 上的矛盾。服務層直接不輸出。
 
-3. **把原文與模型解讀混成一段。** sourceQuote 是來源真正寫了什麼、reason 是
-   模型怎麼讀它、reviewedByHuman 是有沒有人確認過這個解讀。三層混在一起就
-   分不出哪一句要負責。2026-09-22 之前 sourceQuote 根本沒被送出，畫面上
-   只有模型的解讀。
+3. **把來源原文送到 App。** source_quote 是證據基礎，但**留在資料庫備查**——
+   決定是評審問起再拿出來。畫面上給網址已足以追溯（庫內「只有引述、沒有網址」
+   的條目是 0 筆），逐條附上英文原文段落只會讓使用者讀不完。
+   三層的分離仍在資料庫裡：source_quote 來源寫了什麼、ai_reasoning 模型怎麼讀、
+   reviewed_by_human 有沒有人確認過這個解讀。
 
 另外釘住不可信的 metadata 不再外流：同一個網址（PMC4017440）在庫內掛了
 8 種不同標題、26 條記錄，年份格式也混（1998 是數字、"2022" 是字串、有空字串
@@ -78,17 +79,31 @@ def test_證據狀態只表示有來源不表示已驗證(cur):
 
 def test_指不出來源的一律不輸出(cur):
     for r in _all_risks(cur):
-        assert (r.get("sourceUrl") or r.get("sourceQuote")), \
-            f"輸出了既無網址也無引述的條目：{r}"
+        assert r.get("sourceUrl"), f"輸出了沒有來源網址的條目：{r}"
 
 
-def test_原文與解讀是兩個欄位(cur):
+def test_原文留在資料庫不送出(cur):
+    """source_quote 是證據基礎，但**不送到 App**——決定是評審問起再拿出來。
+
+    畫面上給 sourceUrl 已足以追溯（庫內「只有引述、沒有網址」的條目是 0 筆），
+    逐條附上英文原文段落只會讓使用者讀不完。
+
+    ⚠ 這是呈現上的決定，不是把證據拿掉：資料仍在 additives.risks 裡。
+      要把它上架回去的話，連同這條斷言一起改。
+    """
+    for r in _all_risks(cur):
+        assert "sourceQuote" not in r, "原文不應送到 App，它留在資料庫備查"
+        # 模型的解讀與複核狀態仍要送，否則畫面無法標示「未經人工複核」
+        assert "reason" in r and "reviewedByHuman" in r
+
+
+def test_送出的每一條都點得開(cur):
+    """門檻是「一定要有網址」，所以畫面上不會出現追溯不了的條目。"""
     risks = _all_risks(cur)
-    # 至少要有一筆真的帶原文，否則這個分離等於沒做
-    assert any(r.get("sourceQuote") for r in risks), "沒有任何條目送出 sourceQuote"
+    assert risks
     for r in risks:
-        assert "reason" in r and "sourceQuote" in r
-        assert "reviewedByHuman" in r
+        assert (r.get("sourceUrl") or "").startswith("http"), \
+            f"送出了沒有可用網址的條目：{r}"
 
 
 def test_不可信的metadata不再送出(cur):

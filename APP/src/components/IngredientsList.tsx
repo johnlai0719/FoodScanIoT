@@ -162,13 +162,10 @@ export default function IngredientsList({ ingredients }: Props) {
                         <Text style={styles.riskItem}>
                           • {groupLabel(r.group)}：{r.reason}
                         </Text>
-                        {/* 原文與解讀分開擺。合成一段的話，使用者分不出哪一句
-                            是來源寫的、哪一句是模型讀出來的。 */}
-                        {!!r.sourceQuote && (
-                          <Text style={styles.riskQuote} numberOfLines={4}>
-                            原文：{r.sourceQuote}
-                          </Text>
-                        )}
+                        {/* 來源原文（資料庫的 source_quote）**刻意不顯示**，
+                            留在庫裡備查——決定是評審問起再拿出來。畫面上給連結
+                            已足以追溯，逐條附上英文原文段落只會讓人讀不完。
+                            ⚠ 畫面沒有原文不代表沒有原文。 */}
                         <View style={styles.riskFootRow}>
                           {!r.reviewedByHuman && (
                             <Text style={styles.riskUnreviewed}>未經人工複核</Text>
@@ -362,17 +359,6 @@ const createStyles = (scale: number) => StyleSheet.create({
     marginBottom: 2,
   },
   riskEntry: { gap: 3, paddingVertical: 2 },
-  // 原文引述用灰色、小一號並加左緣線：視覺上與模型的解讀分開，
-  // 不是為了好看，是為了一眼看得出哪一句是來源寫的。
-  riskQuote: {
-    fontSize: 10 * scale,
-    color: '#6b7280',
-    lineHeight: 14,
-    paddingLeft: 8,
-    borderLeftWidth: 2,
-    borderLeftColor: '#fecdd3',
-    marginLeft: 6,
-  },
   riskFootRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginLeft: 6 },
   riskUnreviewed: { fontSize: 9 * scale, color: '#9ca3af', fontWeight: '700' },
   riskSourceLink: { fontSize: 9 * scale, color: '#0097A7', fontWeight: '700' },

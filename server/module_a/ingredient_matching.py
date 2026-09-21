@@ -880,7 +880,11 @@ def match_ingredients(ing_list_raw, vision_data, cursor, vector_rag,
                 #   risks 的添加物，空白也不可被讀成安全。
                 source_url = (r.get("source_url") or "").strip()
                 source_quote = (r.get("source_quote") or "").strip()
-                if not source_url and not source_quote:
+                # 門檻：**一定要有網址**。實測庫內「只有引述沒有網址」的條目是 0 筆
+                # （51 條兩者都有、9 條只有網址、5 條兩者都無），所以這條門檻今天
+                # 不會多擋掉任何東西，但它讓保證變得明確：畫面上出現的每一條，
+                # 使用者都點得開去對。
+                if not source_url:
                     continue
 
                 group_risks.append({
@@ -890,10 +894,6 @@ def match_ingredients(ing_list_raw, vision_data, cursor, vector_rag,
                     # 原文寫了什麼、模型怎麼讀它，是兩件事，混在一起就分不出
                     # 哪一句要負責。
                     "reason": r.get("ai_reasoning") or source_quote or zh_group,
-                    # 來源真正寫了什麼。2026-09-22 之前這一欄**從未送到 App**，
-                    # 只在 ai_reasoning 缺席時被當成替代文字——真正的證據沒上桌，
-                    # 畫面上只剩模型的解讀。
-                    "sourceQuote": source_quote,
                     "sourceUrl": source_url,
                     # 證據狀態。**刻意不叫 confidence，值也不再有 "verified"。**
                     # 庫內全部 65 條都是 reviewed_by_human=false，沒有任何一條經過
@@ -910,6 +910,15 @@ def match_ingredients(ing_list_raw, vision_data, cursor, vector_rag,
                     #   像已審定的結論。缺這個鍵時一律視為 False。
                     "reviewedByHuman": bool(r.get("reviewed_by_human")),
                 })
+                # 註：source_quote 自 2026-09-22 起**不輸出**，留在資料庫備查。
+                # 它仍是這一層的證據基礎（ai_reasoning 是對它的解讀），需要時
+                # 從 additives.risks 取得即可。不送出的理由是決定「先放在庫裡，
+                # 評審問起再拿出來」——畫面上給網址已足以追溯，而逐條附上英文
+                # 原文段落只會讓使用者讀不完。
+                #
+                # ⚠ 因此「畫面上沒有原文」不代表沒有原文。要把它上架回去的話，
+                #   連同 test_evidence_vocabulary.py 的斷言一起改。
+                #
                 # 註：sourceTitle 與 sourceYear 自 2026-09-22 起不再輸出。
                 # 實測庫內同一個網址（PMC4017440）掛了 8 種不同標題、26 條記錄，
                 # 其中有明顯對不上的；年份格式也混（1998 是數字、"2022" 是字串、

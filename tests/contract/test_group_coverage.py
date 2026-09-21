@@ -117,9 +117,13 @@ def test_group_risk_carries_its_source(caffeine_risk):
     庫內同一個網址（PMC4017440）掛了 8 種不同標題、26 條記錄，其中有明顯
     對不上的；年份格式也混，21 條沒有標題。錯誤的 metadata 比缺 metadata
     更糟——它看起來正式，反而讓人誤信。真正可追溯的是網址與原文引述，
-    改成檢查那兩者（見 test_evidence_vocabulary.py）。欄位仍留在資料庫。
+    改成檢查網址（見 test_evidence_vocabulary.py）。欄位仍留在資料庫。
+
+    `sourceQuote` 同樣**不送出**，留在資料庫備查——決定是評審問起再拿出來。
+    畫面上給網址已足以追溯，而庫內「只有引述、沒有網址」的條目是 0 筆，
+    所以每一條送出的都點得開。
     """
-    for key in ("sourceUrl", "sourceQuote", "evidenceStatus", "reviewedByHuman"):
+    for key in ("sourceUrl", "evidenceStatus", "reviewedByHuman"):
         assert key in caffeine_risk, "groupRisks 少了 %s" % key
     assert caffeine_risk["sourceUrl"].startswith("http"), \
         "咖啡因的孕婦風險在 seed 裡有 WHO 的連結，卻沒帶出來"
