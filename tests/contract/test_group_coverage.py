@@ -112,8 +112,14 @@ def test_group_risk_carries_its_source(caffeine_risk):
     組裝時沒帶出去——畫面講得出理由、講不出依據。這與第 0 條原則
     「輸出的每個字都要有來源」是同一件事：有來源卻不呈現，使用者無從分辨
     這句話是查來的還是編的。
+
+    2026-09-22 更新：`sourceTitle` 與 `sourceYear` 已**刻意不再送出**。
+    庫內同一個網址（PMC4017440）掛了 8 種不同標題、26 條記錄，其中有明顯
+    對不上的；年份格式也混，21 條沒有標題。錯誤的 metadata 比缺 metadata
+    更糟——它看起來正式，反而讓人誤信。真正可追溯的是網址與原文引述，
+    改成檢查那兩者（見 test_evidence_vocabulary.py）。欄位仍留在資料庫。
     """
-    for key in ("sourceUrl", "sourceTitle", "sourceYear", "reviewedByHuman"):
+    for key in ("sourceUrl", "sourceQuote", "evidenceStatus", "reviewedByHuman"):
         assert key in caffeine_risk, "groupRisks 少了 %s" % key
     assert caffeine_risk["sourceUrl"].startswith("http"), \
         "咖啡因的孕婦風險在 seed 裡有 WHO 的連結，卻沒帶出來"

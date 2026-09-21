@@ -49,6 +49,30 @@ from module_a.ingredient_parser import (
 # 糖尿病的個人化只能靠營養素閾值，不能靠 groupRisks。
 CONCERN_TO_LEVEL = {"caution": 1, "avoid": 3, "danger": 5}
 
+# 主管機關／國際評估機構的網域。用來判定證據層級，不用來判定可信度。
+_REGULATOR_DOMAINS = (
+    "efsa.europa.eu", "who.int", "fao.org", "inchem.org",
+    "fda.gov", "fsa.gov.uk", "mhlw.go.jp", "fda.gov.tw",
+)
+
+
+def _evidence_scope(source_url: str, source_type) -> str | None:
+    """證據層級。判不出來就回 None——不猜。
+
+    「某族群有臨床風險」「法規要求標示」「機制上可能相關」不是同一個層級，
+    全壓成 concern 等級會損失證據語意。但層級只有讀過該篇才分得出來，
+    唯一能從網址機械判定的是「這是不是主管機關／國際評估機構的文件」。
+
+    其餘（direct_clinical／review_article／observational／mechanistic）需要人
+    逐篇認定，留 None 等人工補。**不由系統推論**——那正是這一層要避免的事。
+    """
+    url = (source_url or "").lower()
+    if any(d in url for d in _REGULATOR_DOMAINS):
+        return "regulatory_or_authority"
+    if (source_type or "").strip().lower() == "official":
+        return "regulatory_or_authority"
+    return None
+
 GROUP_ZH_TO_EN = {
     "孕婦": "pregnant", "哺乳期婦女": "pregnant",
     "嬰幼兒": "child", "兒童": "child", "兒童及青少年": "child",
@@ -844,23 +868,54 @@ def match_ingredients(ing_list_raw, vision_data, cursor, vector_rag,
                 en_group = GROUP_ZH_TO_EN.get(zh_group)
                 if not en_group:
                     continue
+
+                # ── 證據納入門檻 ────────────────────────────────────────────
+                # 沒有可追溯的來源就不輸出。庫內有 5 條標著 confidence
+                # "verified" 卻 source_type "none"、網址空白——那是 schema 上的
+                # 矛盾：宣稱已驗證卻指不出依據。與其在畫面上替它解釋，不如
+                # 不輸出；資料本身保留，要複核或補出處隨時看得到。
+                #
+                # ⚠ 門檻是「指得出來源」，不是「風險大小」。不輸出**不代表沒有
+                #   風險**，只代表這一條沒有達到系統的納入門檻。同理，755 種沒有
+                #   risks 的添加物，空白也不可被讀成安全。
+                source_url = (r.get("source_url") or "").strip()
+                source_quote = (r.get("source_quote") or "").strip()
+                if not source_url and not source_quote:
+                    continue
+
                 group_risks.append({
                     "group": en_group,
                     "riskLevel": CONCERN_TO_LEVEL.get(r.get("concern", "caution"), 1),
-                    "reason": r.get("ai_reasoning") or r.get("source_quote") or zh_group,
-                    "confidence": r.get("confidence", ""),
-                    # 2026-09-13 加入出處四欄。在這之前畫面講得出理由、講不出依據，
-                    # 而資料庫裡一直存著 WHO／EFSA／JECFA 的連結與原文引述。
-                    # 這與第 0 條原則（輸出的每個字都要有來源）是同一件事：
-                    # 有來源卻不呈現，使用者無從分辨這句話是查來的還是編的。
-                    "sourceUrl": r.get("source_url") or "",
-                    "sourceTitle": r.get("source_title") or "",
-                    "sourceYear": r.get("source_year"),
-                    # ⚠ 這些 ai_reasoning 是模型產生的（有 source_quote 佐證，
-                    #   但多數未經逐筆人工複核）。誠實標出來，不要讓它看起來
+                    # 模型對來源的解讀。與下面的 sourceQuote 刻意分成兩個欄位：
+                    # 原文寫了什麼、模型怎麼讀它，是兩件事，混在一起就分不出
+                    # 哪一句要負責。
+                    "reason": r.get("ai_reasoning") or source_quote or zh_group,
+                    # 來源真正寫了什麼。2026-09-22 之前這一欄**從未送到 App**，
+                    # 只在 ai_reasoning 缺席時被當成替代文字——真正的證據沒上桌，
+                    # 畫面上只剩模型的解讀。
+                    "sourceQuote": source_quote,
+                    "sourceUrl": source_url,
+                    # 證據狀態。**刻意不叫 confidence，值也不再有 "verified"。**
+                    # 庫內全部 65 條都是 reviewed_by_human=false，沒有任何一條經過
+                    # 人工逐筆複核，此時把 verified 呈現成「已驗證」會答不出
+                    # 「誰驗證的」。這一欄要表達的一直都是「附有可追溯的來源證據」，
+                    # 不是「內容已被確認為真」。
+                    "evidenceStatus": "source_backed",
+                    # 證據層級。能從來源網域機械判定的才填，判不出來就留 None——
+                    # 「這是臨床研究還是綜述」要讀過該篇才知道，由系統猜等於
+                    # 又做了一次無法驗證的推論。
+                    "evidenceScope": _evidence_scope(source_url, r.get("source_type")),
+                    # ⚠ ai_reasoning 是模型產生的（有 sourceQuote 佐證，但未經逐筆
+                    #   人工複核）。誠實標出來，呈現端必須據此加註，不可讓它看起來
                     #   像已審定的結論。缺這個鍵時一律視為 False。
                     "reviewedByHuman": bool(r.get("reviewed_by_human")),
                 })
+                # 註：sourceTitle 與 sourceYear 自 2026-09-22 起不再輸出。
+                # 實測庫內同一個網址（PMC4017440）掛了 8 種不同標題、26 條記錄，
+                # 其中有明顯對不上的；年份格式也混（1998 是數字、"2022" 是字串、
+                # 有空字串也有 null），21 條根本沒有標題。網址與引述是一致的，
+                # 標題與年份是模型填的。**錯誤的 metadata 比缺 metadata 更糟**——
+                # 它看起來正式，反而讓人誤信。欄位仍留在資料庫，只是不送出。
 
             adi_val = None
             if match and match.get('adi'):

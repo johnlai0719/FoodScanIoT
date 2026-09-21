@@ -38,8 +38,16 @@ export interface AdditiveRisk {
   riskLevel: number;
   /** 依據的出處。空字串代表那一筆沒有記，畫面上不要顯示成連結。 */
   sourceUrl?: string;
-  sourceTitle?: string;
-  sourceYear?: number | null;
+  /** 來源的原文引述。這才是證據本身，與 reason（模型的解讀）分開。 */
+  sourceQuote?: string;
+  /**
+   * 證據狀態，目前只有 `source_backed`＝附有可追溯的來源證據。
+   * 刻意不叫 confidence、也不會是 `verified`——見 types.ts 的 GroupRisk。
+   *
+   * 註：sourceTitle 與 sourceYear 已於 2026-09-22 移除，服務層不再送出
+   * （庫內的標題與年份不可信，見 tests/contract/test_evidence_vocabulary.py）。
+   */
+  evidenceStatus?: string;
   /** 未經人工複核時要在畫面上標出來——見 types.ts 的 GroupRisk。 */
   reviewedByHuman?: boolean;
 }
@@ -257,8 +265,8 @@ export function matchAdditiveRisks(
           // 出處一併帶下去。不帶的話畫面講得出理由卻講不出依據，
           // 使用者無從分辨這句話是查來的還是編的。
           sourceUrl: r.sourceUrl,
-          sourceTitle: r.sourceTitle,
-          sourceYear: r.sourceYear,
+          sourceQuote: r.sourceQuote,
+          evidenceStatus: r.evidenceStatus,
           reviewedByHuman: r.reviewedByHuman,
         })),
     );

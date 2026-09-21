@@ -1331,10 +1331,13 @@ export default function HomeScreen() {
                                   使用者有權分辨——與「輸出的每個字都要有來源」
                                   同一條原則。沒記出處時整行不顯示，不要寫成
                                   「來源：無」，那會讀起來像「查證過但沒有來源」。 */}
-                              {(r.sourceTitle || r.sourceUrl || r.reviewedByHuman === false) && (
+                              {/* 2026-09-22：原本優先顯示 sourceTitle，改為只顯示
+                                  網址。庫內的標題不可信（同一個網址掛了 8 種標題），
+                                  而標題看起來比網址正式，反而更容易讓人誤信。
+                                  年份同理，已不再送出。 */}
+                              {(r.sourceUrl || r.reviewedByHuman === false) && (
                                 <Text style={s.personalRiskSource}>
-                                  {r.sourceTitle || r.sourceUrl}
-                                  {r.sourceYear ? `（${r.sourceYear}）` : ''}
+                                  {r.sourceUrl}
                                   {r.reviewedByHuman === false ? '・未經人工複核' : ''}
                                 </Text>
                               )}

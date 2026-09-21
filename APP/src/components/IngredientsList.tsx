@@ -151,14 +151,40 @@ export default function IngredientsList({ ingredients }: Props) {
                   </View>
                 )}
 
+                {/* 標題刻意不寫成「風險警示」或「經驗證」：庫內沒有任何一條
+                    經過人工逐筆複核，那樣的措辭答不出「誰驗證的」。
+                    這一塊要表達的是「有來源可追溯的注意資訊」，見 types.ts。 */}
                 {ing.groupRisks && ing.groupRisks.length > 0 && (
                   <View style={styles.risksBox}>
-                    <Text style={styles.risksTitle}>可能受體風險警示 (特定族群)</Text>
+                    <Text style={styles.risksTitle}>具來源可追溯之族群注意資訊</Text>
                     {ing.groupRisks.map((r, rid) => (
-                      <Text key={rid} style={styles.riskItem}>
-                        • {groupLabel(r.group)}：{r.reason}
-                      </Text>
+                      <View key={rid} style={styles.riskEntry}>
+                        <Text style={styles.riskItem}>
+                          • {groupLabel(r.group)}：{r.reason}
+                        </Text>
+                        {/* 原文與解讀分開擺。合成一段的話，使用者分不出哪一句
+                            是來源寫的、哪一句是模型讀出來的。 */}
+                        {!!r.sourceQuote && (
+                          <Text style={styles.riskQuote} numberOfLines={4}>
+                            原文：{r.sourceQuote}
+                          </Text>
+                        )}
+                        <View style={styles.riskFootRow}>
+                          {!r.reviewedByHuman && (
+                            <Text style={styles.riskUnreviewed}>未經人工複核</Text>
+                          )}
+                          {!!r.sourceUrl && (
+                            <Pressable onPress={() => Linking.openURL(r.sourceUrl!)} hitSlop={6}>
+                              <Text style={styles.riskSourceLink}>查看來源</Text>
+                            </Pressable>
+                          )}
+                        </View>
+                      </View>
                     ))}
+                    {/* 空白不等於安全——這句話是這一層的核心，不可省略。 */}
+                    <Text style={styles.riskDisclaimer}>
+                      僅在能指認特定族群、具體機制且附可追溯來源時才列出。未列出不代表無風險。
+                    </Text>
                   </View>
                 )}
 
@@ -334,6 +360,27 @@ const createStyles = (scale: number) => StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 2,
+  },
+  riskEntry: { gap: 3, paddingVertical: 2 },
+  // 原文引述用灰色、小一號並加左緣線：視覺上與模型的解讀分開，
+  // 不是為了好看，是為了一眼看得出哪一句是來源寫的。
+  riskQuote: {
+    fontSize: 10 * scale,
+    color: '#6b7280',
+    lineHeight: 14,
+    paddingLeft: 8,
+    borderLeftWidth: 2,
+    borderLeftColor: '#fecdd3',
+    marginLeft: 6,
+  },
+  riskFootRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginLeft: 6 },
+  riskUnreviewed: { fontSize: 9 * scale, color: '#9ca3af', fontWeight: '700' },
+  riskSourceLink: { fontSize: 9 * scale, color: '#0097A7', fontWeight: '700' },
+  riskDisclaimer: {
+    fontSize: 9 * scale,
+    color: '#9ca3af',
+    lineHeight: 13,
+    marginTop: 4,
   },
   riskItem: {
     fontSize: 11 * scale,
