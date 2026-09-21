@@ -4,6 +4,7 @@ import { ChevronUp, ChevronDown, ExternalLink } from 'lucide-react-native';
 import { IngredientDetail } from '../types';
 import { useFontScale } from '../contexts/FontScaleContext';
 import { groupLabel } from '../constants/groupVocabulary';
+import { essentialDescription, remainingSentences } from '../utils/additiveText';
 
 if (Platform.OS === 'android') {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
@@ -17,10 +18,19 @@ export default function IngredientsList({ ingredients }: Props) {
   const { fontScale } = useFontScale();
   const styles = useMemo(() => createStyles(fontScale), [fontScale]);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(0);
+  // 「詳細說明」是第二層展開，與第一層的 expandedIndex 分開記：
+  // 收起再打開同一項時，詳細說明要回到收起狀態，不然第一眼又變長了。
+  const [detailIndex, setDetailIndex] = useState<number | null>(null);
 
   const toggle = (idx: number) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedIndex(expandedIndex === idx ? null : idx);
+    setDetailIndex(null);
+  };
+
+  const toggleDetail = (idx: number) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setDetailIndex(detailIndex === idx ? null : idx);
   };
 
   return (
@@ -28,6 +38,13 @@ export default function IngredientsList({ ingredients }: Props) {
       {ingredients.map((ing, idx) => {
         const isAdditive = ing.isAdditive === true || ing.isAdditive === 'true';
         const isExpanded = expandedIndex === idx;
+        const isDetailOpen = detailIndex === idx;
+        // 第一眼只給安全性評估與注意事項；「這是什麼」交給上面的類別徽章。
+        // 理由與量測見 utils/additiveText.ts。
+        const shortDesc = essentialDescription(ing.description || '');
+        const restSentences = remainingSentences(ing.description || '');
+        // 有沒有東西可以再展開：剩餘句子、或那段法規限量原文。
+        const hasMore = restSentences.length > 0 || !!ing.purpose;
 
         return (
           <View key={idx} style={[styles.card, isAdditive ? styles.cardAdditive : styles.cardNormal]}>
@@ -60,7 +77,9 @@ export default function IngredientsList({ ingredients }: Props) {
 
             {isExpanded && (
               <View style={styles.body}>
-                <Text style={styles.description}>{ing.description || '一般成分，無特定化學危害紀錄。'}</Text>
+                <Text style={styles.description}>
+                  {shortDesc || ing.description || '一般成分，無特定化學危害紀錄。'}
+                </Text>
 
                 {/* 掃到的原文與疑似對象**並列**。只給疑似對象就是替換，
                     那正是被否決的字典後修正；只給原文則使用者無從查證。
@@ -95,9 +114,33 @@ export default function IngredientsList({ ingredients }: Props) {
                   </View>
                 )}
 
-                {ing.purpose && (
-                  <View style={styles.purposeBox}>
-                    <Text style={styles.purposeText}>主要作用：{ing.purpose}</Text>
+                {/* 第二層：剩下的介紹句 ＋ 法規限量原文。
+                    先前這裡直接把 ing.purpose 標成「主要作用」攤開來，但那個欄位
+                    （additives.food_tech_purpose）裝的是食藥署的「使用範圍及限量」
+                    原文，含劑量數字與換行，最長 319 字——**標籤是錯的，而且它才是
+                    字數的主要來源**。它是查證用的，不該出現在第一眼。 */}
+                {hasMore && (
+                  <Pressable onPress={() => toggleDetail(idx)} style={styles.detailToggle}>
+                    <Text style={styles.detailToggleText}>
+                      {isDetailOpen ? '收起詳細說明' : '詳細說明'}
+                    </Text>
+                    {isDetailOpen
+                      ? <ChevronUp size={12} color="#757575" />
+                      : <ChevronDown size={12} color="#757575" />}
+                  </Pressable>
+                )}
+
+                {isDetailOpen && (
+                  <View style={styles.detailBox}>
+                    {restSentences.length > 0 && (
+                      <Text style={styles.description}>{restSentences.join('。')}。</Text>
+                    )}
+                    {!!ing.purpose && (
+                      <View style={styles.purposeBox}>
+                        <Text style={styles.purposeTitle}>法規使用範圍與限量</Text>
+                        <Text style={styles.purposeText}>{ing.purpose}</Text>
+                      </View>
+                    )}
                   </View>
                 )}
 
@@ -254,7 +297,21 @@ const createStyles = (scale: number) => StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
-  purposeText: { fontSize: 11 * scale, color: '#757575', fontWeight: '600' },
+  purposeTitle: { fontSize: 10 * scale, color: '#1A1A1A', fontWeight: '800', marginBottom: 2 },
+  // 法規原文用比內文小一號、不加粗：它是查證用的附錄，不該跟介紹爭視線。
+  purposeText: { fontSize: 10 * scale, color: '#757575', fontWeight: '500', lineHeight: 15 },
+
+  // 第二層展開的入口。做成文字連結而不是按鈕——這一頁每一項都有一個，
+  // 全做成按鈕會讓清單看起來像一排操作項，而它其實只是「還有沒有更多字」。
+  detailToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    paddingVertical: 2,
+  },
+  detailToggleText: { fontSize: 11 * scale, color: '#757575', fontWeight: '700' },
+  detailBox: { gap: 8 },
   risksBox: {
     backgroundColor: '#fff1f2',
     borderColor: '#fecdd3',
