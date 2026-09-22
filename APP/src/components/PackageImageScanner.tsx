@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, Image, Alert, Pressable, StyleSheet, ScrollView } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, Image, Alert, Pressable, StyleSheet, ScrollView, Modal } from 'react-native';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { Camera, ImagePlus, Trash2, CheckCircle2 } from 'lucide-react-native';
+import { Camera, ImagePlus, Trash2, CheckCircle2, X } from 'lucide-react-native';
 
 // 上傳前壓縮的參數。
 // 依據實驗 05（05-壓縮對本地管線之影響），若壓至 1280px 會使本地 vlcrop 管線添加物 F1 重挫 9.7 點；
@@ -11,14 +13,150 @@ import { Camera, ImagePlus, Trash2, CheckCircle2 } from 'lucide-react-native';
 const MAX_WIDTH = 1920;
 const QUALITY = 0.85;
 
+// 放大檢視器的縮放範圍。上限比整頁縮放（4×）高：這裡要看的是標示上的小字，
+// 而照片本身最長邊有 1920px，放到 6 倍仍在原始解析度內，不會只是放大馬賽克。
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 6;
+
+const clampZoom = (value: number) => {
+  'worklet';
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
+};
+
+/** 夾住位移，讓放大的圖不會被拖出畫面外變成一片黑。 */
+const clampPan = (value: number, scale: number, size: number) => {
+  'worklet';
+  const max = (size * (scale - 1)) / 2;
+  return Math.min(max, Math.max(-max, value));
+};
+
+const toUri = (img: string) =>
+  img.startsWith('data:') ? img : `data:image/jpeg;base64,${img}`;
+
 interface Props {
   onImageCaptured: (base64: string) => void;
   images?: string[];
   onRemoveImage?: (index: number) => void;
 }
 
+/**
+ * 全螢幕檢視器：雙指縮放、拖曳平移。
+ *
+ * 為什麼要獨立成元件：Modal 的內容渲染在**另一個原生視窗**，不在
+ * HomeScreen 那層 GestureHandlerRootView 底下，手勢收不到。所以這裡要自己
+ * 再包一層 GestureHandlerRootView，而且縮放狀態也必須是自己的
+ * （不能沿用整頁縮放的那組 shared value）。
+ *
+ * key 用 index 讓每次開啟都是新的實例，縮放狀態自然歸零——否則關掉再開
+ * 會停在上次放大的位置。
+ */
+function ImageViewer({ uri, index, total, onClose }: {
+  uri: string; index: number; total: number; onClose: () => void;
+}) {
+  const scale = useSharedValue(1);
+  const tx = useSharedValue(0);
+  const ty = useSharedValue(0);
+  const viewW = useSharedValue(0);
+  const viewH = useSharedValue(0);
+  // 增量更新：縮放與拖曳同時進行時才不會互相覆蓋對方寫進去的位移。
+  const prevScale = useSharedValue(1);
+  const prevX = useSharedValue(0);
+  const prevY = useSharedValue(0);
+
+  const gesture = useMemo(() => {
+    const pinch = Gesture.Pinch()
+      .onStart(() => { prevScale.value = 1; })
+      .onUpdate(e => {
+        const factor = e.scale / prevScale.value;
+        prevScale.value = e.scale;
+        const next = clampZoom(scale.value * factor);
+        // 夾到上下限後真正生效的倍率，可能小於手指給的
+        const applied = next / scale.value;
+        const fx = e.focalX - viewW.value / 2;
+        const fy = e.focalY - viewH.value / 2;
+        tx.value = clampPan(fx - (fx - tx.value) * applied, next, viewW.value);
+        ty.value = clampPan(fy - (fy - ty.value) * applied, next, viewH.value);
+        scale.value = next;
+      })
+      .onEnd(() => {
+        if (scale.value <= MIN_ZOOM + 0.01) {
+          scale.value = withTiming(MIN_ZOOM, { duration: 160 });
+          tx.value = withTiming(0, { duration: 160 });
+          ty.value = withTiming(0, { duration: 160 });
+        }
+      });
+
+    // 單指就能拖：這裡沒有 ScrollView 要讓，不必像結果頁那樣限定兩指。
+    const pan = Gesture.Pan()
+      .onStart(() => { prevX.value = 0; prevY.value = 0; })
+      .onUpdate(e => {
+        const dx = e.translationX - prevX.value;
+        const dy = e.translationY - prevY.value;
+        prevX.value = e.translationX;
+        prevY.value = e.translationY;
+        tx.value = clampPan(tx.value + dx, scale.value, viewW.value);
+        ty.value = clampPan(ty.value + dy, scale.value, viewH.value);
+      });
+
+    // 雙擊在 1× 與 2× 之間切換。放大後要看別處時，雙擊歸位比掐回去快。
+    const doubleTap = Gesture.Tap()
+      .numberOfTaps(2)
+      .onEnd(() => {
+        const to = scale.value > MIN_ZOOM + 0.01 ? MIN_ZOOM : 2;
+        scale.value = withTiming(to, { duration: 180 });
+        tx.value = withTiming(0, { duration: 180 });
+        ty.value = withTiming(0, { duration: 180 });
+      });
+
+    return Gesture.Simultaneous(Gesture.Exclusive(doubleTap, pan), pinch);
+  }, []);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: tx.value },
+      { translateY: ty.value },
+      { scale: scale.value },
+    ],
+  }));
+
+  return (
+    <Modal visible transparent={false} animationType="fade"
+           statusBarTranslucent onRequestClose={onClose}>
+      {/* Modal 在另一個原生視窗，手勢要自己再包一層 root */}
+      <GestureHandlerRootView style={s.viewerRoot}>
+        <View
+          style={s.viewerStage}
+          onLayout={e => {
+            viewW.value = e.nativeEvent.layout.width;
+            viewH.value = e.nativeEvent.layout.height;
+          }}
+        >
+          <GestureDetector gesture={gesture}>
+            <Animated.View style={[s.viewerStage, style]}>
+              {/* contain：不裁切。這張是要拿來看清楚標示的，不是拿來排版好看的 */}
+              <Image source={{ uri }} style={s.viewerImg} resizeMode="contain" />
+            </Animated.View>
+          </GestureDetector>
+        </View>
+
+        <Pressable style={s.viewerClose} onPress={onClose}
+                   accessibilityRole="button" accessibilityLabel="關閉">
+          <X size={20} color="#fff" />
+        </Pressable>
+        <View style={s.viewerHint}>
+          <Text style={s.viewerHintText}>
+            第 {index + 1} / {total} 張・雙指縮放、拖曳移動、雙擊放大
+          </Text>
+        </View>
+      </GestureHandlerRootView>
+    </Modal>
+  );
+}
+
 export default function PackageImageScanner({ onImageCaptured, images = [], onRemoveImage }: Props) {
   const [loading, setLoading] = useState<'camera' | 'library' | null>(null);
+  // 正在全螢幕檢視第幾張。null 代表沒開。
+  const [viewing, setViewing] = useState<number | null>(null);
 
   /**
    * 縮圖、壓縮、轉 base64。
@@ -139,10 +277,17 @@ export default function PackageImageScanner({ onImageCaptured, images = [], onRe
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.previewScroll}>
             {images.map((img, i) => (
               <View key={i} style={s.previewItem}>
-                <Image
-                  source={{ uri: img.startsWith('data:') ? img : `data:image/jpeg;base64,${img}` }}
-                  style={s.previewImg}
-                />
+                {/* 點縮圖看大圖。縮圖只有 72px，標示上的小字在這個尺寸下
+                    根本看不出拍清楚了沒有——而那正是使用者按下「開始分析」
+                    之前唯一想確認的事。 */}
+                <Pressable
+                  onPress={() => setViewing(i)}
+                  style={s.previewImgWrap}
+                  accessibilityRole="imagebutton"
+                  accessibilityLabel={`放大檢視第 ${i + 1} 張`}
+                >
+                  <Image source={{ uri: toUri(img) }} style={s.previewImg} />
+                </Pressable>
                 {onRemoveImage && (
                   <Pressable style={s.removeBtn} onPress={() => onRemoveImage(i)}>
                     <Trash2 size={10} color="#fff" />
@@ -155,6 +300,17 @@ export default function PackageImageScanner({ onImageCaptured, images = [], onRe
             ))}
           </ScrollView>
         </View>
+      )}
+
+      {/* key 用 index：每次開啟都是新實例，縮放狀態自然歸零 */}
+      {viewing !== null && images[viewing] && (
+        <ImageViewer
+          key={viewing}
+          uri={toUri(images[viewing])}
+          index={viewing}
+          total={images.length}
+          onClose={() => setViewing(null)}
+        />
       )}
 
       {images.length === 0 && (
@@ -196,7 +352,25 @@ const s = StyleSheet.create({
   previewScroll: { gap: 10, paddingVertical: 2 },
 
   previewItem: { width: 84, height: 84, borderRadius: 14, overflow: 'hidden', position: 'relative' },
+  previewImgWrap: { width: '100%', height: '100%' },
   previewImg: { width: '100%', height: '100%' },
+
+  // 全螢幕檢視器
+  viewerRoot: { flex: 1, backgroundColor: '#000' },
+  viewerStage: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  viewerImg: { width: '100%', height: '100%' },
+  viewerClose: {
+    position: 'absolute', top: 44, right: 16,
+    width: 36, height: 36, borderRadius: 18,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  viewerHint: {
+    position: 'absolute', bottom: 32, alignSelf: 'center',
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  viewerHintText: { fontSize: 11, color: '#fff', fontWeight: '600' },
   removeBtn: {
     position: 'absolute', top: 5, right: 5,
     backgroundColor: 'rgba(220,38,38,0.85)', borderRadius: 8,
