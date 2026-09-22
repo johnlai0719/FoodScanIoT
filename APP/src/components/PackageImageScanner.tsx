@@ -132,8 +132,11 @@ function ImageViewer({ uri, index, total, onClose }: {
           }}
         >
           <GestureDetector gesture={gesture}>
-            <Animated.View style={[s.viewerStage, style]}>
-              {/* contain：不裁切。這張是要拿來看清楚標示的，不是拿來排版好看的 */}
+            <Animated.View style={[s.viewerLayer, style]}>
+              {/* contain：不裁切，也由它負責置中。
+                  ⚠ 外面那層**不可以**加 alignItems/justifyContent center：
+                  那會讓這一層的寬高變成由內容決定，而 Image 是 width:'100%'，
+                  於是解析成 0——畫面上只剩黑底，看起來像圖片載入失敗。 */}
               <Image source={{ uri }} style={s.viewerImg} resizeMode="contain" />
             </Animated.View>
           </GestureDetector>
@@ -357,8 +360,11 @@ const s = StyleSheet.create({
 
   // 全螢幕檢視器
   viewerRoot: { flex: 1, backgroundColor: '#000' },
-  viewerStage: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  viewerImg: { width: '100%', height: '100%' },
+  // 這兩層都只給 flex: 1，不要置中——置中會讓子層的尺寸改由內容決定，
+  // 百分比寬高就失去參照對象。置中交給 Image 的 resizeMode="contain"。
+  viewerStage: { flex: 1 },
+  viewerLayer: { flex: 1 },
+  viewerImg: { flex: 1, width: '100%' },
   viewerClose: {
     position: 'absolute', top: 44, right: 16,
     width: 36, height: 36, borderRadius: 18,
