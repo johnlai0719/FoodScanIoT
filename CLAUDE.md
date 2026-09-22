@@ -44,6 +44,24 @@ python reader/service.py         # 再起 :8180，暖機約 43 秒
 curl localhost:8180/health       # model_servers 兩個都要 true
 ```
 
+**8180 上有兩個可互換的 reader，同時只有一個在跑。** 另一個是競賽版
+（EasyOCR 只偵測 → 文字外接矩形裁切 → Gemini 2.5 Flash），在
+`feat/adi-multimodal-compliance` 的 `tools/reader_competition.py`。它們搶同一張
+GPU，本來就不該並存；聽同一個埠的好處是 **Cloud 連 `READER_URL` 都不用改**。
+
+```powershell
+# 在 _worktrees/adi-multimodal-compliance
+./tools/switch_reader.ps1 competition   # 關掉現行的，起競賽版
+./tools/switch_reader.ps1 vlcrop        # 切回主線
+./tools/switch_reader.ps1 status        # 現在誰在跑
+```
+
+⚠ **`VISION_BACKEND` 分不出是哪一個 reader。** 它只有 `vlcrop`／`gemini` 兩個值，
+而 `vlcrop` 的意思是「走 reader 這條路」。要知道實際是誰做的：看 `/health` 的
+`reader` 欄位，或分析回應的 `_meta.reader`。`scan_uploads.vision_backend` 記的是
+後者的識別碼（`vlcrop_hy`／`easyocr_union_gemini`），所以兩個後端的樣本在資料庫
+裡分得開——這是換後端前後能比較的前提。
+
 ~~Fog 的兩個行程由 PM2 管理（`fog/ecosystem.config.js`）~~
 **2026-09-13 更正：Pi 上實際是 systemd，不是 PM2**（部署時當場發現）。
 重啟用 `systemctl restart`，不是 `pm2 restart`。
