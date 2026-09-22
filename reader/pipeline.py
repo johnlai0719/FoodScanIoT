@@ -175,6 +175,14 @@ def _decode(b64):
     return Image.open(_io.BytesIO(base64.b64decode(b64))).convert("RGB")
 
 
+# 這個 reader 的身分。**同時只會有一個 reader 聽 8180**（它們搶同一張 GPU），
+# 競賽版那支在 feat/adi-multimodal-compliance 的 tools/reader_competition.py。
+# Cloud 端的 VISION_BACKEND 只說「走 reader 這條路」，分不出是哪一個，
+# 所以身分由 reader 自己在 /health 與 _meta.reader 報出來。切換用
+# 該分支的 tools/switch_reader.ps1。
+READER_NAME = "vlcrop_hy (PP-OCR→HunyuanOCR→Qwen)"
+
+
 def read(base64_images, barcode="unknown"):
     """一次請求。回傳的 dict 形狀與 analyze_image_with_gemini 相同。"""
     if not is_ready():
@@ -218,7 +226,7 @@ def read(base64_images, barcode="unknown"):
             out = _mods["EJ"].build(cid)
             _assert_sources(out)
             t["assemble"] = round(time.time() - _t, 2)
-        out.setdefault("_meta", {})["reader"] = "vlcrop_hy (PP-OCR→HunyuanOCR→Qwen)"
+        out.setdefault("_meta", {})["reader"] = READER_NAME
         out["_meta"]["stage_secs"] = t
         # 前後各取一次。只取一次看不出「這次請求把記憶體撐大了多少」——
         # paddle 的記憶體池會隨用量成長且用過不還（2026-09-14 量到載入

@@ -819,6 +819,24 @@ def _save_scan_images(base64_images, barcode):
     return saved
 
 
+def _reader_id(vision_data) -> str:
+    """實際做辨識的那一個的識別碼。
+
+    `vision_backend.backend_name()` 只會回 "vlcrop"／"gemini"，而 "vlcrop" 的
+    意思是「走 reader 這條路」——8180 上可能是主線的 vlcrop_hy，也可能是競賽版的
+    easyocr_union_gemini（同時只有一個在跑，見 feat/adi-multimodal-compliance
+    的 tools/switch_reader.ps1）。只記 "vlcrop" 的話，兩個後端產生的樣本在
+    scan_uploads 裡分不出來，換後端前後的比較就做不了。
+
+    reader 報的是 "vlcrop_hy (PP-OCR→HunyuanOCR→Qwen)" 這種「識別碼＋人看的說明」，
+    取括號前那段即可：scan_uploads.vision_backend 是 String(32)，完整字串 34 字
+    塞不進去，而括號裡的說明本來就不該當識別碼用。
+    """
+    reader = ((vision_data or {}).get("_meta") or {}).get("reader")
+    name = str(reader).split(" (")[0].strip() if reader else vision_backend.backend_name()
+    return name[:32]
+
+
 def _record_scan_uploads(cursor, saved, *, tester_id, barcode, request_id,
                          vision_backend, gate_passed, gate_reason, recognized):
     """把存下來的圖片寫進 scan_uploads。
@@ -1066,7 +1084,13 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
                     tester_id=tester_id,
                     barcode=barcode,
                     request_id=T.safe_request_id(request.headers.get(T.REQUEST_ID_HEADER)),
-                    vision_backend=vision_backend.backend_name(),
+                    # 記**實際做辨識的那一個**，不是 VISION_BACKEND。
+                    # backend_name() 只會回 "vlcrop"／"gemini"，而 "vlcrop" 的意思
+                    # 是「走 reader 這條路」——8180 上可能是主線的 vlcrop_hy，也可能
+                    # 是競賽版的 easyocr_union_gemini（同時只有一個在跑，見該分支的
+                    # tools/switch_reader.ps1）。只記 "vlcrop" 的話，兩個後端產生的
+                    # 樣本在資料庫裡分不出來，換後端前後的比較就做不了。
+                    vision_backend=_reader_id(vision_data),
                     gate_passed=scan_ok,
                     gate_reason=None if scan_ok else scan_reason,
                     recognized=vision_data,

@@ -91,6 +91,9 @@ def health():
     return {
         "status": "ok" if ok else "degraded",
         "layer": "reader",
+        # 誰在跑。8180 上同時只會有一個 reader，光看埠與行程名（兩邊都是
+        # python.exe）分不出是主線還是競賽版，所以要自己報。
+        "reader": pipeline.READER_NAME,
         "pipeline": st["state"],
         "detail": st["detail"],
         "model_servers": servers,
