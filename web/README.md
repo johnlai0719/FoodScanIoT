@@ -1,16 +1,22 @@
-# React + Vite
+# web — 添加物開放查詢平台與管理後台
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React＋Vite。直接讀 Cloud 的 API。
 
-Currently, two official plugins are available:
+| 路徑 | 畫面 |
+|---|---|
+| `/` | 添加物搜尋（`SearchPortal`） |
+| `/additive/:id` | 添加物詳情：用途、使用範圍與限量、附來源的族群注意事項；可提交勘誤建議（`AdditiveDetail`） |
+| `/admin/login`、`/admin/dashboard` | 管理後台：審核勘誤建議、管理食安事件（`AdminLogin`、`AdminDashboard`） |
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 開發
 
-## React Compiler
+```bash
+npm install
+npm run dev
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+後端位址在 `src/config.js`，預設指向 Tailscale 上的 Cloud（:3003）。本機開發可建立 `.env.local`：
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```
+VITE_API_BASE=http://127.0.0.1:3003
+```

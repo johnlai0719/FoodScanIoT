@@ -88,7 +88,7 @@ loopback 不經防火牆，這正是它能潛伏到現在的原因。
 | `APP/` | 手機端。實際程式在 `APP/src/`，主畫面是 `screens/HomeScreen.tsx` |
 | `fog/` | 邊緣節點。`server.ts`/`queryHandler.ts`/`cache.ts` 是 Node 層；`main.py` 是 Python 層；`transforms.py` 是純轉換函式 |
 | `server/` | Cloud。已模組化：`module_a` 成分比對、`module_b` 計分與每日參考值、`module_c` 食安事件、`module_d` 組裝回應 |
-| `shared/` | 跨層 TypeScript 型別。**App 不 import 它**（Metro bundler 的 projectRoot 是 `APP/`，跨出去會打包失敗），只有 `fog/*.ts` 在用 |
+| ~~`shared/`~~ | **已不存在**：2026-08-05 型別搬進 `fog/types.ts`（`fog/tsconfig.json` 的 rootDir 不容許引用 `../shared`，見該檔檔頭）。App 的型別在 `APP/src/types.ts` |
 | `tests/contract/` | 跨層契約測試，CI 會跑 |
 | `添加物資料庫整理/` | 添加物知識庫的建置管線 |
 
@@ -122,7 +122,7 @@ docker compose up -d
 
 | 契約 | 產生處 | 強制處 |
 |---|---|---|
-| Cloud 回應的 22 個頂層欄位 | `server/module_d/response_builder.py` 的 `build_response()` | `tests/contract/test_cloud_response_contract.py` |
+| Cloud 回應的 23 個頂層欄位 | `server/module_d/response_builder.py` 的 `build_response()` | `tests/contract/test_cloud_response_contract.py` |
 | 族群風險詞彙 | `server/module_a/ingredient_matching.py` 的 `GROUP_ZH_TO_EN` | `tests/contract/test_group_vocabulary.py`（跨層比對 `APP/src/constants/groupVocabulary.ts`） |
 | 三層串接後欄位存活 | 上述兩者 ＋ `fog/transforms.py` | `tests/contract/test_layer_chain.py` |
 | App 個人化行為 | `APP/src/utils/personalization.ts` | `APP/src/utils/__tests__/personalization.test.ts` |

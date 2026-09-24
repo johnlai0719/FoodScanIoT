@@ -196,3 +196,10 @@ server/uploads/
 
 # Expo 連線用的 QR（含 Tailscale 內網位址，不進版控）
 APP/expo-qr.png
+
+# 工具自動產生的暫存（2026-09-24 整理 main 時清出：瀏覽器自動化快照 26 個、
+# AI 助理的本機設定，都是誤入版控）
+.playwright-mcp/
+.claude/
+# 一次性試驗腳本。要保留的實驗放進有 README 的研究資料夾，不要放 scratch/
+server/scratch/
