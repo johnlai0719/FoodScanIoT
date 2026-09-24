@@ -13,9 +13,9 @@ services:
 
   cloud-server:
     build:
-      context: ./server
+      context: ./cloud
     env_file:
-      - ./server/.env
+      - ./cloud/.env
     ports:
       # 對外 3003、容器內 8000。**不要改成 8000:8000。**
       # 2026-09-13：專案對外一直是 3003（防火牆規則 "Cloud Fog Port 3003"、
@@ -25,7 +25,7 @@ services:
       - '3003:8000'
     environment:
       - DATABASE_URL=postgresql+psycopg2://postgres:password@db:5432/product_db
-      # ⚠ 這兩行不可省。`server/.env` 裡 DB_HOST=localhost 是給本機直跑用的，
+      # ⚠ 這兩行不可省。`cloud/.env` 裡 DB_HOST=localhost 是給本機直跑用的，
       # 但 main.py:571 與 admin_api.py 走 psycopg2 直連、只讀 DB_HOST，
       # 在容器內 localhost 會指向容器自己 → 比對添加物時連不上資料庫。
       # compose 的 environment 優先於 env_file，在此覆蓋。

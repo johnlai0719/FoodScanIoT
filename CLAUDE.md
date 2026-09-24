@@ -32,15 +32,15 @@ PostgreSQL        :5432
 ```
 
 **視覺辨識 2026-09-13 起預設走 vlcrop，不是 Gemini。**
-切換在 `server/vision_backend.py`，環境變數 `VISION_BACKEND`（`vlcrop`／`gemini`）。
+切換在 `cloud/vision_backend.py`，環境變數 `VISION_BACKEND`（`vlcrop`／`gemini`）。
 Gemini 那條路徑留著作 ABBA 對照與手動退路，**但失敗時不會自動回退**——
 兩者失效模式相反（Gemini 會憑常識補完，添加物精確度 40.2%），靜默回退等於
 「系統偶爾會編造而且沒人知道是哪幾次」。reader 掛掉就讓 Fog 走降階。
 
 起 reader：
 ```bash
-python reader/start_models.py    # 先起 :8177 與 :8179（llama-server）
-python reader/service.py         # 再起 :8180，暖機約 43 秒
+python cloud/reader/start_models.py    # 先起 :8177 與 :8179（llama-server）
+python cloud/reader/service.py         # 再起 :8180，暖機約 43 秒
 curl localhost:8180/health       # model_servers 兩個都要 true
 ```
 
@@ -68,7 +68,7 @@ GPU，本來就不該並存；聽同一個埠的好處是 **Cloud 連 `READER_UR
 `fog/ecosystem.config.js` 仍在版控裡但**不是現行部署方式**——改它不會影響 Pi。
 （依「文件不刪、只加註」保留原文。）
 
-**埠號：對外一律 3003。** 容器內部是 8000（`server/.env` 的 `CLOUD_PORT`
+**埠號：對外一律 3003。** 容器內部是 8000（`cloud/.env` 的 `CLOUD_PORT`
 與 Dockerfile 的 uvicorn），但 compose 發布成 `'3003:8000'`，所以外面看到的
 永遠是 3003——Windows 防火牆規則（"Cloud Fog Port 3003"）、Fog 的
 `CLOUD_API_URL`、App 的 `constants/endpoints.ts` 三處一致。
@@ -76,7 +76,7 @@ GPU，本來就不該並存；聽同一個埠的好處是 **Cloud 連 `READER_UR
 ⚠ 2026-09-13 之前 compose 發布 8000 而其餘全是 3003，**Pi 打不進來、每一次
 都降階，而且看起來像「Cloud 掛了」**——從本機打 `/health` 一直是好的，因為
 loopback 不經防火牆，這正是它能潛伏到現在的原因。
-`tests/contract/test_app_endpoints.py` 現在會比對 App 的常數與 compose
+`cloud/tests/contract/test_app_endpoints.py` 現在會比對 App 的常數與 compose
 實際發布的埠。
 
 ---
@@ -87,10 +87,17 @@ loopback 不經防火牆，這正是它能潛伏到現在的原因。
 |---|---|
 | `APP/` | 手機端。實際程式在 `APP/src/`，主畫面是 `screens/HomeScreen.tsx` |
 | `fog/` | 邊緣節點。`server.ts`/`queryHandler.ts`/`cache.ts` 是 Node 層；`main.py` 是 Python 層；`transforms.py` 是純轉換函式 |
-| `server/` | Cloud。已模組化：`module_a` 成分比對、`module_b` 計分與每日參考值、`module_c` 食安事件、`module_d` 組裝回應 |
+| `cloud/` | Cloud（2026-09-24 前叫 `cloud/`）。已模組化：`module_a` 成分比對、`module_b` 計分與每日參考值、`module_c` 食安事件、`module_d` 組裝回應 |
+| `cloud/reader/` | 視覺辨識服務，**跑在主機上、不在容器裡**（要 GPU 與 paddle） |
+| `cloud/vision/` | 辨識模組：從研究程式抽出、執行時真正會用到的 18 支（切分、營養表、裁切…）＋字典檔。`cloud/reader/` 與 Fog 的本機 OCR 都載入這裡 |
+| `cloud/web/` | 添加物開放查詢平台與管理後台（React＋Vite） |
 | ~~`shared/`~~ | **已不存在**：2026-08-05 型別搬進 `fog/types.ts`（`fog/tsconfig.json` 的 rootDir 不容許引用 `../shared`，見該檔檔頭）。App 的型別在 `APP/src/types.ts` |
-| `tests/contract/` | 跨層契約測試，CI 會跑 |
-| `添加物資料庫整理/` | 添加物知識庫的建置管線 |
+| `cloud/tests/contract/` | 跨層契約測試，CI 會跑（涵蓋 App／Fog／Cloud，放在 cloud 底下是因為契約的產生處在 Cloud） |
+
+**研究與評估不在這個 repo。** 辨識實驗（原 `PPOCR_TEST/`）、量化測試集（原 `測試/量化測試/`）、
+添加物知識庫建置管線（原 `添加物資料庫整理/`）、報告工具（原 `tools/`）
+2026-09-24 移到私人 repo `FoodScanIoT-research`（保留完整歷史）。main 只放執行系統需要的東西。
+整理前的完整狀態在 tag `pre-cleanup-20260924`。
 
 ---
 
@@ -111,8 +118,8 @@ cd APP && npx expo start
 docker compose up -d
 ```
 
-`server/.env` 需要 `GEMINI_API_KEY`、`TAVILY_API_KEY`、DB 連線資訊，
-範本見 `server/.env.example`。
+`cloud/.env` 需要 `GEMINI_API_KEY`、`TAVILY_API_KEY`、DB 連線資訊，
+範本見 `cloud/.env.example`。
 
 ---
 
@@ -122,11 +129,11 @@ docker compose up -d
 
 | 契約 | 產生處 | 強制處 |
 |---|---|---|
-| Cloud 回應的 23 個頂層欄位 | `server/module_d/response_builder.py` 的 `build_response()` | `tests/contract/test_cloud_response_contract.py` |
-| 族群風險詞彙 | `server/module_a/ingredient_matching.py` 的 `GROUP_ZH_TO_EN` | `tests/contract/test_group_vocabulary.py`（跨層比對 `APP/src/constants/groupVocabulary.ts`） |
-| 三層串接後欄位存活 | 上述兩者 ＋ `fog/transforms.py` | `tests/contract/test_layer_chain.py` |
+| Cloud 回應的 23 個頂層欄位 | `cloud/module_d/response_builder.py` 的 `build_response()` | `cloud/tests/contract/test_cloud_response_contract.py` |
+| 族群風險詞彙 | `cloud/module_a/ingredient_matching.py` 的 `GROUP_ZH_TO_EN` | `cloud/tests/contract/test_group_vocabulary.py`（跨層比對 `APP/src/constants/groupVocabulary.ts`） |
+| 三層串接後欄位存活 | 上述兩者 ＋ `fog/transforms.py` | `cloud/tests/contract/test_layer_chain.py` |
 | App 個人化行為 | `APP/src/utils/personalization.ts` | `APP/src/utils/__tests__/personalization.test.ts` |
-| Fog 本機降階回應 | `fog/transforms.py` 的 `build_degraded_local_response()` | `tests/contract/test_degraded_local_contract.py`（跨層比對 `APP/src/types.ts` 的 `DegradedLocalResponse`） |
+| Fog 本機降階回應 | `fog/transforms.py` 的 `build_degraded_local_response()` | `cloud/tests/contract/test_degraded_local_contract.py`（跨層比對 `APP/src/types.ts` 的 `DegradedLocalResponse`） |
 
 **設計原則：契約測試一律是純函式測試**，不啟動伺服器、不連資料庫、不需要 API
 key。這樣它們才能在 CI 上每次 push 都跑。加新測試時請維持這個性質——需要外部
@@ -162,8 +169,9 @@ Cloud 連不上且無快取時的本機 OCR 部分結果，同樣**刻意沒有*
 會被 `looks_like_analysis()` 判成非分析結果、轉成錯誤回應，辨識出的成分會整份丟掉。
 （2026-09-13 更正：原寫「那會補上預設 75 分」，32bcac0 之後已不再如此。）
 
-**Fog 本機降階依賴 `PPOCR_TEST/`，而它目前只在 `feat/vlcrop-pipeline` 分支。**
-`fog/local_ocr.py` 啟動時找不到它就停用降階（`/health` 的 `local_ocr` 會顯示原因），
+**Fog 本機降階依賴 `cloud/vision/`、`cloud/module_a/` 與 `cloud/seed_data/`**（Pi 上是整個 repo 一起拉下來）。
+`deploy-fog.yml` 的觸發路徑因此也包含這幾處。
+`fog/local_ocr.py` 啟動時找不到它們就停用降階（`/health` 的 `local_ocr` 會顯示原因），
 行為退回原本的 504。另外 `deploy-fog.yml` 會在 Pi 上 `git reset --hard origin/main`，
 在 Pi 的 repo 目錄裡開發時，未 commit 的修改會被清掉。
 
@@ -171,9 +179,9 @@ Cloud 連不上且無快取時的本機 OCR 部分結果，同樣**刻意沒有*
 時機不同，Node 的 `INSERT OR REPLACE` 會覆蓋 Python 先寫入的那筆）。動快取邏輯
 前先讀 `fog/cache.ts` 與 `fog/main.py` 兩邊。
 
-**`tests/` 整個被 gitignore**，只有 `tests/contract/` 例外（`.gitignore` 用
-`tests/*` ＋ `!tests/contract/`；git 無法在父目錄被排除後再納入子目錄，所以不能
-只加否定規則）。在 `tests/` 下新增其他測試不會進版控。
+**`cloud/tests/` 底下的測試都在版控內。** 預設只跑 `cloud/tests/contract/`（`pytest.ini` 的 `testpaths`）；
+另外四支整合測試（`test_admin_auth` 等）需要跑起來的伺服器與資料庫、會寫入資料，要明確指定才跑。
+（2026-09-24 前 `tests/` 在根目錄且被 gitignore，只有 `contract/` 例外，搬家時移除了那條規則。）
 
 **`APP/package-lock.json` 被根目錄的 `*.json` 規則擋掉**，所以 CI 只能用
 `npm install` 而非 `npm ci`，每次安裝版本可能不同。
@@ -182,7 +190,7 @@ Cloud 連不上且無快取時的本機 OCR 部分結果，同樣**刻意沒有*
 `fog_cache.db` 執行 `DELETE FROM cache`。在 Pi 上不要跑 `npm test`。
 
 **兩個預設關閉的功能**：
-- `server/main.py:124` 的 `SAFETY_EVENTS_ENABLED = False`——食安事件管線整個停用中，
+- `cloud/main.py:133` 的 `SAFETY_EVENTS_ENABLED = False`——食安事件管線整個停用中，
   但資料庫裡有既有資料，讀文件容易以為它在線上運作。
 - 語意比對（Vector RAG）預設關閉，環境變數 `VECTOR_RAG_ENABLED=1` 才啟用。
   關閉原因：261 個判定中 256 項靠精確比對即命中，且語意層命中時無出處可寫。

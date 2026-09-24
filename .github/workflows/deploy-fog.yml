@@ -21,6 +21,11 @@ on:
     branches: [main]
     paths:
       - 'fog/**'
+      # Fog 的本機 OCR 降階直接載入這幾處（見 fog/local_ocr.py、fog/seed_db.py、fog/main.py）
+      - 'cloud/vision/**'
+      - 'cloud/module_a/**'
+      - 'cloud/seed_data/**'
+      - 'cloud/telemetry.py'
   workflow_dispatch:
 
 jobs:

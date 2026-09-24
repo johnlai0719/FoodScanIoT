@@ -22,10 +22,10 @@
 
 | 對象 | 產生處 | 強制處 |
 |------|--------|--------|
-| Cloud 回應欄位集合 | `server/module_d/response_builder.py` 的 `build_response()` | `tests/contract/test_cloud_response_contract.py`（欄位集合已凍結） |
-| 族群風險詞彙 | `server/module_a/ingredient_matching.py` 的 `GROUP_ZH_TO_EN` | `tests/contract/test_group_vocabulary.py`（跨層比對 App 的 `CLOUD_GROUP_CODES`） |
+| Cloud 回應欄位集合 | `cloud/module_d/response_builder.py` 的 `build_response()` | `cloud/tests/contract/test_cloud_response_contract.py`（欄位集合已凍結） |
+| 族群風險詞彙 | `cloud/module_a/ingredient_matching.py` 的 `GROUP_ZH_TO_EN` | `cloud/tests/contract/test_group_vocabulary.py`（跨層比對 App 的 `CLOUD_GROUP_CODES`） |
 | App 個人化行為 | `APP/src/utils/personalization.ts` | `APP/src/utils/__tests__/personalization.test.ts` |
-| Fog 本機降階回應（Cloud 連不上且無快取） | `fog/transforms.py` 的 `build_degraded_local_response()` | `tests/contract/test_degraded_local_contract.py`（欄位集合已凍結，並與 `src/types.ts` 的 `DegradedLocalResponse` 逐欄比對） |
+| Fog 本機降階回應（Cloud 連不上且無快取） | `fog/transforms.py` 的 `build_degraded_local_response()` | `cloud/tests/contract/test_degraded_local_contract.py`（欄位集合已凍結，並與 `src/types.ts` 的 `DegradedLocalResponse` 逐欄比對） |
 
 改動任一邊而未同步另一邊，`pytest` 或 `npm test` 會直接轉紅。
 

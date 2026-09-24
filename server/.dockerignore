@@ -1,7 +1,0 @@
-__pycache__
-*.log
-*.pyc
-venv
-.env
-data_ops/my_products.json
-tests/

@@ -17,7 +17,7 @@ import re
 import sqlite3
 from pathlib import Path
 
-SEED_SQL = Path(__file__).resolve().parents[1] / "server" / "seed_data" / "reference_seed.sql"
+SEED_SQL = Path(__file__).resolve().parents[1] / "cloud" / "seed_data" / "reference_seed.sql"
 
 # server/models.py 的 Additive 中宣告為 JSON 的欄位。psycopg2 會把它們解成 Python 物件，
 # module_a 依賴這一點：例如 category 必須是 list，類別統稱（「調味劑」等）才載得進來，
