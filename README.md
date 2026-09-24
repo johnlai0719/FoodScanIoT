@@ -1,53 +1,57 @@
-# FoodScanIoT - Food Safety Information Summary and Risk Notification System
+# FoodScanIoT — 食品標示分析系統
 
-This system implements a collaborative architecture between Cloud and Fog nodes to provide intelligent food safety analysis. The project uses a monorepo structure to integrate server-side services, mobile applications, and database management components.
+拍下食品包裝的標示（或掃條碼），系統讀出成分與營養標示，對照衛福部食品添加物正面表列，
+回傳添加物說明、Nutri-Score 健康評分，以及依使用者健康條件產生的提醒。
 
-## Project Structure
+採 **App → Fog → Cloud** 三層架構：使用者的健康條件只留在手機本機，不會送上伺服器。
 
-The project is organized into the following core directories:
-
-### server/
-Cloud central server (FastAPI + Gemini AI). Responsible for deep analysis, AI interpretation, and large-scale data storage. Includes database initialization and maintenance scripts.
-
-### fog/
-Fog edge node (FastAPI + SQLite). Handles real-time caching and risk prediction in environments with limited connectivity.
-
-### APP/
-Primary mobile application (React Native / Expo). Features camera-based scanning and personalized food safety reports.
-
-### shared/
-Common TypeScript type definitions and constants used across both client and server applications.
-
-## Development and Deployment
-
-### Backend Services (Docker)
-To start the database and Cloud server, navigate to the server directory and execute:
-```bash
-docker-compose up -d
+```
+APP/      手機 App（Expo／React Native）
+fog/      邊緣節點：快取、驗證、資料脫敏、轉發；Cloud 連不上時提供本機 OCR 降階結果
+cloud/    雲端：分析 API、視覺辨識、添加物知識庫、管理後台
 ```
 
-### Environment Configuration
-Copy `server/.env.example` to `server/.env` and fill in your own local database credentials and your own API keys (Gemini, Tavily). `.env` is gitignored and must never be committed — each contributor keeps their own local copy.
+## cloud/ 裡面
 
-### Database Setup (new contributors)
-The repository does not ship a full database dump (that would mean sharing real credentials and stale production data). Instead, the schema and safe reference data are fully reproducible from code:
+| 路徑 | 內容 |
+|---|---|
+| `main.py`、`module_a`～`module_d` | 分析 API（FastAPI，對外 :3003）：成分與添加物比對、Nutri-Score 與每日參考值、食安事件（目前停用）、組裝回應 |
+| `reader/` | 視覺辨識服務（:8180）：PP-OCR 定位 → 裁切 → HunyuanOCR 讀字 → Qwen 整理欄位。**需要 GPU，跑在主機上，不在容器內** |
+| `vision/` | 辨識模組（成分切分、營養表解析、裁切等），`reader/` 與 Fog 的本機 OCR 共用 |
+| `seed_data/` | 添加物知識庫（804 筆）與廠商清單的初始資料 |
+| `web/` | 添加物開放查詢平台與管理後台（React＋Vite） |
+| `tests/contract/` | 跨層契約測試（純函式、不需資料庫或 API 金鑰），CI 每次 push 都跑 |
+
+## 快速開始
 
 ```bash
-cd server
-python db_init.py
+# 契約測試（不需資料庫、不需 API 金鑰）
+pytest
+
+# 資料庫＋Cloud
+cp cloud/.env.example cloud/.env        # 填入自己的資料庫連線與 API 金鑰
+docker compose up -d
+cd cloud && python db_init.py           # 建表並匯入添加物知識庫
+
+# 視覺辨識服務（需 GPU）
+python cloud/reader/start_models.py
+python cloud/reader/service.py
+
+# App
+cd APP && npm install && npx expo start
 ```
 
-This single command will:
-- Create all tables from the SQLAlchemy models (`models.py`)
-- Import the reference dataset (`seed_data/reference_seed.sql`) — the curated additives knowledge base and manufacturer list, which contain no personal or credential data
-- Create the admin/review tables and a **local-only default admin account** (`admin` / `admin123`) so you can log in to the review console immediately. Change this password before deploying anywhere beyond your own machine.
+`db_init.py` 會建立一個**僅供本機使用**的預設管理員帳號（`admin`／`admin123`），部署到本機以外之前務必修改。
 
-## Documentation
+`.env` 已被 gitignore，每位開發者自行保管，**不可提交**。本 repo 不附資料庫備份。
 
-Project documentation is maintained in Obsidian. Contact the maintainer for access.
+## 延伸閱讀
 
-## Technical Specifications
-- Frontend: React Native (Expo), TailwindCSS, NativeWind
-- Backend: FastAPI (Python)
-- AI: Google Gemini AI
-- Database: PostgreSQL (Cloud), SQLAlchemy (ORM)
+- **`CLAUDE.md`**：讀程式碼看不出來、或看了會誤解的事——拓樸細節、跨層契約與負責強制的測試、已知陷阱、延遲與 VRAM 的關係。**改程式前先讀這份。**
+- 研究與評估（辨識實驗、量化測試集、添加物知識庫建置管線）在另一個私人 repo `FoodScanIoT-research`，需要時向維護者索取權限。
+- 設計討論與決策紀錄維護於 Obsidian。
+
+## 技術組成
+
+App：React Native（Expo）、NativeWind｜Fog：Node.js（Express）＋ Python（FastAPI）、SQLite｜
+Cloud：FastAPI、PostgreSQL、SQLAlchemy｜辨識：PaddleOCR、HunyuanOCR、Qwen3.5-2B（llama.cpp）；Gemini 2.5 Flash 保留為對照

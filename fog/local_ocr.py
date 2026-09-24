@@ -23,14 +23,14 @@ from pathlib import Path
 from transforms import build_degraded_local_response
 
 REPO = Path(__file__).resolve().parents[1]
-PPOCR_DIR = REPO / "PPOCR_TEST"
-SERVER_DIR = REPO / "server"
+PPOCR_DIR = REPO / "cloud" / "vision"
+SERVER_DIR = REPO / "cloud"
 
 ENGINE = {
     "ocr": "RapidOCR PP-OCRv6 small (onnxruntime CPU)",
-    "extractor": "PPOCR_TEST/bench_ingredients.p_boxsep",
-    "matcher": "server/module_a/ingredient_matching.match_ingredients",
-    "additive_db": "server/seed_data/reference_seed.sql",
+    "extractor": "cloud/vision/bench_ingredients.p_boxsep",
+    "matcher": "cloud/module_a/ingredient_matching.match_ingredients",
+    "additive_db": "cloud/seed_data/reference_seed.sql",
 }
 
 _status = {"state": "not_started", "detail": ""}
@@ -54,7 +54,7 @@ def warm_up():
     t0 = time.time()
     try:
         if not (PPOCR_DIR / "bench_ingredients.py").exists():
-            raise RuntimeError(f"找不到 {PPOCR_DIR / 'bench_ingredients.py'}（目前只有 feat/vlcrop-pipeline 分支有 PPOCR_TEST）")
+            raise RuntimeError(f"找不到 {PPOCR_DIR / 'bench_ingredients.py'}（辨識模組應在 cloud/vision/）")
         # server/ 接在 sys.path 最後：它有自己的 main.py 與 version.py，排前面會遮蔽 Fog 的
         # （見 tests/contract/conftest.py）。PPOCR_TEST 會由 bench_ingredients 自己插到最前面，
         # 已確認它沒有與 fog／server 同名的模組。
@@ -69,7 +69,7 @@ def warm_up():
 
         # 字典檔讀不到時 load_dict() 會回空清單，切分品質靜默下降——這裡改成直接停用。
         if not BI.load_dict():
-            raise RuntimeError("PPOCR_TEST/data/ingredient_dict.json 讀不到")
+            raise RuntimeError("cloud/vision/data/ingredient_dict.json 讀不到")
 
         # 與 PPOCR_TEST/run_rapidocr.py 的 CFGS['v6s'] ＋ side 2048、box_thresh 0.4、--threads 4 相同，
         # 即 2026-09-11 在 v4.0（177 案）量過的組態。

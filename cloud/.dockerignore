@@ -1,0 +1,12 @@
+__pycache__
+*.log
+*.pyc
+venv
+.env
+data_ops/my_products.json
+tests/
+# 2026-09-24 併入 cloud/ 但不屬於 Cloud 容器的部分：辨識服務跑在主機（要 GPU），
+# 管理後台另外建置，vision 是給主機上的 reader 與 Fog 用的
+reader/
+web/
+vision/

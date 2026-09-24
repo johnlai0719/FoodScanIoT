@@ -29,7 +29,7 @@ postgres_data/
 *.dblwr
 binlog.*
 *.sql
-!server/seed_data/*.sql
+!cloud/seed_data/*.sql
 
 # 資料與 CSV (通常太大且不適合進 Git)
 mysql_csv/
@@ -115,12 +115,8 @@ RoadMap/
 !測試/量化測試/results/_baseline_*/**
 !cloud/requirements.txt
 !fog/requirements.txt
-# tests/ 底下多為需要跑起伺服器與資料庫的臨時整合腳本，預設不進版控。
-# 但 tests/contract/ 是跨層契約測試（純函式、CI 會實際執行），必須進版控，
-# 否則 CI 上的 pytest 會收集不到任何測試而「假綠」。
-# 註：git 無法在父目錄被排除後再重新納入子目錄，故此處用 tests/* 而非 tests/。
-tests/*
-!tests/contract/
+# （2026-09-24 移除 tests/* ＋ !tests/contract/：測試搬到 cloud/tests/ 後不再需要，
+#   那四支整合測試本來就已在版控內）
 test_img
 *.bak
 convert_to_pdf.py
@@ -192,7 +188,19 @@ PPOCR_TEST/out/_online_*/
 # 且屬於營運資料不是原始碼；要收進測試集的請走 測試/量化測試 的流程，
 # 身分由 scan_uploads.sha256 比對，不靠把檔案推上 GitHub。
 uploads/
-server/uploads/
+cloud/uploads/
 
 # Expo 連線用的 QR（含 Tailscale 內網位址，不進版控）
 APP/expo-qr.png
+
+# 工具自動產生的暫存（2026-09-24 整理 main 時清出：瀏覽器自動化快照 26 個、
+# AI 助理的本機設定，都是誤入版控）
+.playwright-mcp/
+.claude/
+# 一次性試驗腳本。要保留的實驗放進有 README 的研究資料夾，不要放 scratch/
+cloud/scratch/
+# 2026-09-24 server/ → cloud/，辨識模組抽到 cloud/vision/
+!cloud/vision/data/
+!cloud/vision/data/*.json
+cloud/vision/out/
+cloud/reader/_work/

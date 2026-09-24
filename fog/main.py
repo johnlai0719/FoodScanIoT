@@ -18,7 +18,7 @@ from transforms import (mask_sensitive_data, normalize_result,
 # 一定會分岔（族群詞彙、撇號、添加物分母都是這樣來的）。
 import sys as _sys
 from pathlib import Path as _Path
-_sys.path.append(str(_Path(__file__).resolve().parents[1] / "server"))
+_sys.path.append(str(_Path(__file__).resolve().parents[1] / "cloud"))
 import telemetry as T
 from version import get_commit
 # local_ocr 在模組層只用標準函式庫，OCR 等依賴延遲到 warm_up() 才載入——CI 會載入本檔
