@@ -22,8 +22,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const KEY = 'foodscan.telemetry.v1';
-/** 上限。超過就丟最舊的——實驗跑久了不該把裝置存滿。 */
-const MAX_RECORDS = 500;
+/**
+ * 上限。超過就丟最舊的——實驗跑久了不該把裝置存滿。
+ * 原本是 500；自動量測一批就可能上百筆，500 會在匯出前把前一批靜默丟掉。
+ * 一筆約 0.5 KB，2000 筆約 1 MB，仍遠低於 AsyncStorage 的容量限制。
+ */
+export const MAX_RECORDS = 2000;
 
 export type TimingSegments = Record<string, number>;
 
@@ -53,6 +57,8 @@ export interface ScanRecord {
    * 算出來的延遲中位數不代表任何一種。
    */
   bypass_cache: boolean;
+  /** 這一次有沒有開「只用本機辨識」（X-Local-Only）。舊紀錄沒有這欄。 */
+  local_only?: boolean;
 
   // ── 結果面。**刻意記「有幾項」而不是記內容** ────────────────────────────
   // 一是隱私（照片與成分原文不留在紀錄裡），二是這些才是能拿來算指標的欄位。
@@ -62,7 +68,25 @@ export interface ScanRecord {
   n_additives: number | null;
   /** 降階與失敗要能分開統計——那是最需要量的兩類。 */
   degraded: boolean;
+  /**
+   * Cloud 連不上時 Fog 回的過期快取（回應本文的 `_offline_mode`）。
+   * **不能從 `cache` 欄判斷**：Python 層標的 STALE 不會經過 Node 層傳回來。
+   */
+  offline_mode?: boolean;
   error: string | null;
+
+  // ── 自動量測（batchRunner）才有 ────────────────────────────────────────
+  // 一般掃描這三欄是 null。舊紀錄沒有這三欄。
+  /** 同一批自動量測共用一個 id，匯出後用它分組。 */
+  run_id?: string | null;
+  /**
+   * 使用者自己填的條件標籤（例如 wifi、4g、cloud_down）。
+   * 系統量不到「現在是什麼網路、Cloud 有沒有關」，**只能由操作的人標記**，
+   * 不標的話幾種條件的資料匯出後會混在一起分不開。
+   */
+  run_label?: string | null;
+  /** 這一批裡的第幾次（從 1 起算）。 */
+  seq?: number | null;
 }
 
 export function newRequestId(): string {
@@ -124,9 +148,10 @@ export function toCSV(records: ScanRecord[]): string {
       if (seg) for (const k of Object.keys(seg)) segCols.add(`${layer}_${k}`);
     }
   }
-  const base = ['request_id', 'at', 'endpoint', 'barcode', 'n_images', 'payload_chars',
-                'http_status', 'total_ms', 'cache', 'bypass_cache', 'status', 'health_score',
-                'risk_level', 'n_additives', 'degraded', 'error'];
+  const base = ['request_id', 'at', 'run_id', 'run_label', 'seq', 'endpoint', 'barcode',
+                'n_images', 'payload_chars', 'http_status', 'total_ms', 'cache', 'bypass_cache',
+                'local_only', 'offline_mode', 'status', 'health_score', 'risk_level',
+                'n_additives', 'degraded', 'error'];
   const cols = [...base, ...[...segCols].sort()];
 
   const cell = (v: unknown) => {
