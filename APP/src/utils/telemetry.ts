@@ -87,6 +87,14 @@ export interface ScanRecord {
   run_label?: string | null;
   /** 這一批裡的第幾次（從 1 起算）。 */
   seq?: number | null;
+
+  // ── 逐案跑測試集才有 ─────────────────────────────────────────────────
+  /** 測試集的案例編號，用來對正解，也能與 Cloud 的 scan_uploads 對起來。 */
+  case_id?: string | null;
+  /** 測試包的凍結版本 tag。 */
+  pack_version?: string | null;
+  /** 這一次所有照片的壓縮耗時合計（毫秒）——五段延遲的第一段。 */
+  compress_ms?: number | null;
 }
 
 export function newRequestId(): string {
@@ -148,7 +156,8 @@ export function toCSV(records: ScanRecord[]): string {
       if (seg) for (const k of Object.keys(seg)) segCols.add(`${layer}_${k}`);
     }
   }
-  const base = ['request_id', 'at', 'run_id', 'run_label', 'seq', 'endpoint', 'barcode',
+  const base = ['request_id', 'at', 'run_id', 'run_label', 'seq', 'case_id', 'pack_version',
+                'compress_ms', 'endpoint', 'barcode',
                 'n_images', 'payload_chars', 'http_status', 'total_ms', 'cache', 'bypass_cache',
                 'local_only', 'offline_mode', 'status', 'health_score', 'risk_level',
                 'n_additives', 'degraded', 'error'];

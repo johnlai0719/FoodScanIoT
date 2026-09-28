@@ -133,3 +133,55 @@ describe('toScanRecord／toCSV', () => {
     expect(row.split(',')[cols.indexOf('run_label')]).toBe('4g');
   });
 });
+
+describe('runDataset', () => {
+  const { runDataset } = require('../batchRunner');
+  const manifest = {
+    pack_version: 'eval-freeze-20260929', created: '2026-09-29',
+    cases: [
+      { case_id: 'c01_a', category: 'beverage', set_version: 'v2.2', images: [{ file: 'c01_0.jpg', width: 3000 }] },
+      { case_id: 'c02_b', category: 'snack', set_version: 'v4.0',
+        images: [{ file: 'c02_0.jpg', width: 1500 }, { file: 'c02_1.jpg', width: 1500 }] },
+    ],
+  };
+  const baseQuery = { endpoint: 'fog' as const, bypassCache: true, localOnly: false };
+
+  it('每案依序送出，照片先壓縮、不送條碼，紀錄帶 case_id／版本／壓縮耗時', async () => {
+    const sent: any[] = [];
+    const records: ScanRecord[] = [];
+    const final = await runDataset(
+      { manifest, repeats: 2, intervalMs: 0, label: 'set_wifi', query: baseQuery },
+      () => {}, () => false,
+      {
+        compress: async (file: string) => ({ base64: `B64:${file}`, width: 1920, ms: 100 }),
+        send: async (q: QueryOptions) => { sent.push(q); return outcome('ok', 5000, { health_score: 1 }); },
+        append: async (r: ScanRecord) => { records.push(r); },
+      },
+    );
+    expect(final).toMatchObject({ done: 4, total: 4, ok: 4 });
+    expect(sent.map(q => q.barcode)).toEqual(['', '', '', '']);
+    expect(sent[2].images).toEqual(['B64:c02_0.jpg', 'B64:c02_1.jpg']);
+    expect(records.map(r => r.case_id)).toEqual(['c01_a', 'c01_a', 'c02_b', 'c02_b']);
+    expect(records.map(r => r.compress_ms)).toEqual([100, 100, 200, 200]);
+    expect(records.every(r => r.pack_version === 'eval-freeze-20260929' && r.run_label === 'set_wifi')).toBe(true);
+    expect(records.map(r => r.seq)).toEqual([1, 2, 3, 4]);
+  });
+
+  it('壓縮失敗的那一案記一列錯誤、不送出，其餘照常', async () => {
+    const records: ScanRecord[] = [];
+    let sends = 0;
+    const final = await runDataset(
+      { manifest, repeats: 1, intervalMs: 0, label: 'x', query: baseQuery },
+      () => {}, () => false,
+      {
+        compress: async (file: string) => (file === 'c01_0.jpg' ? null : { base64: 'x', width: 1500, ms: 5 }),
+        send: async () => { sends += 1; return outcome('ok', 10, { health_score: 1 }); },
+        append: async (r: ScanRecord) => { records.push(r); },
+      },
+    );
+    expect(sends).toBe(1);
+    expect(final).toMatchObject({ done: 2, ok: 1, errors: 1 });
+    expect(records[0]).toMatchObject({ case_id: 'c01_a', compress_ms: null });
+    expect(records[0].error).toContain('壓縮失敗');
+  });
+});

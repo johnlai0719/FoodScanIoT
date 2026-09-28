@@ -111,6 +111,10 @@ export interface RunContext {
   run_id: string;
   run_label: string;
   seq: number;
+  /** 逐案跑測試集時才有。 */
+  case_id?: string | null;
+  pack_version?: string | null;
+  compress_ms?: number | null;
 }
 
 /**
@@ -148,5 +152,8 @@ export function toScanRecord(o: QueryOutcome, opts: QueryOptions, run?: RunConte
     run_id: run?.run_id ?? null,
     run_label: run?.run_label ?? null,
     seq: run?.seq ?? null,
+    case_id: run?.case_id ?? null,
+    pack_version: run?.pack_version ?? null,
+    compress_ms: run?.compress_ms ?? null,
   };
 }

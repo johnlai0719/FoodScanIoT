@@ -10,6 +10,7 @@
     "expo": "^57.0.22",
     "expo-camera": "~57.0.5",
     "expo-constants": "~57.0.18",
+    "expo-file-system": "~57.0.7",
     "expo-image-manipulator": "~57.0.17",
     "expo-image-picker": "~57.0.17",
     "expo-status-bar": "~57.0.1",
@@ -46,7 +47,9 @@
   },
   "jest": {
     "preset": "jest-expo",
-    "setupFiles": ["<rootDir>/jest.setup.js"],
+    "setupFiles": [
+      "<rootDir>/jest.setup.js"
+    ],
     "transformIgnorePatterns": [
       "node_modules/(?!(?:.pnpm/)?((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|nativewind|react-native-css|lucide-react-native))"
     ]

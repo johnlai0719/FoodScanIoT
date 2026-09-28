@@ -14,6 +14,8 @@
  */
 import * as Telemetry from './telemetry';
 import { QueryOptions, QueryOutcome, sendAnalysis, toScanRecord } from './queryClient';
+import type { PackManifest } from './testPack';
+import type { Compressed } from './imageCompress';
 
 export interface BatchOptions {
   /** 送幾次。 */
@@ -98,6 +100,95 @@ export async function runBatch(
     p.medianMs = median(okTimes);
     onProgress({ ...p });
     if (i < opts.count && opts.intervalMs > 0 && !shouldStop()) await sleep(opts.intervalMs);
+  }
+  return { ...p };
+}
+
+
+// ── 逐案跑完測試集 ─────────────────────────────────────────────────────────
+
+export interface DatasetOptions {
+  manifest: PackManifest;
+  /** 每一案送幾次。 */
+  repeats: number;
+  intervalMs: number;
+  label: string;
+  /** 端點與測試開關；條碼一律留空、只送照片——量的是「拍照辨識」這條路。 */
+  query: Omit<QueryOptions, 'barcode' | 'images'>;
+}
+
+export interface DatasetDeps extends BatchDeps {
+  /** 把測試包裡的一張照片壓成要送出的 base64（正式用 imageCompress + testPack.imageUri）。 */
+  compress: (file: string, width: number) => Promise<Compressed | null>;
+}
+
+/**
+ * 每一案：照片用與真實使用相同的壓縮 → 送出 → 記一列（含 case_id 與壓縮耗時）。
+ * **每一次都重新壓縮**，因為真實使用者每次掃描都會經過壓縮，那也是等待的一部分。
+ * 壓縮失敗的那一案照樣記一列錯誤，不送出——不記的話那一案會從分母裡消失。
+ */
+export async function runDataset(
+  opts: DatasetOptions,
+  onProgress: (p: BatchProgress) => void,
+  shouldStop: () => boolean,
+  deps: DatasetDeps,
+): Promise<BatchProgress> {
+  const send = deps.send ?? sendAnalysis;
+  const append = deps.append ?? Telemetry.append;
+  const sleep = deps.sleep ?? ((ms: number) => new Promise<void>(r => setTimeout(r, ms)));
+  const runId = newRunId();
+  const label = cleanLabel(opts.label);
+  const okTimes: number[] = [];
+  const total = opts.manifest.cases.length * opts.repeats;
+  const p: BatchProgress = {
+    runId, done: 0, total, ok: 0, degraded: 0, errors: 0, medianMs: null, lastError: null,
+  };
+  onProgress({ ...p });
+
+  let seq = 0;
+  outer:
+  for (const c of opts.manifest.cases) {
+    for (let r = 0; r < opts.repeats; r++) {
+      if (shouldStop()) break outer;
+      seq += 1;
+      const images: string[] = [];
+      let compressMs = 0;
+      let failed: string | null = null;
+      for (const im of c.images) {
+        try {
+          const out = await deps.compress(im.file, im.width);
+          if (!out) { failed = `壓縮失敗：${im.file}`; break; }
+          images.push(out.base64);
+          compressMs += out.ms;
+        } catch (e: any) {
+          failed = `壓縮失敗：${im.file}（${e?.message ?? e}）`;
+          break;
+        }
+      }
+      const query: QueryOptions = { ...opts.query, barcode: '', images };
+      const o: QueryOutcome = failed
+        ? { kind: 'error', reqId: '', totalMs: 0, httpStatus: null, headers: null, result: null, error: failed }
+        : await send(query);
+      const rec = toScanRecord(o, query, {
+        run_id: runId, run_label: label, seq,
+        case_id: c.case_id, pack_version: opts.manifest.pack_version,
+        compress_ms: failed ? null : compressMs,
+      });
+      await append(rec);
+      p.done = seq;
+      if (o.kind === 'error') {
+        p.errors += 1;
+        p.lastError = `${c.case_id}：${o.error}`;
+      } else if (o.kind === 'degraded_local' || rec.degraded || rec.offline_mode) {
+        p.degraded += 1;
+      } else {
+        p.ok += 1;
+        okTimes.push(o.totalMs);
+      }
+      p.medianMs = median(okTimes);
+      onProgress({ ...p });
+      if (seq < total && opts.intervalMs > 0 && !shouldStop()) await sleep(opts.intervalMs);
+    }
   }
   return { ...p };
 }

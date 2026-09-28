@@ -30,7 +30,9 @@ import BarcodeScanner from '../components/BarcodeScanner';
 import { analyzePersonalRisks, getProductAllergenWarnings } from '../utils/personalization';
 import * as Telemetry from '../utils/telemetry';
 import { sendAnalysis, toScanRecord } from '../utils/queryClient';
-import { runBatch, BatchProgress } from '../utils/batchRunner';
+import { runBatch, runDataset, BatchProgress } from '../utils/batchRunner';
+import { downloadTestPack, loadTestPack, imageUri, PackManifest } from '../utils/testPack';
+import { compressImage } from '../utils/imageCompress';
 import {
   loadHistory, recordScan, clearHistory, relativeTime,
   HistoryEntry, MAX_HISTORY,
@@ -422,6 +424,81 @@ export default function HomeScreen() {
   const [batchNotice, setBatchNotice] = useState<string | null>(null);
   // 用 ref 而不是 state：迴圈裡讀到的必須是「現在」的值，state 會被閉包凍在啟動那一刻。
   const batchStopRef = useRef(false);
+
+  // ── 逐案跑完測試集（utils/testPack.ts）──────────────────────────────────
+  // 測試包從電腦下載一次存在手機，之後按一次就把每一案依序送完。
+  const [packUrl, setPackUrl] = useState('');
+  const [pack, setPack] = useState<PackManifest | null>(null);
+  const [packDownload, setPackDownload] = useState<{ done: number; total: number } | null>(null);
+  const [datasetRepeats, setDatasetRepeats] = useState('1');
+
+  useEffect(() => {
+    if (view !== 'settings') return;
+    AsyncStorage.getItem('testpack.url').then(u => { if (u) setPackUrl(u); });
+    setPack(loadTestPack());
+  }, [view]);
+
+  const handleDownloadPack = async () => {
+    const url = packUrl.trim();
+    if (!/^https?:\/\//.test(url)) {
+      setBatchNotice('請填測試包網址，例如 http://100.119.217.100:8190');
+      return;
+    }
+    AsyncStorage.setItem('testpack.url', url);
+    setBatchNotice(null);
+    setPackDownload({ done: 0, total: 0 });
+    try {
+      const m = await downloadTestPack(url, setPackDownload);
+      setPack(m);
+      setBatchNotice(`已下載測試集 ${m.cases.length} 案（版本 ${m.pack_version}）。`);
+    } catch (e: any) {
+      setPack(null);
+      setBatchNotice(`下載失敗：${e?.message ?? e}。請確認電腦端有開著測試包伺服器、手機連得到那個位址。`);
+    } finally {
+      setPackDownload(null);
+    }
+  };
+
+  const handleRunDataset = async () => {
+    const repeats = Math.floor(Number(datasetRepeats));
+    const intervalSec = Number(batchIntervalSec);
+    if (!pack) {
+      setBatchNotice('請先下載測試集。');
+      return;
+    }
+    if (!Number.isFinite(repeats) || repeats < 1 || repeats > 10) {
+      setBatchNotice('每案次數請填 1～10。');
+      return;
+    }
+    if (!Number.isFinite(intervalSec) || intervalSec < 0 || intervalSec > 600) {
+      setBatchNotice('間隔請填 0～600 秒。');
+      return;
+    }
+    if (!batchLabel.trim()) {
+      setBatchNotice('請填條件標籤（例如 set_wifi），否則匯出後分不出是哪一組。');
+      return;
+    }
+    setBatchNotice(null);
+    batchStopRef.current = false;
+    setBatchRunning(true);
+    try {
+      const final = await runDataset(
+        {
+          manifest: pack, repeats, intervalMs: intervalSec * 1000, label: batchLabel,
+          query: { endpoint: serverEndpoint, bypassCache, localOnly },
+        },
+        setBatchProgress,
+        () => batchStopRef.current,
+        { compress: (file, width) => compressImage(imageUri(file), width) },
+      );
+      setBatchNotice(final.done < final.total
+        ? `已停止：完成 ${final.done}／${final.total} 次，紀錄已保存。`
+        : `測試集跑完 ${final.total} 次，紀錄已保存，可到下方匯出 CSV。`);
+    } finally {
+      setBatchRunning(false);
+      void Telemetry.load().then(r => setTelemetryCount(r.length));
+    }
+  };
 
   const handleStartBatch = async () => {
     const count = Math.floor(Number(batchCount));
@@ -883,13 +960,60 @@ export default function HomeScreen() {
                   </Pressable>
                 )}
               </View>
+              {/* 逐案跑完測試集：測試包由電腦端 build_test_pack.py 產生並開伺服器，
+                  手機下載一次存本機，之後按一次就依序送完每一案（只送照片、不送條碼）。 */}
+              <Text style={[s.settingsLabel, { marginTop: 20 }]}>逐案跑完測試集</Text>
+              <Text style={s.settingsSub}>
+                {pack
+                  ? `已下載 ${pack.cases.length} 案、${pack.cases.reduce((n, c) => n + c.images.length, 0)} 張照片（版本 ${pack.pack_version}）。`
+                  : '尚未下載測試集。'}
+                每一案用與拍照相同的壓縮後送出，會記下案例編號與壓縮耗時。
+                沿用上方的間隔與條件標籤；量辨識時請開「每次重新辨識」。
+              </Text>
+              <TextInput
+                value={packUrl}
+                onChangeText={setPackUrl}
+                placeholder="測試包網址，例如 http://100.119.217.100:8190"
+                placeholderTextColor="#94A3B8"
+                autoCapitalize="none"
+                editable={!batchRunning && !packDownload}
+                style={[s.textInput, { marginTop: 8 }]}
+              />
+              <View style={[s.row, { marginTop: 8, gap: 8 }]}>
+                <TextInput
+                  value={datasetRepeats}
+                  onChangeText={setDatasetRepeats}
+                  placeholder="每案次數"
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="numeric"
+                  editable={!batchRunning}
+                  style={[s.textInput, { flex: 1 }]}
+                />
+                <Text style={[s.settingsSub, { flex: 2 }]}>每案送幾次（1～10）</Text>
+              </View>
+              <View style={[s.segmentedControl, { marginTop: 8 }]}>
+                <Pressable style={s.segBtn} onPress={handleDownloadPack} disabled={batchRunning || !!packDownload}>
+                  <Text style={s.segBtnText}>
+                    {packDownload ? `下載中 ${packDownload.done}／${packDownload.total}` : '下載測試集'}
+                  </Text>
+                </Pressable>
+                {batchRunning ? (
+                  <Pressable style={[s.segBtn, s.segBtnActiveCloud]} onPress={() => { batchStopRef.current = true; }}>
+                    <Text style={[s.segBtnText, s.segBtnTextActive]}>停止</Text>
+                  </Pressable>
+                ) : (
+                  <Pressable style={[s.segBtn, pack && s.segBtnActive]} onPress={handleRunDataset} disabled={!pack || !!packDownload}>
+                    <Text style={[s.segBtnText, pack && s.segBtnTextActive]}>開始跑測試集</Text>
+                  </Pressable>
+                )}
+              </View>
+
               {batchProgress && (
                 <Text style={s.settingsSub}>
                   {batchProgress.done}／{batchProgress.total} 次　成功 {batchProgress.ok}　降階 {batchProgress.degraded}
                   　錯誤 {batchProgress.errors}
                   {batchProgress.medianMs != null ? `　成功耗時中位數 ${(batchProgress.medianMs / 1000).toFixed(1)} 秒` : ''}
-                  {batchProgress.lastError ? `
-最近一次錯誤：${batchProgress.lastError}` : ''}
+                  {batchProgress.lastError ? `\n最近一次錯誤：${batchProgress.lastError}` : ''}
                 </Text>
               )}
               {batchNotice && <Text style={s.settingsSub}>{batchNotice}</Text>}
