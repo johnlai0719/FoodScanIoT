@@ -13,6 +13,7 @@
     "expo-file-system": "~57.0.7",
     "expo-image-manipulator": "~57.0.17",
     "expo-image-picker": "~57.0.17",
+    "expo-network": "~57.0.2",
     "expo-status-bar": "~57.0.1",
     "lucide-react-native": "^0.576.0",
     "nativewind": "5.0.0-preview.2",

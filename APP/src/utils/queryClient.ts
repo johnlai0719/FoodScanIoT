@@ -10,7 +10,8 @@
  *
  * 這裡只管網路與解讀，不碰任何畫面狀態。
  */
-import { FOG_URL, CLOUD_URL, CLOUD_API_KEY, TESTER_ID, ANALYSIS_TIMEOUT_MS } from '../constants/endpoints';
+import { CLOUD_URL, CLOUD_API_KEY, TESTER_ID, ANALYSIS_TIMEOUT_MS } from '../constants/endpoints';
+import { getFogQueryUrl } from './fogAddress';
 import * as Telemetry from './telemetry';
 
 export type Endpoint = 'fog' | 'cloud';
@@ -53,7 +54,8 @@ export async function sendAnalysis(opts: QueryOptions): Promise<QueryOutcome> {
   let httpStatus: number | null = null;
   let headers: Headers | null = null;
   try {
-    const url = opts.endpoint === 'fog' ? FOG_URL : CLOUD_URL;
+    // Fog 的位址不是常數：場域不同 IP 就不同，由 fogAddress.ts 自動尋找並記住。
+    const url = opts.endpoint === 'fog' ? getFogQueryUrl() : CLOUD_URL;
     // 120 秒比下游每一層都長，好讓後端寫好的錯誤訊息與降階結果送得到手機，
     // 而不是被 App 自己先掐掉。推導見 constants/endpoints.ts。
     const ctrl = new AbortController();

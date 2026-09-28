@@ -33,6 +33,7 @@ import { sendAnalysis, toScanRecord } from '../utils/queryClient';
 import { runBatch, runDataset, BatchProgress } from '../utils/batchRunner';
 import { downloadTestPack, loadTestPack, imageUri, PackManifest } from '../utils/testPack';
 import { compressImage } from '../utils/imageCompress';
+import { resolveFog, setFogBase, loadSavedFogBase, getFogBase, probeFog, normalizeBase, DEFAULT_FOG_BASE, FogInfo, FogSource } from '../utils/fogAddress';
 import {
   loadHistory, recordScan, clearHistory, relativeTime,
   HistoryEntry, MAX_HISTORY,
@@ -290,6 +291,52 @@ export default function HomeScreen() {
   useEffect(() => {
     loadHistory().then(setHistory);
   }, []);
+
+  // ── Fog 位置（utils/fogAddress.ts）─────────────────────────────────────
+  // 開 App 時先問上次用的位址，不通就在區網裡自動找，再不行退回預設（Tailscale）。
+  // 在背景做，不擋畫面；找的期間照樣可以操作，只是送出時用的是目前的位址。
+  const [fogInfo, setFogInfo] = useState<FogInfo | null>(null);
+  const [fogSource, setFogSource] = useState<FogSource | null>(null);
+  const [fogSearching, setFogSearching] = useState<{ done: number; total: number } | null>(null);
+  const [fogManual, setFogManual] = useState('');
+  const [fogNotice, setFogNotice] = useState<string | null>(null);
+
+  const findFog = async () => {
+    setFogNotice(null);
+    setFogSearching({ done: 0, total: 0 });
+    try {
+      const r = await resolveFog({ onProgress: (done, total) => setFogSearching({ done, total }) });
+      setFogInfo(r.info);
+      setFogSource(r.source);
+      if (!r.info) setFogNotice('找不到 Fog。請確認手機與 Fog 在同一個 Wi-Fi，或在下方手動輸入位址。');
+    } finally {
+      setFogSearching(null);
+    }
+  };
+
+  useEffect(() => {
+    loadSavedFogBase().then(() => { void findFog(); });
+  }, []);
+
+  const handleUseManualFog = async () => {
+    if (!fogManual.trim()) return;
+    const base = normalizeBase(fogManual);
+    const info = await probeFog(base, 3000);
+    if (!info) {
+      setFogNotice(`${base} 沒有回應，或回應的不是 Fog。`);
+      return;
+    }
+    await setFogBase(base);
+    setFogInfo(info);
+    setFogSource('saved');
+    setFogNotice(null);
+  };
+
+  const handleUseDefaultFog = async () => {
+    await setFogBase(DEFAULT_FOG_BASE);
+    setFogInfo(await probeFog(DEFAULT_FOG_BASE, 3000));
+    setFogSource('default');
+  };
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const toggleAllergen = (key: string) => {
@@ -845,6 +892,45 @@ export default function HomeScreen() {
                   </Text>
                 </Pressable>
               </View>
+
+              {/* ── Fog 位置 ─────────────────────────────────────────────────
+                  一個場域一台 Fog，Pi 換地方 IP 就會變，所以不寫死：開 App 時自動
+                  在同一個 Wi-Fi 裡找（理由與限制見 utils/fogAddress.ts）。 */}
+              {serverEndpoint === 'fog' && (
+                <>
+                  <Text style={[s.settingsLabel, { marginTop: 20 }]}>Fog 位置</Text>
+                  <Text style={s.settingsSub}>
+                    {fogSearching
+                      ? `正在尋找 Fog…${fogSearching.total ? `（${fogSearching.done}／${fogSearching.total}）` : ''}`
+                      : fogInfo
+                        ? `已連到 ${fogInfo.name ?? 'Fog'}（${getFogBase()}）`
+                          + `，${fogSource === 'lan' ? '在區網中自動找到' : fogSource === 'default' ? '使用預設位址' : '沿用上次的位址'}。`
+                        : `目前沒有找到 Fog，會嘗試使用 ${getFogBase()}。`}
+                  </Text>
+                  <View style={[s.segmentedControl, { marginTop: 8 }]}>
+                    <Pressable style={s.segBtn} onPress={findFog} disabled={!!fogSearching}>
+                      <Text style={s.segBtnText}>重新尋找</Text>
+                    </Pressable>
+                    <Pressable style={s.segBtn} onPress={handleUseDefaultFog} disabled={!!fogSearching}>
+                      <Text style={s.segBtnText}>使用預設（Tailscale）</Text>
+                    </Pressable>
+                  </View>
+                  <View style={[s.row, { marginTop: 8, gap: 8 }]}>
+                    <TextInput
+                      value={fogManual}
+                      onChangeText={setFogManual}
+                      placeholder="手動輸入，例如 192.168.1.50"
+                      placeholderTextColor="#94A3B8"
+                      autoCapitalize="none"
+                      style={[s.textInput, { flex: 1 }]}
+                    />
+                    <Pressable style={s.segBtn} onPress={handleUseManualFog}>
+                      <Text style={s.segBtnText}>使用</Text>
+                    </Pressable>
+                  </View>
+                  {fogNotice && <Text style={s.settingsSub}>{fogNotice}</Text>}
+                </>
+              )}
 
               {/* 「快取管理」區塊已於 2026-08-05 移除。它呼叫 POST :3001/cache/clear，
                   但 Fog 的 Node 層（3001）只註冊了 DELETE /cache 與 DELETE /cache/:barcode，
