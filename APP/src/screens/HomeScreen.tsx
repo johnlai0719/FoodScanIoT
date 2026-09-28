@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
@@ -28,8 +28,12 @@ import DropdownEvent from '../components/DropdownEvent';
 import PackageImageScanner from '../components/PackageImageScanner';
 import BarcodeScanner from '../components/BarcodeScanner';
 import { analyzePersonalRisks, getProductAllergenWarnings } from '../utils/personalization';
-import { FOG_URL, CLOUD_URL, CLOUD_API_KEY, TESTER_ID, ANALYSIS_TIMEOUT_MS } from '../constants/endpoints';
 import * as Telemetry from '../utils/telemetry';
+import { sendAnalysis, toScanRecord } from '../utils/queryClient';
+import { runBatch, runDataset, BatchProgress } from '../utils/batchRunner';
+import { downloadTestPack, loadTestPack, imageUri, PackManifest } from '../utils/testPack';
+import { compressImage } from '../utils/imageCompress';
+import { resolveFog, setFogBase, loadSavedFogBase, getFogBase, probeFog, normalizeBase, DEFAULT_FOG_BASE, FogInfo, FogSource } from '../utils/fogAddress';
 import {
   loadHistory, recordScan, clearHistory, relativeTime,
   HistoryEntry, MAX_HISTORY,
@@ -288,6 +292,52 @@ export default function HomeScreen() {
     loadHistory().then(setHistory);
   }, []);
 
+  // ── Fog 位置（utils/fogAddress.ts）─────────────────────────────────────
+  // 開 App 時先問上次用的位址，不通就在區網裡自動找，再不行退回預設（Tailscale）。
+  // 在背景做，不擋畫面；找的期間照樣可以操作，只是送出時用的是目前的位址。
+  const [fogInfo, setFogInfo] = useState<FogInfo | null>(null);
+  const [fogSource, setFogSource] = useState<FogSource | null>(null);
+  const [fogSearching, setFogSearching] = useState<{ done: number; total: number } | null>(null);
+  const [fogManual, setFogManual] = useState('');
+  const [fogNotice, setFogNotice] = useState<string | null>(null);
+
+  const findFog = async () => {
+    setFogNotice(null);
+    setFogSearching({ done: 0, total: 0 });
+    try {
+      const r = await resolveFog({ onProgress: (done, total) => setFogSearching({ done, total }) });
+      setFogInfo(r.info);
+      setFogSource(r.source);
+      if (!r.info) setFogNotice('找不到 Fog。請確認手機與 Fog 在同一個 Wi-Fi，或在下方手動輸入位址。');
+    } finally {
+      setFogSearching(null);
+    }
+  };
+
+  useEffect(() => {
+    loadSavedFogBase().then(() => { void findFog(); });
+  }, []);
+
+  const handleUseManualFog = async () => {
+    if (!fogManual.trim()) return;
+    const base = normalizeBase(fogManual);
+    const info = await probeFog(base, 3000);
+    if (!info) {
+      setFogNotice(`${base} 沒有回應，或回應的不是 Fog。`);
+      return;
+    }
+    await setFogBase(base);
+    setFogInfo(info);
+    setFogSource('saved');
+    setFogNotice(null);
+  };
+
+  const handleUseDefaultFog = async () => {
+    await setFogBase(DEFAULT_FOG_BASE);
+    setFogInfo(await probeFog(DEFAULT_FOG_BASE, 3000));
+    setFogSource('default');
+  };
+
   // ── Handlers ──────────────────────────────────────────────────────────────
   const toggleAllergen = (key: string) => {
     setAllergens(prev => {
@@ -324,88 +374,20 @@ export default function HomeScreen() {
     setDegradedResult(null);
     setView('result');
 
-    // ── 實驗埋點 ────────────────────────────────────────────────────────
-    // request id 逐層轉發，讓 App／Fog／Cloud 三份紀錄併得起來。
-    // t0 只與 t1 相減（同一個時鐘），不與任何伺服器時刻比對——決策單 #15
-    // 未定的正是跨機器時鐘校正，這裡整個繞過。
-    // ⚠ 宣告在 try 之外：**失敗與降階那幾次才是最需要量的**，
-    //   放在 try 裡面 finally 就取不到，那些次會剛好沒有紀錄。
-    const reqId = Telemetry.newRequestId();
-    const payloadChars = uploadedImages.reduce((n, b) => n + b.length, 0);
-    const t0 = Date.now();
-    let httpStatus: number | null = null;
-    let respHeaders: Headers | null = null;
-    let recResult: any = null;
-    let recError: string | null = null;
+    // ── 送出與實驗埋點 ──────────────────────────────────────────────────
+    // 請求、解讀與量測紀錄都在 utils/queryClient.ts，自動量測（batchRunner）走同一份，
+    // 量到的才是使用者實際走的那條路。這裡只負責把結果放到畫面上。
+    const query = {
+      endpoint: serverEndpoint, barcode: barcodeInput, images: uploadedImages,
+      bypassCache, localOnly,
+    };
+    const o = await sendAnalysis(query);
 
-    try {
-      const API_URL = serverEndpoint === 'fog' ? FOG_URL : CLOUD_URL;
-      // 逾時：在這之前完全沒設，靠平台預設（各家不同），網路斷掉時畫面會一直轉。
-      // 120 秒比下游每一層都長，好讓後端寫好的錯誤訊息與降階結果送得到使用者
-      // 眼前，而不是被 App 自己先掐掉。數字的推導見 constants/endpoints.ts。
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), ANALYSIS_TIMEOUT_MS);
-      let response: Response;
-      try {
-        response = await fetch(API_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-cache',
-            'X-Request-Id': reqId,
-            // 專用標頭而不是沿用上面那個 Cache-Control——它每次都送，
-            // 拿它當判準等於永久關閉快取，就量不出快取有沒有幫上忙。
-            ...(bypassCache ? { 'X-Bypass-Cache': '1' } : {}),
-            // 只用本機辨識。Fog 端若本機 OCR 未就緒會回 503 而**不會**
-            // 改送雲端——那正是選這個選項要避免的事。
-            ...(localOnly ? { 'X-Local-Only': '1' } : {}),
-            // Cloud 直連時帶上金鑰，以通過 Cloud 的 API 保護。
-            ...(serverEndpoint === 'cloud' && CLOUD_API_KEY ? { 'X-API-Key': CLOUD_API_KEY } : {}),
-            // 測試者代號。有設才送——沒設的人就是一般使用者，行為不變。
-            // 兩條路徑都送：走 Fog 時由 Fog 原樣轉發給 Cloud。
-            ...(TESTER_ID ? { 'X-Tester-Id': TESTER_ID } : {}),
-          },
-          signal: ctrl.signal,
-          // 個人化比對自 2026-08-04 起完全在本地進行，健康背景不再送往後端。
-          body: JSON.stringify({
-            barcode: barcodeInput,
-            label_images: uploadedImages,
-          }),
-        });
-      } finally {
-        // 成功時也要清掉，否則這個 timer 會一直活到 120 秒後才觸發 abort()，
-        // 對已完成的請求沒作用但會讓測試環境留著未回收的計時器。
-        clearTimeout(timer);
-      }
-      httpStatus = response.status;
-      respHeaders = response.headers;
-      if (!response.ok) throw new Error(`伺服器代碼: ${response.status}`);
-      const json = await response.json();
-      // Fog 可能將結果包在 data 欄位內
-      const result = json.health_score !== undefined ? json : (json.data ?? json);
-
-      // 「分析失敗」在兩層都是以 HTTP 200 ＋ {status, message} 回傳，不是 HTTP 錯誤：
-      //   Cloud — rejected（照片沒通過品質閘門）／not_found（查無條碼）／error
-      //   Fog   — degraded（Cloud 不可用且無快取）
-      // 這些形狀都沒有 health_score。若只看 response.ok 就會把它們當成有效結果，
-      // 結果頁的 `health_score ?? 100` 會顯示一個假的 100 分，而後端寫好的引導訊息
-      // （「請對準成分表重新拍攝」等）永遠不會被看到。
-      // Fog 的本機降階：**有部分結果，不是失敗。**
-      // 它刻意沒有 health_score（見 fog/transforms.build_degraded_local_response），
-      // 所以不能跟下面那個「沒有分數就是失敗」的判斷混在一起。
-      // degraded_mode 是它與「Cloud 診斷降級」的區別——後者仍有分數。
-      if (result?.status === 'degraded' && result?.degraded_mode === 'local_ocr') {
-        recResult = result;
-        setDegradedResult(result as DegradedLocalResponse);
-        return;
-      }
-
-      if (result?.health_score === undefined) {
-        throw new Error(
-          result?.message ?? json?.message ?? '無法完成分析，請確認條碼或照片後再試一次',
-        );
-      }
-
+    if (o.kind === 'degraded_local') {
+      // Fog 的本機降階：**有部分結果，不是失敗**，與 analysisResult 分開存。
+      setDegradedResult(o.result as DegradedLocalResponse);
+    } else if (o.kind === 'ok') {
+      const result = o.result;
       // ── Debug：記錄 Fog 回傳中缺少的欄位 ──────────────────────────────
       const EXPECTED_FIELDS: (keyof typeof result)[] = [
         'health_score', 'risk_level', 'cached',
@@ -421,59 +403,26 @@ export default function HomeScreen() {
       console.log('[Fog] cached:', result.cached, '| score:', result.health_score, '| ingredients:', result.ingredients_detail?.length ?? 'null');
       console.log('[Fog] score_breakdown:', JSON.stringify(result.score_breakdown?.slice(0, 5)));
       // ────────────────────────────────────────────────────────────────────
-
-      recResult = result;
       setAnalysisResult(result);
       // 失敗與降階的形狀沒有 health_score，recordScan 會自己擋掉，這裡不必再判斷。
       recordScan(result).then(setHistory);
-    } catch (err: any) {
-      // AbortError 要單獨講：「連不上」與「等太久」對使用者是不同的下一步，
-      // 前者去檢查網路或伺服器，後者重試或少拍幾張就好。
-      const msg = err?.name === 'AbortError'
-        ? `分析逾時（超過 ${ANALYSIS_TIMEOUT_MS / 1000} 秒）。請確認網路後重試，或減少照片張數。`
-        : err?.message ?? '無法連線至後端分析節點，請確認伺服器有正常運作！';
-      recError = msg;
-      setAnalysisError(msg);
-    } finally {
-      setIsAnalyzing(false);
-      setResultWasLocalOnly(localOnly);
-      {
-        // Cloud 自報的分析耗時（X-Timing-Cloud 的 total）。與手機量到的差額
-        // 就是網路與各層轉發——兩個都顯示，使用者才看得出慢在哪一段。
-        const cloud = Telemetry.parseTiming(respHeaders?.get('X-Timing-Cloud') ?? null);
-        setLastTiming({
-          totalMs: Date.now() - t0,
-          cloudMs: cloud?.total ?? null,
-          // 快取命中時耗時會低一個量級，不標出來會讓人以為辨識變快了。
-          cached: (respHeaders?.get('X-Cache') ?? '').toLowerCase().includes('hit'),
-        });
-      }
-      // 一次掃描一列。**刻意不記照片與成分原文**——一是隱私（紀錄會被匯出），
-      // 二是能拿來算指標的是「有幾項」而不是內容。
-      void Telemetry.append({
-        request_id: reqId,
-        at: new Date().toISOString(),
-        endpoint: serverEndpoint,
-        barcode: barcodeInput,
-        n_images: uploadedImages.length,
-        payload_chars: payloadChars,
-        http_status: httpStatus,
-        total_ms: Date.now() - t0,
-        fog_node: Telemetry.parseTiming(respHeaders?.get('X-Timing-Fog-Node') ?? null),
-        fog_py: Telemetry.parseTiming(respHeaders?.get('X-Timing-Fog-Py') ?? null),
-        cloud: Telemetry.parseTiming(respHeaders?.get('X-Timing-Cloud') ?? null),
-        cache: respHeaders?.get('X-Cache') ?? null,
-        bypass_cache: bypassCache,
-        status: recResult?.status ?? null,
-        health_score: recResult?.health_score ?? null,
-        risk_level: recResult?.risk_level ?? null,
-        n_additives: recResult?.ingredients_detail?.length ?? null,
-        // 降階與失敗要分開統計。degraded_mode 是 Fog 本機 OCR 那條路
-        // （transforms.build_degraded_local_response），與 Cloud 的診斷降級不同。
-        degraded: recResult?.status === 'degraded' || !!recResult?.degraded_mode,
-        error: recError,
-      });
+    } else {
+      setAnalysisError(o.error);
     }
+
+    setIsAnalyzing(false);
+    setResultWasLocalOnly(localOnly);
+    // Cloud 自報的分析耗時（X-Timing-Cloud 的 total）。與手機量到的差額
+    // 就是網路與各層轉發——兩個都顯示，使用者才看得出慢在哪一段。
+    const cloud = Telemetry.parseTiming(o.headers?.get('X-Timing-Cloud') ?? null);
+    setLastTiming({
+      totalMs: o.totalMs,
+      cloudMs: cloud?.total ?? null,
+      // 快取命中時耗時會低一個量級，不標出來會讓人以為辨識變快了。
+      cached: (o.headers?.get('X-Cache') ?? '').toLowerCase().includes('hit'),
+    });
+    // **失敗與降階那幾次才是最需要量的**，所以不論結局都記一列。
+    void Telemetry.append(toScanRecord(o, query));
   };
 
   // ── 實驗量測紀錄的匯出／清除 ───────────────────────────────────────────
@@ -509,6 +458,134 @@ export default function HomeScreen() {
   const handleClearTelemetry = async () => {
     await Telemetry.clear();
     setTelemetryCount(0);
+  };
+
+  // ── 自動量測（utils/batchRunner.ts）───────────────────────────────────
+  // 用掃描頁目前的條碼／照片，連續送出 N 次，只累積量測紀錄、不顯示結果、
+  // 不寫進查詢歷史。端點、測試模式、本機辨識沿用上面的開關，量的就是那個組合。
+  const [batchCount, setBatchCount] = useState('20');
+  const [batchIntervalSec, setBatchIntervalSec] = useState('2');
+  const [batchLabel, setBatchLabel] = useState('');
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null);
+  const [batchNotice, setBatchNotice] = useState<string | null>(null);
+  // 用 ref 而不是 state：迴圈裡讀到的必須是「現在」的值，state 會被閉包凍在啟動那一刻。
+  const batchStopRef = useRef(false);
+
+  // ── 逐案跑完測試集（utils/testPack.ts）──────────────────────────────────
+  // 測試包從電腦下載一次存在手機，之後按一次就把每一案依序送完。
+  const [packUrl, setPackUrl] = useState('');
+  const [pack, setPack] = useState<PackManifest | null>(null);
+  const [packDownload, setPackDownload] = useState<{ done: number; total: number } | null>(null);
+  const [datasetRepeats, setDatasetRepeats] = useState('1');
+
+  useEffect(() => {
+    if (view !== 'settings') return;
+    AsyncStorage.getItem('testpack.url').then(u => { if (u) setPackUrl(u); });
+    setPack(loadTestPack());
+  }, [view]);
+
+  const handleDownloadPack = async () => {
+    const url = packUrl.trim();
+    if (!/^https?:\/\//.test(url)) {
+      setBatchNotice('請填測試包網址，例如 http://100.119.217.100:8190');
+      return;
+    }
+    AsyncStorage.setItem('testpack.url', url);
+    setBatchNotice(null);
+    setPackDownload({ done: 0, total: 0 });
+    try {
+      const m = await downloadTestPack(url, setPackDownload);
+      setPack(m);
+      setBatchNotice(`已下載測試集 ${m.cases.length} 案（版本 ${m.pack_version}）。`);
+    } catch (e: any) {
+      setPack(null);
+      setBatchNotice(`下載失敗：${e?.message ?? e}。請確認電腦端有開著測試包伺服器、手機連得到那個位址。`);
+    } finally {
+      setPackDownload(null);
+    }
+  };
+
+  const handleRunDataset = async () => {
+    const repeats = Math.floor(Number(datasetRepeats));
+    const intervalSec = Number(batchIntervalSec);
+    if (!pack) {
+      setBatchNotice('請先下載測試集。');
+      return;
+    }
+    if (!Number.isFinite(repeats) || repeats < 1 || repeats > 10) {
+      setBatchNotice('每案次數請填 1～10。');
+      return;
+    }
+    if (!Number.isFinite(intervalSec) || intervalSec < 0 || intervalSec > 600) {
+      setBatchNotice('間隔請填 0～600 秒。');
+      return;
+    }
+    if (!batchLabel.trim()) {
+      setBatchNotice('請填條件標籤（例如 set_wifi），否則匯出後分不出是哪一組。');
+      return;
+    }
+    setBatchNotice(null);
+    batchStopRef.current = false;
+    setBatchRunning(true);
+    try {
+      const final = await runDataset(
+        {
+          manifest: pack, repeats, intervalMs: intervalSec * 1000, label: batchLabel,
+          query: { endpoint: serverEndpoint, bypassCache, localOnly },
+        },
+        setBatchProgress,
+        () => batchStopRef.current,
+        { compress: (file, width) => compressImage(imageUri(file), width) },
+      );
+      setBatchNotice(final.done < final.total
+        ? `已停止：完成 ${final.done}／${final.total} 次，紀錄已保存。`
+        : `測試集跑完 ${final.total} 次，紀錄已保存，可到下方匯出 CSV。`);
+    } finally {
+      setBatchRunning(false);
+      void Telemetry.load().then(r => setTelemetryCount(r.length));
+    }
+  };
+
+  const handleStartBatch = async () => {
+    const count = Math.floor(Number(batchCount));
+    const intervalSec = Number(batchIntervalSec);
+    if (!barcodeInput && uploadedImages.length === 0) {
+      setBatchNotice('請先到掃描頁輸入條碼或選好照片，自動量測會重複送出同一組。');
+      return;
+    }
+    if (!Number.isFinite(count) || count < 1 || count > 500) {
+      setBatchNotice('次數請填 1～500。');
+      return;
+    }
+    if (!Number.isFinite(intervalSec) || intervalSec < 0 || intervalSec > 600) {
+      setBatchNotice('間隔請填 0～600 秒。');
+      return;
+    }
+    if (!batchLabel.trim()) {
+      // 系統量不到「現在是 Wi-Fi 還是行動網路、Cloud 有沒有關」，只能靠這個標籤分組。
+      setBatchNotice('請填條件標籤（例如 wifi、4g、cloud_down），否則匯出後分不出是哪一組。');
+      return;
+    }
+    setBatchNotice(null);
+    batchStopRef.current = false;
+    setBatchRunning(true);
+    try {
+      const final = await runBatch(
+        {
+          count, intervalMs: intervalSec * 1000, label: batchLabel,
+          query: { endpoint: serverEndpoint, barcode: barcodeInput, images: uploadedImages, bypassCache, localOnly },
+        },
+        setBatchProgress,
+        () => batchStopRef.current,
+      );
+      setBatchNotice(final.done < final.total
+        ? `已停止：完成 ${final.done}／${final.total} 次，紀錄已保存。`
+        : `完成 ${final.total} 次，紀錄已保存，可到下方匯出 CSV。`);
+    } finally {
+      setBatchRunning(false);
+      void Telemetry.load().then(r => setTelemetryCount(r.length));
+    }
   };
 
   const handleBackToScan = () => {
@@ -816,6 +893,45 @@ export default function HomeScreen() {
                 </Pressable>
               </View>
 
+              {/* ── Fog 位置 ─────────────────────────────────────────────────
+                  一個場域一台 Fog，Pi 換地方 IP 就會變，所以不寫死：開 App 時自動
+                  在同一個 Wi-Fi 裡找（理由與限制見 utils/fogAddress.ts）。 */}
+              {serverEndpoint === 'fog' && (
+                <>
+                  <Text style={[s.settingsLabel, { marginTop: 20 }]}>Fog 位置</Text>
+                  <Text style={s.settingsSub}>
+                    {fogSearching
+                      ? `正在尋找 Fog…${fogSearching.total ? `（${fogSearching.done}／${fogSearching.total}）` : ''}`
+                      : fogInfo
+                        ? `已連到 ${fogInfo.name ?? 'Fog'}（${getFogBase()}）`
+                          + `，${fogSource === 'lan' ? '在區網中自動找到' : fogSource === 'default' ? '使用預設位址' : '沿用上次的位址'}。`
+                        : `目前沒有找到 Fog，會嘗試使用 ${getFogBase()}。`}
+                  </Text>
+                  <View style={[s.segmentedControl, { marginTop: 8 }]}>
+                    <Pressable style={s.segBtn} onPress={findFog} disabled={!!fogSearching}>
+                      <Text style={s.segBtnText}>重新尋找</Text>
+                    </Pressable>
+                    <Pressable style={s.segBtn} onPress={handleUseDefaultFog} disabled={!!fogSearching}>
+                      <Text style={s.segBtnText}>使用預設（Tailscale）</Text>
+                    </Pressable>
+                  </View>
+                  <View style={[s.row, { marginTop: 8, gap: 8 }]}>
+                    <TextInput
+                      value={fogManual}
+                      onChangeText={setFogManual}
+                      placeholder="手動輸入，例如 192.168.1.50"
+                      placeholderTextColor="#94A3B8"
+                      autoCapitalize="none"
+                      style={[s.textInput, { flex: 1 }]}
+                    />
+                    <Pressable style={s.segBtn} onPress={handleUseManualFog}>
+                      <Text style={s.segBtnText}>使用</Text>
+                    </Pressable>
+                  </View>
+                  {fogNotice && <Text style={s.settingsSub}>{fogNotice}</Text>}
+                </>
+              )}
+
               {/* 「快取管理」區塊已於 2026-08-05 移除。它呼叫 POST :3001/cache/clear，
                   但 Fog 的 Node 層（3001）只註冊了 DELETE /cache 與 DELETE /cache/:barcode，
                   該路由不存在 → 一直是 404，按下去只會顯示「清除失敗」。
@@ -879,6 +995,114 @@ export default function HomeScreen() {
                   </Text>
                 </Pressable>
               </View>
+
+              {/* ── 自動量測 ─────────────────────────────────────────────────
+                  重複送出掃描頁目前的條碼／照片，不顯示結果、不寫進查詢歷史。
+                  一次只送一個，回來後等「間隔」秒再送下一個（理由見 batchRunner.ts）。 */}
+              <Text style={[s.settingsLabel, { marginTop: 24 }]}>自動量測</Text>
+              <Text style={s.settingsSub}>
+                重複送出掃描頁目前的條碼與照片（{barcodeInput ? `條碼 ${barcodeInput}` : '無條碼'}、
+                {uploadedImages.length} 張照片），只記錄量測資料、不顯示結果。
+                會沿用上面的連線端點、測試模式與本機辨識設定。
+              </Text>
+              <View style={[s.row, { marginTop: 8, gap: 8 }]}>
+                <TextInput
+                  value={batchCount}
+                  onChangeText={setBatchCount}
+                  placeholder="次數"
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="numeric"
+                  editable={!batchRunning}
+                  style={[s.textInput, { flex: 1 }]}
+                />
+                <TextInput
+                  value={batchIntervalSec}
+                  onChangeText={setBatchIntervalSec}
+                  placeholder="間隔秒數"
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="numeric"
+                  editable={!batchRunning}
+                  style={[s.textInput, { flex: 1 }]}
+                />
+              </View>
+              <Text style={s.settingsSub}>左：次數（1～500）　右：每次回來後等幾秒再送下一次</Text>
+              <TextInput
+                value={batchLabel}
+                onChangeText={setBatchLabel}
+                placeholder="條件標籤，例如 wifi、4g、cloud_down"
+                placeholderTextColor="#94A3B8"
+                autoCapitalize="none"
+                editable={!batchRunning}
+                style={[s.textInput, { marginTop: 8 }]}
+              />
+              <View style={[s.segmentedControl, { marginTop: 8 }]}>
+                {batchRunning ? (
+                  <Pressable style={[s.segBtn, s.segBtnActiveCloud]} onPress={() => { batchStopRef.current = true; }}>
+                    <Text style={[s.segBtnText, s.segBtnTextActive]}>停止（跑完這一次後停）</Text>
+                  </Pressable>
+                ) : (
+                  <Pressable style={[s.segBtn, s.segBtnActive]} onPress={handleStartBatch}>
+                    <Text style={[s.segBtnText, s.segBtnTextActive]}>開始自動量測</Text>
+                  </Pressable>
+                )}
+              </View>
+              {/* 逐案跑完測試集：測試包由電腦端 build_test_pack.py 產生並開伺服器，
+                  手機下載一次存本機，之後按一次就依序送完每一案（只送照片、不送條碼）。 */}
+              <Text style={[s.settingsLabel, { marginTop: 20 }]}>逐案跑完測試集</Text>
+              <Text style={s.settingsSub}>
+                {pack
+                  ? `已下載 ${pack.cases.length} 案、${pack.cases.reduce((n, c) => n + c.images.length, 0)} 張照片（版本 ${pack.pack_version}）。`
+                  : '尚未下載測試集。'}
+                每一案用與拍照相同的壓縮後送出，會記下案例編號與壓縮耗時。
+                沿用上方的間隔與條件標籤；量辨識時請開「每次重新辨識」。
+              </Text>
+              <TextInput
+                value={packUrl}
+                onChangeText={setPackUrl}
+                placeholder="測試包網址，例如 http://100.119.217.100:8190"
+                placeholderTextColor="#94A3B8"
+                autoCapitalize="none"
+                editable={!batchRunning && !packDownload}
+                style={[s.textInput, { marginTop: 8 }]}
+              />
+              <View style={[s.row, { marginTop: 8, gap: 8 }]}>
+                <TextInput
+                  value={datasetRepeats}
+                  onChangeText={setDatasetRepeats}
+                  placeholder="每案次數"
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="numeric"
+                  editable={!batchRunning}
+                  style={[s.textInput, { flex: 1 }]}
+                />
+                <Text style={[s.settingsSub, { flex: 2 }]}>每案送幾次（1～10）</Text>
+              </View>
+              <View style={[s.segmentedControl, { marginTop: 8 }]}>
+                <Pressable style={s.segBtn} onPress={handleDownloadPack} disabled={batchRunning || !!packDownload}>
+                  <Text style={s.segBtnText}>
+                    {packDownload ? `下載中 ${packDownload.done}／${packDownload.total}` : '下載測試集'}
+                  </Text>
+                </Pressable>
+                {batchRunning ? (
+                  <Pressable style={[s.segBtn, s.segBtnActiveCloud]} onPress={() => { batchStopRef.current = true; }}>
+                    <Text style={[s.segBtnText, s.segBtnTextActive]}>停止</Text>
+                  </Pressable>
+                ) : (
+                  <Pressable style={[s.segBtn, pack && s.segBtnActive]} onPress={handleRunDataset} disabled={!pack || !!packDownload}>
+                    <Text style={[s.segBtnText, pack && s.segBtnTextActive]}>開始跑測試集</Text>
+                  </Pressable>
+                )}
+              </View>
+
+              {batchProgress && (
+                <Text style={s.settingsSub}>
+                  {batchProgress.done}／{batchProgress.total} 次　成功 {batchProgress.ok}　降階 {batchProgress.degraded}
+                  　錯誤 {batchProgress.errors}
+                  {batchProgress.medianMs != null ? `　成功耗時中位數 ${(batchProgress.medianMs / 1000).toFixed(1)} 秒` : ''}
+                  {batchProgress.lastError ? `\n最近一次錯誤：${batchProgress.lastError}` : ''}
+                </Text>
+              )}
+              {batchNotice && <Text style={s.settingsSub}>{batchNotice}</Text>}
 
               <Text style={[s.settingsLabel, { marginTop: 20 }]}>實驗量測紀錄</Text>
               <Text style={s.settingsSub}>
