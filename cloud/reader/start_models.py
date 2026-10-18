@@ -81,12 +81,17 @@ def start(s):
         return None
     for f in (s["model"], s["mmproj"]):
         if f and not os.path.exists(f):
-            sys.exit("[%s] 缺檔案：%s" % (s["name"], f))
+            raise RuntimeError("[%s] 缺模型檔案" % s["name"])
     cmd = ["llama-server", "-m", s["model"],
            "-ngl", s.get("ngl", "99"), "--host", "127.0.0.1",
            "--port", str(s["port"]),
            "--ctx-size", s.get("ctx", "16384"), "-fa", "on",
-           "--alias", s["name"]]
+           "--alias", s["name"],
+           # 關掉主機端的提示快取。這個 build 預設留 8192 MiB 系統記憶體給它，
+           # 而我們每次送的照片都不同、從不命中，它只會一路長到上限：
+           # 2026-10-06 跑測試集時 HunyuanOCR 那台吃到 9.6 GB、Qwen 6.2 GB，
+           # 系統 RAM 剩 3.6 GB，背景程式被強制關掉。
+           "--cache-ram", "0"]
     # 平行槽。**必須明確指定**——這個 build 的預設是 4 槽，而 --ctx-size 是
     # 所有槽共用的總量：8192÷4 = 2048，比 max_tokens 3072 還小，長一點的
     # 成分區會被截斷而且不會報錯。指定 2 槽時每槽 4096，才放得下。
@@ -97,16 +102,33 @@ def start(s):
         cmd[3:3] = ["--mmproj", s["mmproj"]]
     print("[%s] 啟動中 :%d …" % (s["name"], s["port"]))
     p = subprocess.Popen(cmd, stdout=subprocess.DEVNULL,
-                         stderr=subprocess.STDOUT)
-    for _ in range(180):
-        if alive(s["port"]):
-            print("[%s] 就緒" % s["name"])
-            return p
-        if p.poll() is not None:
-            sys.exit("[%s] llama-server 意外結束（exit %s）"
-                     % (s["name"], p.returncode))
-        time.sleep(1)
-    sys.exit("[%s] 啟動逾時（180 秒）" % s["name"])
+                         stderr=subprocess.STDOUT,
+                         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    try:
+        deadline = time.monotonic() + float(os.getenv("READER_MODEL_START_TIMEOUT", "180"))
+        while time.monotonic() < deadline:
+            if p.poll() is not None:
+                raise RuntimeError("[%s] llama-server 意外結束（exit %s）"
+                                   % (s["name"], p.returncode))
+            if alive(s["port"]):
+                print("[%s] 就緒" % s["name"])
+                return p
+            time.sleep(.25)
+        raise RuntimeError("[%s] 啟動逾時" % s["name"])
+    except BaseException:
+        stop(p)
+        raise
+
+
+def stop(p):
+    """Only use a Popen handle created by this application; wait for GPU release."""
+    if p.poll() is None:
+        p.terminate()
+    try:
+        p.wait(timeout=15)
+    except subprocess.TimeoutExpired:
+        p.kill()
+        p.wait(timeout=15)
 
 
 def main():
@@ -120,23 +142,27 @@ def main():
                                     "up" if alive(s["port"]) else "DOWN"))
         return
 
-    procs = [p for p in (start(s) for s in SERVERS) if p]
-    if not procs:
-        print("兩個都已在執行，沒有新起任何行程。")
-        return
-    print("\n都起來了。Ctrl-C 關閉本腳本啟動的那些。")
+    procs = []
     try:
+        for s in SERVERS:
+            p = start(s)
+            if p:
+                procs.append((s, p))
+        if not procs:
+            print("兩個都已在執行，沒有新起任何行程。")
+            return
+        print("\n都起來了。Ctrl-C 關閉本腳本啟動的那些。")
         while True:
             time.sleep(5)
-            for s, p in zip(SERVERS, procs):
+            for s, p in procs:
                 if p.poll() is not None:
                     print("[%s] 已結束（exit %s）" % (s["name"], p.returncode))
                     return
     except KeyboardInterrupt:
         pass
     finally:
-        for p in procs:
-            p.terminate()
+        for _, p in reversed(procs):
+            stop(p)
 
 
 if __name__ == "__main__":

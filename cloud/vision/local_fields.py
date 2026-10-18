@@ -57,13 +57,20 @@ def ocr_lines(cid):
     return out
 
 
-def ask(text, max_tokens=768):
+def ask(text, max_tokens=768, strict=False):
     body = {'model': MODEL, 'temperature': 0, 'max_tokens': max_tokens,
             'chat_template_kwargs': {'enable_thinking': False},
             'messages': [{'role': 'system', 'content': SYS},
                          {'role': 'user', 'content': text[:6000]}]}
     t = time.time()
-    r = requests.post(URL, json=body, timeout=600).json()
+    response = requests.post(URL, json=body, timeout=600)
+    if strict:
+        response.raise_for_status()
+    r = response.json()
+    if strict:
+        choices = r.get('choices') or []
+        if r.get('error') or not choices or choices[0].get('finish_reason') != 'stop':
+            raise ValueError('Qwen 回傳錯誤或輸出未完成')
     return r['choices'][0]['message']['content'], time.time() - t
 
 
@@ -78,7 +85,7 @@ def parse(s):
     return d if isinstance(d, dict) else None
 
 
-def run_one(cid):
+def run_one(cid, strict=False):
     """單一案例，供線上推論（reader/pipeline.py）呼叫。
 
     2026-09-13 從 main() 的迴圈體抽出來——抽出而不是另寫一份，是因為
@@ -93,7 +100,7 @@ def run_one(cid):
     L = ocr_lines(cid)
     if not L:
         return None, None
-    raw, dt = ask('\n'.join(L))
+    raw, dt = ask('\n'.join(L), strict=strict)
     d = parse(raw)
     json.dump({'case_id': cid, 'prediction': d or {}, 'raw': raw,
                'elapsed_s': round(dt, 2), 'readers': list(READERS)},
