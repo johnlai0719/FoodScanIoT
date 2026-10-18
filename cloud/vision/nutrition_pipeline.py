@@ -153,7 +153,7 @@ def parse(text):
 
 
 # ─── 跑 OCR ──────────────────────────────────────────────────────────────────
-def run(device, only, pp=None):
+def run(device, only, pp=None, strict=False):
     """pp：已建好的 PPStructureV3。批次跑不用傳（自己建一個用到底）；
     線上推論（reader/pipeline.py）必須傳，否則每個請求都會重載模型。
     2026-09-13 加，預設 None 時行為與原本逐字相同。"""
@@ -197,6 +197,8 @@ def run(device, only, pp=None):
                         tables.append(re.sub(r'<[^>]+>', ' ', t.get('pred_html') or ''))
                     struct += (d.get('overall_ocr_res') or {}).get('rec_texts') or []
             except Exception as e:
+                if strict:
+                    raise RuntimeError('PPStructure 備援推論失敗') from e
                 print(f'   {cid} StructureV3 失敗：{e!r}')
 
         with open(os.path.join(OUT, f'{cid}.json'), 'w', encoding='utf-8') as f:

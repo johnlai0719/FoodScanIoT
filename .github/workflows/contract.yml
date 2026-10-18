@@ -39,7 +39,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install pytest fastapi requests python-dotenv httpx \
-                                sqlalchemy psycopg2-binary opencc-python-reimplemented
+                                sqlalchemy psycopg2-binary opencc-python-reimplemented pillow
 
       # 明確要求最低測試數，避免哪天收集不到測試卻回傳成功（例如 .gitignore 又把
       # 測試檔擋掉、或 importorskip 靜默跳過整個檔案）而「假綠」。

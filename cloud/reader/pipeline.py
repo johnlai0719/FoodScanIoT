@@ -21,10 +21,8 @@
    切分模型（bertsplit）走 torch，線上一律用規則 `boxsep`，與 emit_json 的
    預設相同。
 
-⚠ 模型服務要先起來：HunyuanOCR :8177、Qwen :8179。`/health` 會回報。
+模型預設由 reader/service.py 管理：HunyuanOCR :8177、Qwen :8179。
 """
-import base64
-import io as _io
 import concurrent.futures as _futures
 import json
 import subprocess
@@ -32,11 +30,26 @@ import os
 import threading
 import time
 import uuid
+from contextlib import nullcontext
 from pathlib import Path
+
+from input_limits import decode_images
+
+
+class ReaderInferenceError(RuntimeError):
+    """A detected region was not read completely; do not emit a normal result."""
+
+
+_model_manager = None
+
+
+def set_model_manager(manager):
+    global _model_manager
+    _model_manager = manager
 
 HERE = Path(__file__).resolve().parent
 CLOUD = HERE.parent
-PPOCR = CLOUD / "vision"   # 辨識模組（2026-09-24 由 PPOCR_TEST/ 抽出執行時需要的部分）
+PPOCR = CLOUD / "vision"
 
 # ── 環境變數必須在 import 那些模組「之前」設好 ────────────────────────────
 # 它們全是在模組層讀 os.environ 的（BOXES、NUTRI_OUT、EMIT_READERS…），
@@ -168,13 +181,6 @@ def _out(preset, cid):
     return d / (cid + ".json")
 
 
-def _decode(b64):
-    from PIL import Image
-    if "base64," in b64:
-        b64 = b64.split("base64,")[1]
-    return Image.open(_io.BytesIO(base64.b64decode(b64))).convert("RGB")
-
-
 # 這個 reader 的身分。**同時只會有一個 reader 聽 8180**（它們搶同一張 GPU），
 # 競賽版那支在 feat/adi-multimodal-compliance 的 tools/reader_competition.py。
 # Cloud 端的 VISION_BACKEND 只說「走 reader 這條路」，分不出是哪一個，
@@ -189,6 +195,7 @@ def read(base64_images, barcode="unknown"):
         raise RuntimeError("reader 未就緒：%s" % _state)
     cid = "online_" + uuid.uuid4().hex[:12]
     rels = []
+    imgs = []
     try:
         # 排隊時間要與處理時間分開。GPU 只有一張，`_lock` 就是那個隊伍；
         # 不獨立量的話它會被算進呼叫端的 vision 分段，看起來像「辨識變慢了」。
@@ -197,9 +204,9 @@ def read(base64_images, barcode="unknown"):
         _tq = time.time()
         with _lock:
             queue_s = time.time() - _tq
-            imgs = [_decode(b) for b in base64_images]
-            if not imgs:
-                raise ValueError("沒有圖片")
+            imgs = decode_images(base64_images)
+            if _model_manager is not None:
+                _model_manager.ensure_ready()
             for i, im in enumerate(imgs):
                 rel = "images/%s_%d.jpg" % (cid, i)
                 im.save(WORK / rel, "JPEG", quality=95)
@@ -212,12 +219,15 @@ def read(base64_images, barcode="unknown"):
             host_before = _host_sample()
             _t = time.time()
             _ppocr(cid, rels)
+            _release_paddle_cache()
             t["ppocr"] = round(time.time() - _t, 2)
             _t = time.time()
             _vlcrop(cid, rels, imgs)
             t["vlcrop_hunyuan"] = round(time.time() - _t, 2)
             _t = time.time()
-            _nutrition(cid)
+            nutri_pp = _nutrition(cid)
+            if nutri_pp:
+                _release_paddle_cache()
             t["nutrition_structure"] = round(time.time() - _t, 2)
             _t = time.time()
             _localfields(cid)
@@ -228,6 +238,8 @@ def read(base64_images, barcode="unknown"):
             t["assemble"] = round(time.time() - _t, 2)
         out.setdefault("_meta", {})["reader"] = READER_NAME
         out["_meta"]["stage_secs"] = t
+        # 這次營養段有沒有跑 PPStructure（只在沒裁到營養區時才跑，見 _nutrition）
+        out["_meta"]["nutrition_ppstructure"] = nutri_pp
         # 前後各取一次。只取一次看不出「這次請求把記憶體撐大了多少」——
         # paddle 的記憶體池會隨用量成長且用過不還（2026-09-14 量到載入
         # 1938 MB、實跑 3851 MB），那個成長本身就是要觀察的對象。
@@ -236,7 +248,26 @@ def read(base64_images, barcode="unknown"):
         out["_meta"]["barcode"] = barcode
         return out
     finally:
+        _release_paddle_cache()
         _cleanup(cid, rels)
+        for image in imgs:
+            image.close()
+
+
+def _release_paddle_cache():
+    """把 paddle 記憶體池裡**沒在用**的區塊還給驅動程式。
+
+    paddle 的池只增不減：手機送來的 1920px 照片讓它一路長到把 8GB 卡塞滿
+    （2026-10-06 實跑：VRAM 剩 853 → 84 MiB），Windows 便把 HunyuanOCR 的
+    llama-server 擠到系統記憶體，2.5 秒變 10–16 秒，連帶系統 RAM 見底。
+    paddle 的兩段（PP-OCR、營養表結構）各自跑完就放，HunyuanOCR 跑的時候
+    卡上才有空間。只釋放閒置區塊，不動模型權重，辨識結果不受影響。
+    """
+    try:
+        import paddle
+        paddle.device.cuda.empty_cache()
+    except Exception:
+        pass  # 釋放失敗只是回到原本的行為，不該讓這次辨識失敗
 
 
 def _assert_sources(out):
@@ -325,6 +356,12 @@ def _vlcrop(cid, rels, imgs):
 
         for kind in todo:                       # 固定順序，不是完成順序
             b = done[kind]
+            if b.get("finish") != "stop":
+                raise ReaderInferenceError(
+                    "%s 辨識未完成（%s），請重新拍攝或縮小裁切範圍"
+                    % (kind, str(b.get("finish"))[:160]))
+            if not b.get("lines") or not any(str(line).strip() for line in b["lines"]):
+                raise ReaderInferenceError("%s 裁切區回傳空文字" % kind)
             box = r[kind]
             all_lines.extend(b["lines"])
             # 並行之後各區的耗時是**重疊**的，相加會高估。取最大值——
@@ -347,9 +384,49 @@ def _nutrition(cid):
     """第三步：PPStructureV3 表格 ＋ 約束求解，沿用 nutrition_pipeline.run()。
 
     它自己會讀 cases.json 與 out/<NUTRI_BASE>/，兩者都已備妥。
+
+    **只在 HunyuanOCR 沒裁到營養區時才跑 PPStructure**（READER_NUTRI_PP=fallback，
+    預設）。2026-10-06 離線消融（177 案、2603 格，bench_parse 的 table 解析器）：
+        每案都跑          2359 格
+        完全不跑          2287 格  −72，95% CI [−127, −22]，顯著
+        只在沒裁到時跑    2323 格  −36，95% CI [−79, +3]，只有 13/174 案要跑
+    PPStructure 對整張圖跑，VRAM 高峰 +5.4 GB，是 8 GB 卡擠爆的主因之一；
+    它的價值在於重讀出的文字行（拿掉 struct_lines −68、拿掉表格 −7），
+    而有營養裁切區時 HunyuanOCR 已經以高解析度讀過同一塊。
+    READER_NUTRI_PP=always 回到每案都跑，供對照。
+
+    回傳這次有沒有跑 PPStructure。
     """
+    N = _mods["N"]
+    mode = os.environ.get("READER_NUTRI_PP", "fallback")
+    if mode != "always":
+        vl = json.loads(_out(PRESET_VL, cid).read_text(encoding="utf-8"))
+        found = any((im.get("regions") or {}).get("nutrition", {}).get("found")
+                    for im in vl["images"])
+        if found:
+            # 與 nutrition_pipeline.run() 寫出的紀錄同一個形狀，只是 PPStructure
+            # 的兩個欄位留空——下游（emit_json）照常讀，不需要知道這條分支。
+            base = [l["text"] for im in vl["images"] for l in im.get("lines", [])]
+            os.makedirs(N.OUT, exist_ok=True)
+            with open(os.path.join(N.OUT, f"{cid}.json"), "w", encoding="utf-8") as f:
+                json.dump({"case_id": cid, "category": "online", "set_version": "online",
+                           "base_lines": base, "table_html_text": [],
+                           "struct_lines": []}, f, ensure_ascii=False)
+            return False
     # 必須把暖機時建好的 PPStructureV3 傳進去，否則每個請求都重載模型。
-    _mods["N"].run(os.environ.get("PADDLE_DEVICE", "gpu"), [cid], pp=_pp)
+    context = _model_manager.pause_hunyuan() if _model_manager is not None else nullcontext()
+    with context:
+        try:
+            try:
+                N.run(os.environ.get("PADDLE_DEVICE", "gpu"), [cid], pp=_pp, strict=True)
+            except Exception as exc:
+                raise ReaderInferenceError("營養備援推論失敗") from exc
+            record = json.loads(_out(PRESET_NUTRI, cid).read_text(encoding="utf-8"))
+            if not record.get("struct_lines") and not record.get("table_html_text"):
+                raise ReaderInferenceError("營養備援未讀到文字或表格")
+        finally:
+            _release_paddle_cache()
+    return True
 
 
 def _localfields(cid):
@@ -358,7 +435,12 @@ def _localfields(cid):
     決策單 #18 尚未拍板要不要採用，但實測 name／manufacturer 都贏 Gemini
     且幾乎不編造（2 案／4 案 vs 47 案／28 案），而第 0 條原則正是在擋編造。
     """
-    _mods["LF"].run_one(cid)   # 回傳 (prediction, 秒數)，這裡只要它寫出檔案
+    try:
+        prediction, elapsed = _mods["LF"].run_one(cid, strict=True)
+    except Exception as exc:
+        raise ReaderInferenceError("品名／廠商模型請求失敗或輸出未完成") from exc
+    if elapsed is not None and prediction is None:
+        raise ReaderInferenceError("品名／廠商模型回傳空白或無效 JSON")
 
 
 # 除錯用：設 READER_KEEP=1 時保留本次的中間檔（PP-OCR／VL／營養／欄位），

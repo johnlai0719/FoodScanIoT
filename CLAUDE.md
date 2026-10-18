@@ -44,6 +44,11 @@ python cloud/reader/service.py         # 再起 :8180，暖機約 43 秒
 curl localhost:8180/health       # model_servers 兩個都要 true
 ```
 
+**2026-10-18 記憶體管理更新**：上面的兩終端方式改為只執行
+`python cloud/reader/service.py`，由 reader 管理兩個模型。升級前先停止舊啟動器；
+不接管外部模型行程。PPStructure 備援前卸載 Hunyuan，清理快取後載回。
+輸入與等待請求有上限；模型截斷／失敗會明確回錯誤。詳見 `cloud/reader/README.md`。
+
 **8180 上有兩個可互換的 reader，同時只有一個在跑。** 另一個是競賽版
 （EasyOCR 只偵測 → 文字外接矩形裁切 → Gemini 2.5 Flash），在
 `feat/adi-multimodal-compliance` 的 `tools/reader_competition.py`。它們搶同一張

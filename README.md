@@ -34,7 +34,6 @@ docker compose up -d
 cd cloud && python db_init.py           # 建表並匯入添加物知識庫
 
 # 視覺辨識服務（需 GPU）
-python cloud/reader/start_models.py
 python cloud/reader/service.py
 
 # App
@@ -42,6 +41,10 @@ cd APP && npm install && npx expo start
 ```
 
 `db_init.py` 會建立一個**僅供本機使用**的預設管理員帳號（`admin`／`admin123`），部署到本機以外之前務必修改。
+
+Reader 現在會自行啟動及管理本機模型；升級前先停止舊 `start_models.py` 啟動器。
+營養備援前會卸載 Hunyuan、完成後載回。輸入與請求容量限制見
+[`cloud/reader/README.md`](cloud/reader/README.md)。
 
 `.env` 已被 gitignore，每位開發者自行保管，**不可提交**。本 repo 不附資料庫備份。
 
