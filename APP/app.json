@@ -8,7 +8,10 @@
     "scheme": "expoapp",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "FoodScan 需要在區域網路中尋找場域的 Fog 節點，以便在本地分析食品標示。"
+      }
     },
     "android": {
       "adaptiveIcon": {

@@ -1,3 +1,4 @@
+import * as os from 'os';
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
@@ -76,7 +77,12 @@ const validateQuery = (req: Request, res: Response, next: NextFunction) => {
 app.get('/health', async (req: Request, res: Response) => {
   const payload: Record<string, unknown> = {
     status: 'ok',
+    // App 在區網裡自動尋找 Fog 時，靠 layer／service 認出「這台是 Fog」
+    // （APP/src/utils/fogAddress.ts）。改名前先改 App 那邊的判斷。
     layer: 'fog-node',
+    service: 'foodscan-fog',
+    // 場域名稱：一個場域一台 Fog，App 設定頁顯示它，使用者才知道連到哪一台。
+    name: process.env.FOG_NAME || os.hostname(),
     commit: APP_COMMIT,
   };
 

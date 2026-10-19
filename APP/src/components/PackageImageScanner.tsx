@@ -3,15 +3,10 @@ import { View, Text, Image, Alert, Pressable, StyleSheet, ScrollView, Modal } fr
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
-import * as ImageManipulator from 'expo-image-manipulator';
+import { compressImage } from '../utils/imageCompress';
 import { Camera, ImagePlus, Trash2, CheckCircle2, X } from 'lucide-react-native';
 
-// 上傳前壓縮的參數。
-// 依據實驗 05（05-壓縮對本地管線之影響），若壓至 1280px 會使本地 vlcrop 管線添加物 F1 重挫 9.7 點；
-// 提升至最長邊 1920px (JPEG quality 0.85) 則可通過統計非劣性驗證（差距僅 -1.6 點，CI 跨 0），
-// 橫向拍攝即對應 1920x1080 (FHD)，直向拍攝寬度保留 1920px 以維護橫排小字辨識率。
-const MAX_WIDTH = 1920;
-const QUALITY = 0.85;
+// 上傳前壓縮的參數與做法在 utils/imageCompress.ts（測試集自動量測也用同一支）。
 
 // 放大檢視器的縮放範圍。上限比整頁縮放（4×）高：這裡要看的是標示上的小字，
 // 而照片本身最長邊有 1920px，放到 6 倍仍在原始解析度內，不會只是放大馬賽克。
@@ -172,22 +167,8 @@ export default function PackageImageScanner({ onImageCaptured, images = [], onRe
    */
   const processAndCompressImage = async (uri: string, srcWidth: number) => {
     try {
-      // 只縮不放。resize 設的是**結果尺寸**而非上限，寬度本來就小於 1920 的圖
-      // （截圖、網路存下的小圖）若照樣傳進去會被放大：檔案變大，細節一點沒多。
-      const actions = srcWidth > MAX_WIDTH ? [{ resize: { width: MAX_WIDTH } }] : [];
-      const out = await ImageManipulator.manipulateAsync(uri, actions, {
-        compress: QUALITY,
-        format: ImageManipulator.SaveFormat.JPEG,
-        base64: true,
-      });
-      if (out.base64) {
-        // 實機驗收用：確認送出去的確實是這組參數壓過的結果。
-        // 離線實驗（compress_images.py）只證明「這個等級夠辨識」，
-        // 證明「App 真的有壓」要看這行。
-        console.log(`[compress] ${srcWidth}px → ${out.width}px, `
-          + `base64 ${(out.base64.length / 1024).toFixed(0)}KB`);
-        onImageCaptured(out.base64);
-      }
+      const out = await compressImage(uri, srcWidth);
+      if (out) onImageCaptured(out.base64);
     } catch (e: any) {
       console.error('影像壓縮失敗', e);
       Alert.alert('影像處理失敗', '請再試一次，或改用其他照片');
