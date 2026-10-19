@@ -7,6 +7,7 @@ import { useFontScale } from '../contexts/FontScaleContext';
 import { formatAbsoluteTime, getDataFreshness } from '../utils/dataFreshness';
 import { formatNutritionValue, getResultPresentation } from '../utils/resultPresentation';
 import NutritionRing from './NutritionRing';
+import AdditiveCategorySummary from './AdditiveCategorySummary';
 import { DetailButton, ScreenHeader, reportColors as C, ui } from './reportUi';
 
 export type IngredientTab = 'all' | 'additives' | 'unmatched';
@@ -103,6 +104,7 @@ export default function ResultOverview({ result, photoUri, isDemo = false, match
       <Text style={s.ingredientNote}>{model.ingredients.length === 0 ? '尚未辨識到成分，請確認照片中的標示是否清楚。' : `已比對到 ${model.additives.length} 項添加物，其餘 ${model.unmatched.length} 項未比對到添加物資料庫。`}</Text>
       <DetailButton title="查看成分與來源" onPress={() => onIngredients('all')} />
     </View>
+    <AdditiveCategorySummary ingredients={model.ingredients} onDetails={() => onIngredients(model.additives.length ? 'additives' : 'all')} />
     {generalWarnings.length > 0 && <View style={s.packageWarnings}>
       <View style={ui.row}><ShieldCheck size={17} color="#85704D" /><Text style={s.warningTitle}>包裝標示提醒</Text></View>
       {generalWarnings.map((warning, i) => <Text key={i} style={s.warningText}>{warning}</Text>)}

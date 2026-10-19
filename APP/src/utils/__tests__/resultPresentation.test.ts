@@ -1,5 +1,5 @@
 import { AnalysisResponse } from '../../types';
-import { formatNutritionValue, getResultPresentation } from '../resultPresentation';
+import { formatNutritionValue, getAdditiveCategoryStats, getResultPresentation } from '../resultPresentation';
 
 const makeResult = (overrides: Partial<AnalysisResponse> = {}): AnalysisResponse => ({
   health_score: 17, risk_level: 'medium', score_breakdown: [],
@@ -7,6 +7,28 @@ const makeResult = (overrides: Partial<AnalysisResponse> = {}): AnalysisResponse
 });
 
 describe('result presentation', () => {
+  it('counts every distinct official function, without counting unmatched or near-miss ingredients', () => {
+    const stats = getAdditiveCategoryStats([
+      { name: 'A', isAdditive: true, description: '', category: ['調味劑', '調味劑', ' 抗氧化劑 '] },
+      { name: 'B', isAdditive: 'true', description: '', category: ['調味劑'] },
+      { name: 'C', isAdditive: false, description: '', category: ['甜味劑'], nearMiss: { officialName: 'D', distance: 1, scannedLength: 8 } },
+    ]);
+    expect(stats.additiveCount).toBe(2);
+    expect(stats.totalAssignments).toBe(3);
+    expect(stats.rows).toEqual([{ name: '調味劑', count: 2 }, { name: '抗氧化劑', count: 1 }]);
+  });
+
+  it('keeps missing classifications in a separate last bucket', () => {
+    const stats = getAdditiveCategoryStats([
+      { name: 'A', isAdditive: true, description: '' },
+      { name: 'B', isAdditive: true, description: '', category: [' ', ''] },
+      { name: 'C', isAdditive: true, description: '', category: ['黏稠劑'] },
+    ]);
+    expect(stats.rows).toEqual([{ name: '黏稠劑', count: 1 }, { name: '未分類', count: 2 }]);
+    expect(stats.totalAssignments).toBe(3);
+    expect(getAdditiveCategoryStats([])).toEqual({ additiveCount: 0, rows: [], totalAssignments: 0 });
+  });
+
   it('uses the server grade without deriving a grade from the raw score', () => {
     expect(getResultPresentation(makeResult()).grade).toBeUndefined();
     expect(getResultPresentation(makeResult({ nutri_grade: ' b ' })).grade).toBe('B');

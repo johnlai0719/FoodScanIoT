@@ -4,6 +4,23 @@ import { getScoreBreakdownList } from './scoring';
 export const isMatchedAdditive = (item: IngredientDetail) =>
   item.isAdditive === true || item.isAdditive === 'true';
 
+export function getAdditiveCategoryStats(ingredients: IngredientDetail[]) {
+  const additives = ingredients.filter(isMatchedAdditive);
+  const counts = new Map<string, number>();
+  for (const item of additives) {
+    // A matched additive may have several official functions. Count each once;
+    // an absent category stays separate instead of inferring one from the name.
+    const categories = [...new Set((item.category ?? []).map(value => value.trim()).filter(Boolean))];
+    for (const category of categories.length ? categories : ['未分類']) {
+      counts.set(category, (counts.get(category) ?? 0) + 1);
+    }
+  }
+  const rows = [...counts].map(([name, count]) => ({ name, count }))
+    .sort((a, b) => a.name === b.name ? 0 : a.name === '未分類' ? 1 : b.name === '未分類' ? -1
+      : b.count - a.count || a.name.localeCompare(b.name, 'zh-TW'));
+  return { additiveCount: additives.length, rows, totalAssignments: rows.reduce((sum, row) => sum + row.count, 0) };
+}
+
 export const GRADE_STYLES: Record<string, { color: string; background: string; label: string }> = {
   A: { color: '#16834C', background: '#E7F6EC', label: '營養評級較佳' },
   B: { color: '#5D861F', background: '#F0F6DF', label: '營養評級良好' },
