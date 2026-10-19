@@ -1,28 +1,31 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
   Text,
   ScrollView,
-  TextInput,
   Pressable,
   ActivityIndicator,
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
-  LayoutAnimation,
   UIManager,
   StyleSheet,
   Share,
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import { Sparkles, Sliders, Database, ShoppingBag, AlertOctagon, RotateCcw, Layers, ShieldCheck, ChevronRight, Zap, ArrowLeft, AlertTriangle, CheckCircle2, Info, ScanLine, Activity, Settings2 } from 'lucide-react-native';
+import { Sliders, AlertOctagon, RotateCcw, ArrowLeft, AlertTriangle, Settings2 } from 'lucide-react-native';
 
 import { useFontScale } from '../contexts/FontScaleContext';
 import { UserConditions, AnalysisResponse, DegradedLocalResponse } from '../types';
 import { MOCK_RESULTS } from '../mockResultData';
-import Gauge from '../components/Gauge';
+import ResultOverview, { IngredientTab } from '../components/ResultOverview';
+import NutritionDetails from '../components/NutritionDetails';
+import IngredientExplorer from '../components/IngredientExplorer';
+import ProfileSettings, { ProfileValues } from '../components/ProfileSettings';
+import ScanDashboard from '../components/ScanDashboard';
+import { ScreenHeader, ui as reportUi } from '../components/reportUi';
 import IngredientsList from '../components/IngredientsList';
 import DropdownEvent from '../components/DropdownEvent';
 import PackageImageScanner from '../components/PackageImageScanner';
@@ -31,54 +34,12 @@ import { analyzePersonalRisks, getProductAllergenWarnings } from '../utils/perso
 import { FOG_URL, CLOUD_URL, CLOUD_API_KEY, TESTER_ID, ANALYSIS_TIMEOUT_MS } from '../constants/endpoints';
 import * as Telemetry from '../utils/telemetry';
 import {
-  loadHistory, recordScan, clearHistory, relativeTime,
-  HistoryEntry, MAX_HISTORY,
+  loadHistory, recordScan, clearHistory,
+  HistoryEntry,
 } from '../utils/scanHistory';
-import { getDataFreshness } from '../utils/dataFreshness';
-import {
-  getScoreBreakdownList,
-  getDynamicHealthPoints,
-  getDynamicHealthSegments,
-  getBonusSegments,
-  getDynamicHealthLegend,
-} from '../utils/scoring';
-import {
-  getAiProductSummary,
-  getAiAdditivesSummary,
-} from '../utils/aiSummaries';
-
 if (Platform.OS === 'android') {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
 }
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-const TAIWAN_ALLERGENS = [
-  { key: '甲殼類', name: '甲殼類' },
-  { key: '芒果', name: '芒果' },
-  { key: '花生', name: '花生' },
-  { key: '牛奶', name: '牛奶' },
-  { key: '蛋', name: '蛋' },
-  { key: '堅果', name: '堅果' },
-  { key: '芝麻', name: '芝麻' },
-  { key: '含麩質穀物', name: '含麩質穀物' },
-  { key: '大豆', name: '大豆' },
-  { key: '魚類', name: '魚類' },
-  { key: '亞硫酸鹽', name: '亞硫酸鹽' },
-];
-
-const GROUPS: { value: UserConditions['group']; label: string }[] = [
-  { value: 'adult', label: '一般成人' },
-  { value: 'pregnant', label: '孕婦 / 哺乳' },
-  { value: 'child', label: '幼童' },
-];
-
-const CHRONIC_DISEASES = [
-  // 三高。label 用「高血糖」而不是「糖尿病」：這裡量的是營養素閾值，
-  // 不是在診斷疾病（key 仍是 diabetes，沿用既有的儲存值與比對代碼）。
-  { key: 'hypertension', label: '高血壓' },
-  { key: 'diabetes', label: '高血糖' },
-  { key: 'hyperlipidemia', label: '高血脂' },
-];
 
 // ─── 畫面縮放 ─────────────────────────────────────────────────────────────────
 const MIN_ZOOM = 1;
@@ -218,35 +179,27 @@ export default function HomeScreen() {
   // 過敏原的自定義欄位保留——它會直接以輸入文字比對成分與標示，法定 11 大類以外
   // 的過敏原（如木瓜）確實需要它才能警示。
   useEffect(() => {
-    AsyncStorage.multiGet(['targetGroup', 'customAllergen', 'chronicDiseases', 'allergens']).then(pairs => {
+    AsyncStorage.multiGet(['targetGroup', 'customAllergen', 'chronicDiseases', 'allergens', 'dietaryPreferences']).then(pairs => {
       pairs.forEach(([key, value]) => {
         if (!value) return;
         if (key === 'targetGroup') setTargetGroup(value as UserConditions['group']);
         if (key === 'customAllergen') setCustomAllergen(value);
         if (key === 'chronicDiseases') setChronicDiseases(JSON.parse(value));
         if (key === 'allergens') setAllergens(JSON.parse(value));
+        if (key === 'dietaryPreferences') setDietaryPreferences(JSON.parse(value));
       });
     });
   }, []);
 
-  const saveTargetGroup = (value: UserConditions['group']) => {
-    setTargetGroup(value);
-    AsyncStorage.setItem('targetGroup', value);
-  };
-
-  const saveCustomAllergen = (text: string) => {
-    setCustomAllergen(text);
-    AsyncStorage.setItem('customAllergen', text);
-  };
-  const toggleChronic = (key: string) => {
-    setChronicDiseases(prev => {
-      const next = prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key];
-      AsyncStorage.setItem('chronicDiseases', JSON.stringify(next));
-      return next;
-    });
-  };
   const [barcodeInput, setBarcodeInput] = useState('');
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [resultPhoto, setResultPhoto] = useState<string | undefined>();
+  const [resultIsDemo, setResultIsDemo] = useState(false);
+  const [ingredientTab, setIngredientTab] = useState<IngredientTab>('all');
+  const [dietaryPreferences, setDietaryPreferences] = useState<string[]>([]);
+  const [profileReturnView, setProfileReturnView] = useState<'scan' | 'result'>('scan');
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollToTop = () => requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: 0, animated: false }));
   const [serverEndpoint, setServerEndpoint] = useState<'fog' | 'cloud'>('fog');
 
   // 其他成分預設收合：使用者要看的是添加物，其餘配料是備查用的
@@ -256,9 +209,7 @@ export default function HomeScreen() {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResponse | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   // Fog 在 Cloud 連不上且無快取時，用本機 OCR 回的部分結果。
-  // **與 analysisResult 分開存**：它刻意沒有 health_score，混在一起會讓
-  // 結果頁的 `health_score ?? 100` 顯示一個不存在的分數
-  // （`normalize_result` 憑空補 75 分那次就是這樣來的）。
+  // 與完整結果分開存：本機降階沒有 health_score，不得補上不存在的分數。
   const [degradedResult, setDegradedResult] = useState<DegradedLocalResponse | null>(null);
   // 測試模式：送 X-Bypass-Cache，讓 Fog 跳過**讀**快取（照常寫）。
   // 量延遲時每一次都要走完整路徑，命中快取的那幾次會把中位數拉到失真。
@@ -271,16 +222,12 @@ export default function HomeScreen() {
   // 使用者可能在看結果時又去把開關關掉，那樣標示就與實際產出不符。
   const [resultWasLocalOnly, setResultWasLocalOnly] = useState(false);
   const [activeDetailView, setActiveDetailView] = useState<'additives' | 'history' | 'breakdown' | null>(null);
-  // 添加物明細底下再分三頁。null＝三個統計卡的總覽頁。
-  // 分頁的理由：成分與添加物同列一頁時，使用者要捲很久才看得完，
-  // 而且兩份清單長得一樣，捲到一半就分不清現在看的是哪一份。
-  const [additiveSubView, setAdditiveSubView] = useState<'all' | 'additives' | 'risky' | null>(null);
+  useEffect(() => { scrollToTop(); }, [view, activeDetailView]);
   // 這一次分析花了多久。**手機自己量的**（同一個時鐘兩次相減），
   // 不是把各層的時間戳相減——三層分處不同機器，時鐘不保證同步。
   // 這個數字包含網路往返，是使用者實際等待的時間。
   const [lastTiming, setLastTiming] = useState<
     { totalMs: number; cloudMs: number | null; cached: boolean } | null>(null);
-  const [isScoreExpanded, setIsScoreExpanded] = useState(false);
   // 本機查詢歷史。存整份結果，點回去能離線重現同一個結果頁——理由見 utils/scanHistory.ts。
   const [history, setHistory] = useState<HistoryEntry[]>([]);
 
@@ -289,15 +236,12 @@ export default function HomeScreen() {
   }, []);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
-  const toggleAllergen = (key: string) => {
-    setAllergens(prev => {
-      const next = prev.includes(key) ? prev.filter(a => a !== key) : [...prev, key];
-      AsyncStorage.setItem('allergens', JSON.stringify(next));
-      return next;
-    });
-  };
-
   const handleQuickPreview = (code: string) => {
+    setResultPhoto(undefined);
+    setResultIsDemo(true);
+    setLastTiming(null);
+    setActiveDetailView(null);
+    setDegradedResult(null);
     const data = MOCK_RESULTS[code] ?? MOCK_RESULTS['4710018123456'];
     setBarcodeInput(code);
     setAnalysisResult(data);
@@ -309,6 +253,11 @@ export default function HomeScreen() {
 
   const handleSubmitAnalysis = async () => {
     if (!barcodeInput && uploadedImages.length === 0) return;
+    setResultPhoto(uploadedImages[0] ? (uploadedImages[0].startsWith('data:') ? uploadedImages[0] : `data:image/jpeg;base64,${uploadedImages[0]}`) : undefined);
+    setResultIsDemo(uploadedImages.length === 0 && !!MOCK_RESULTS[barcodeInput]);
+    setActiveDetailView(null);
+    setDegradedResult(null);
+    setLastTiming(null);
 
     // Fast-path for known mock barcodes
     if (uploadedImages.length === 0 && MOCK_RESULTS[barcodeInput]) {
@@ -512,13 +461,13 @@ export default function HomeScreen() {
   };
 
   const handleBackToScan = () => {
+    setResultPhoto(undefined);
+    setResultIsDemo(false);
     setView('scan');
     setAnalysisResult(null);
     setAnalysisError(null);
     setDegradedResult(null);
     setActiveDetailView(null);
-    setAdditiveSubView(null);
-    setIsScoreExpanded(false);
   };
 
   // ── Derived stats ──────────────────────────────────────────────────────────
@@ -558,39 +507,6 @@ export default function HomeScreen() {
    */
   const isAdditive = (i: typeof allIngredients[number]) =>
     i.isAdditive === true || i.isAdditive === 'true';
-  const additiveIngredients = allIngredients.filter(isAdditive);
-  const totalAdditivesCount = additiveIngredients.length;
-  // 「須注意」＝有族群風險等級 ≥3 的添加物。只算添加物，不含未比對到的成分——
-  // 未比對到就沒有族群風險資料，混進來會讓這個數字看起來比實際能判定的多。
-  const riskyIngredients = allIngredients.filter(i => {
-    if (!(i.isAdditive === true || i.isAdditive === 'true')) return false;
-    return (i.groupRisks ?? []).some(r => r.riskLevel >= 3);
-  });
-  const highRiskCount = riskyIngredients.length;
-
-  // 依官方類別統計添加物。一項可能屬多類，故各類次數相加會大於添加物總數——
-  // 這是對的，不可為了「加起來等於總數」而只取第一類：那會讓「己二烯酸鉀」
-  // 這種同時是防腐劑與殺菌劑的項目憑空少掉一個身分。畫面上要講明這件事。
-  const additiveCategoryStats = (() => {
-    const m = new Map<string, number>();
-    let uncategorised = 0;
-    for (const i of additiveIngredients) {
-      const cats = i.category ?? [];
-      if (cats.length === 0) { uncategorised += 1; continue; }
-      for (const c of cats) m.set(c, (m.get(c) ?? 0) + 1);
-    }
-    const rows = [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-    // 「未分類」永遠排最後，且與其他類別分開命名——它不是一種類別，
-    // 是「這項沒配到知識庫」，混在中間會被讀成官方分類之一。
-    if (uncategorised > 0) rows.push(['未分類', uncategorised]);
-    return rows;
-  })();
-
-  const scoreBreakdownList = getScoreBreakdownList(analysisResult);
-
-  // 資料新鮮度：讓使用者知道手上這份分析是何時算出來的，以及是否為降級回應
-  const dataFreshness = getDataFreshness(analysisResult);
-
   // ── 本地個人化比對（健康背景不離開裝置）──────────────────────────────────
   // 通用警告＝產品標示本身；舊快取中 Fog 寫入的「偵測到過敏原：X」屬於前一位
   // 使用者的比對結果，一律濾除不顯示。
@@ -631,25 +547,19 @@ export default function HomeScreen() {
     allergens.length +
     (customAllergen.trim() ? 1 : 0);
 
-  const { pos: dynamicPos, neg: dynamicNeg } = getDynamicHealthPoints(analysisResult, scoreBreakdownList);
-  const healthSegments = getDynamicHealthSegments(analysisResult, scoreBreakdownList);
-  const bonusSegments = getBonusSegments(scoreBreakdownList);
-  const healthLegend = getDynamicHealthLegend(scoreBreakdownList);
-  const scoreValue = analysisResult?.health_score ?? 100;
-
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={s.root}>
       {/* 浮動控制項刻意留在縮放層外面：跟著一起放大的話，拉到 4 倍時它們會被
           推出畫面，使用者就回不去了。 */}
-      <Pressable onPress={toggleFontScale} style={[s.fontScaleBtn, isLarge && s.fontScaleBtnActive]}>
+      <Pressable accessibilityRole="button" accessibilityLabel={isLarge ? '使用標準字級' : '放大字級'} onPress={toggleFontScale} style={[s.fontScaleBtn, isLarge && s.fontScaleBtnActive]}>
         <Text style={[s.fontScaleBtnText, isLarge && s.fontScaleBtnTextActive]}>Aa</Text>
       </Pressable>
 
       {/* 健康設定入口。設定畫面本身不顯示，避免與畫面內的返回鍵重複。 */}
       {view !== 'profile' && view !== 'settings' && (
         <Pressable
-          onPress={() => setView('profile')}
+          onPress={() => { setProfileReturnView(view === 'result' ? 'result' : 'scan'); setView('profile'); }}
           style={s.profileGearBtn}
           accessibilityLabel="個人健康設定"
           accessibilityRole="button"
@@ -674,94 +584,24 @@ export default function HomeScreen() {
         >
           <Animated.View style={[s.zoomLayer, zoomStyle]}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
+        <ScrollView ref={scrollRef} contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
 
           {/* ══════════ 健康設定（由右下角齒輪進入）══════════ */}
           {view === 'profile' && (
-            <View style={s.card}>
-              <View style={s.profileTopBar}>
-                <Pressable style={s.btnSecondary} onPress={() => setView('scan')}>
-                  <ArrowLeft size={14} color="#757575" />
-                  <Text style={s.btnSecondaryText}>返回掃描</Text>
-                </Pressable>
-              </View>
-              <View style={s.cardHeader}>
-                <Sliders size={18} color="#757575" />
-                <Text style={s.cardTitle}>設定個人健康特徵</Text>
-              </View>
-              <Text style={s.cardSubtitle}>建立受檢者的健康資料，系統將依此提供個人化風險警告。設定會自動儲存。</Text>
-
-              {/* Group selector */}
-              <Text style={s.sectionLabel}>1. 群體</Text>
-              <View style={s.groupGrid}>
-                {GROUPS.map(g => (
-                  <Pressable
-                    key={g.value}
-                    onPress={() => saveTargetGroup(g.value)}
-                    style={[s.groupBtn, targetGroup === g.value && s.groupBtnActive]}
-                  >
-                    <Text style={[s.groupBtnText, targetGroup === g.value && s.groupBtnTextActive]}>
-                      {g.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-
-              {/* Chronic diseases */}
-              <Text style={[s.sectionLabel, { marginTop: 20 }]}>2. 慢性病</Text>
-              <View style={s.groupGrid}>
-                {CHRONIC_DISEASES.map(d => {
-                  const checked = chronicDiseases.includes(d.key);
-                  return (
-                    <Pressable
-                      key={d.key}
-                      onPress={() => toggleChronic(d.key)}
-                      style={[s.allergenBtn, checked && s.allergenBtnActive]}
-                    >
-                      <Text style={[s.allergenText, checked && s.allergenTextActive]}>{d.label}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-
-              {/* Allergen toggles */}
-              <Text style={[s.sectionLabel, { marginTop: 20 }]}>3. 過敏原</Text>
-              <View style={s.allergenGrid}>
-                {TAIWAN_ALLERGENS.map(a => {
-                  const checked = allergens.includes(a.key);
-                  return (
-                    <Pressable
-                      key={a.key}
-                      onPress={() => toggleAllergen(a.key)}
-                      style={[s.allergenBtn, checked && s.allergenBtnActive]}
-                    >
-                      <Text style={[s.allergenText, checked && s.allergenTextActive]}>{a.name}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              <TextInput
-                value={customAllergen}
-                onChangeText={saveCustomAllergen}
-                placeholder="自定義過敏原（選填，例如：木瓜）"
-                placeholderTextColor="#94A3B8"
-                style={s.customInlineInput}
-              />
-
-              {/* Action buttons */}
-              <View style={[s.row, { marginTop: 24 }]}>
-                <Pressable style={[s.btnPrimary, { flex: 1 }]} onPress={() => setView('scan')}>
-                  <CheckCircle2 size={14} color="#fff" />
-                  <Text style={s.btnPrimaryText}>完成，回到掃描</Text>
-                </Pressable>
-              </View>
-              {__DEV__ && (
-                <Pressable style={[s.btnPrimary, { marginTop: 10 }]} onPress={() => handleQuickPreview('4710018123456')}>
-                  <Zap size={14} color="#fef3c7" />
-                  <Text style={s.btnPrimaryText}>載入測試：即刻生成範例儀表板</Text>
-                </Pressable>
-              )}
-            </View>
+            <ProfileSettings
+              initial={{ group: targetGroup, allergens, chronic: chronicDiseases, customAllergen, dietary: dietaryPreferences }}
+              onBack={() => setView(profileReturnView)}
+              onSave={async (values: ProfileValues) => {
+                await AsyncStorage.multiSet([
+                  ['targetGroup', values.group], ['allergens', JSON.stringify(values.allergens)],
+                  ['chronicDiseases', JSON.stringify(values.chronic)], ['customAllergen', values.customAllergen],
+                  ['dietaryPreferences', JSON.stringify(values.dietary)],
+                ]);
+                setTargetGroup(values.group); setAllergens(values.allergens);
+                setChronicDiseases(values.chronic); setCustomAllergen(values.customAllergen);
+                setDietaryPreferences(values.dietary); setView(profileReturnView);
+              }}
+            />
           )}
 
           {/* ══════════ 進階設定（獨立頁面）══════════
@@ -902,149 +742,21 @@ export default function HomeScreen() {
           {/* ══════════ STEP 2: Scan ══════════ */}
           {view === 'scan' && (
             <>
-              {/* 不傳 onPhotosSubmit：標示照片統一由下方的 PackageImageScanner 負責，
-                  避免同一件事有兩個入口。掃描器因此只做條碼。 */}
-              <BarcodeScanner
-                visible={scannerVisible}
-                onClose={() => setScannerVisible(false)}
-                onBarcodeScanned={code => {
-                  setBarcodeInput(code);
-                  setScannerVisible(false);
+              <BarcodeScanner visible={scannerVisible} onClose={() => setScannerVisible(false)}
+                onBarcodeScanned={code => { setBarcodeInput(code); setScannerVisible(false); }} />
+              <ScanDashboard barcode={barcodeInput} onBarcodeChange={setBarcodeInput}
+                onBarcodeScan={() => setScannerVisible(true)}
+                imagePicker={<PackageImageScanner onImageCaptured={base64 => setUploadedImages(previous => [...previous, base64])}
+                  images={uploadedImages} onRemoveImage={index => setUploadedImages(previous => previous.filter((_, i) => i !== index))} />}
+                canAnalyze={!!barcodeInput || uploadedImages.length > 0} onAnalyze={handleSubmitAnalysis}
+                history={history} onClearHistory={() => { clearHistory(); setHistory([]); }}
+                onHistory={entry => {
+                  setAnalysisResult(entry.result); setResultPhoto(undefined); setResultIsDemo(false);
+                  setDegradedResult(null); setAnalysisError(null); setIsAnalyzing(false);
+                  setActiveDetailView(null); setView('result');
                 }}
-              />
-
-              <View style={s.card}>
-                <View style={s.cardHeader}>
-                  <Database size={18} color="#757575" />
-                  <Text style={s.cardTitle}>掃描食品</Text>
-                </View>
-                <Text style={s.cardSubtitle}>掃條碼或拍標示照片，擇一即可；兩者都給可提升解析準確度</Text>
-
-                {/* 條碼：輸入框 ＋ 掃描鈕（原本的手動／掃描切換已移除） */}
-                <View style={[s.row, { marginTop: 16, gap: 8 }]}>
-                  <TextInput
-                    value={barcodeInput}
-                    onChangeText={setBarcodeInput}
-                    placeholder="輸入條碼，例如 4710018123456"
-                    placeholderTextColor="#94A3B8"
-                    style={[s.textInput, { flex: 1 }]}
-                    keyboardType="numeric"
-                  />
-                  <Pressable
-                    style={s.scanIconBtn}
-                    onPress={() => setScannerVisible(true)}
-                    accessibilityLabel="開啟條碼掃描器"
-                    accessibilityRole="button"
-                  >
-                    <ScanLine size={20} color={BRAND} />
-                  </Pressable>
-                </View>
-
-                {barcodeInput !== '' && (
-                  <View style={[s.scannedResult, { marginTop: 8 }]}>
-                    <CheckCircle2 size={13} color={GREEN} />
-                    <Text style={s.scannedResultText}>條碼：{barcodeInput}</Text>
-                    <Pressable onPress={() => setBarcodeInput('')}>
-                      <Text style={s.scannedClear}>清除</Text>
-                    </Pressable>
-                  </View>
-                )}
-
-                {__DEV__ && (
-                  <View style={[s.row, { flexWrap: 'wrap', gap: 6, marginTop: 8 }]}>
-                    <Text style={s.demoLabel}>Demo 快速預載：</Text>
-                    {['4710018123456', 'TEST'].map(code => (
-                      <Pressable key={code} style={s.demoChip} onPress={() => setBarcodeInput(code)}>
-                        <Text style={s.demoChipText}>{code}</Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                )}
-
-                {/* 或 */}
-                <View style={s.orDivider}>
-                  <View style={s.orLine} />
-                  <Text style={s.orText}>或</Text>
-                  <View style={s.orLine} />
-                </View>
-
-                {/* 標示照片（唯一入口） */}
-                <PackageImageScanner
-                  onImageCaptured={base64 => setUploadedImages(prev => [...prev, base64])}
-                  images={uploadedImages}
-                  onRemoveImage={i => setUploadedImages(prev => prev.filter((_, idx) => idx !== i))}
-                />
-
-                <View style={[s.row, { marginTop: 20 }]}>
-                  <Pressable
-                    style={[s.btnPrimary, { flex: 1 }]}
-                    onPress={handleSubmitAnalysis}
-                    disabled={!barcodeInput && uploadedImages.length === 0}
-                  >
-                    <Text style={s.btnPrimaryText}>開始分析</Text>
-                  </Pressable>
-                </View>
-
-                {/* ── 最近查過 ────────────────────────────────────────────────
-                    點回去直接重現當時的結果，不重打分析：重打不只是再等十秒，
-                    同一張照片重跑辨識未必得到一樣的結果，那樣「歷史」就名不副實。
-                    只留 {MAX_HISTORY} 筆，整份結果約 68 KB／筆。 */}
-                {history.length > 0 && (
-                  <View style={s.historyBox}>
-                    <View style={s.historyHeader}>
-                      <Text style={s.historyTitle}>最近查過</Text>
-                      <Pressable
-                        onPress={() => { clearHistory(); setHistory([]); }}
-                        hitSlop={8}
-                        accessibilityRole="button"
-                        accessibilityLabel="清除查詢紀錄"
-                      >
-                        <Text style={s.historyClear}>清除</Text>
-                      </Pressable>
-                    </View>
-                    {history.map(item => (
-                      <Pressable
-                        key={item.id + item.savedAt}
-                        style={s.historyRow}
-                        onPress={() => {
-                          // 直接還原成結果頁。刻意不改 barcodeInput／uploadedImages——
-                          // 那兩個是「接下來要查什麼」，不是「剛剛看了什麼」。
-                          setAnalysisResult(item.result);
-                          setDegradedResult(null);
-                          setAnalysisError(null);
-                          setIsAnalyzing(false);
-                          setView('result');
-                        }}
-                      >
-                        <View style={s.historyRowMain}>
-                          <Text style={s.historyName} numberOfLines={1}>{item.name}</Text>
-                          <Text style={s.historyMeta}>
-                            {item.brand ? `${item.brand}・` : ''}{relativeTime(item.savedAt)}
-                          </Text>
-                        </View>
-                        {!!item.nutriGrade && (
-                          <View style={s.historyGrade}>
-                            <Text style={s.historyGradeText}>{item.nutriGrade}</Text>
-                          </View>
-                        )}
-                        <ChevronRight size={14} color={TEXT_MID} />
-                      </Pressable>
-                    ))}
-                  </View>
-                )}
-
-                {/* 進階設定：開發／展示用（選後端節點、清快取），故置於主要動作之後 */}
-                <Pressable style={s.advancedBtn} onPress={() => setView('settings')}>
-                  <Settings2 size={13} color={TEXT_MID} />
-                  <Text style={s.advancedBtnText}>進階設定</Text>
-                  <View style={s.advancedEndpointBadge}>
-                    <Text style={s.advancedEndpointBadgeText}>
-                      {serverEndpoint === 'fog' ? 'Fog 節點' : 'Cloud 節點'}
-                    </Text>
-                  </View>
-                  <ChevronRight size={13} color={TEXT_MID} />
-                </Pressable>
-              </View>
+                onDemo={handleQuickPreview} onSettings={() => setView('settings')}
+                endpointLabel={serverEndpoint === 'fog' ? 'Fog 節點' : 'Cloud 節點'} />
             </>
           )}
 
@@ -1193,511 +905,42 @@ export default function HomeScreen() {
                 </>
               )}
 
-              {/* Results */}
+              {/* Results: overview first, complete information on focused detail screens. */}
               {!isAnalyzing && !analysisError && !degradedResult && analysisResult && (
-                <>
-                  {/* Top nav */}
-                  <View style={[s.row, s.resultNav]}>
-                    <Pressable style={s.btnSecondary} onPress={handleBackToScan}>
-                      <RotateCcw size={13} color="#757575" />
-                      <Text style={s.btnSecondaryText}>重新檢測</Text>
-                    </Pressable>
-                    {/* 原本這裡寫死「資料校準時間：2026」，對使用者沒有任何資訊。
-                        改為顯示 Cloud 實際計算此分析的時間（快取命中時即為原始計算時間）。 */}
-                    <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={[s.navTimestamp, dataFreshness.isStale && s.navTimestampStale]}>
-                        {dataFreshness.label}
-                      </Text>
-                      {lastTiming && (
-                        <Text style={s.navTiming}>
-                          {lastTiming.cached ? '快取命中・' : ''}
-                          耗時 {(lastTiming.totalMs / 1000).toFixed(1)} 秒
-                          {lastTiming.cloudMs != null
-                            ? `（雲端 ${(lastTiming.cloudMs / 1000).toFixed(1)} 秒）`
-                            : ''}
-                        </Text>
-                      )}
-                    </View>
+                activeDetailView === null ? (
+                  <ResultOverview result={analysisResult} photoUri={resultPhoto} isDemo={resultIsDemo}
+                    matchedAllergens={matchedAllergens} generalWarnings={generalAllergenWarnings}
+                    onBack={handleBackToScan}
+                    onScanNext={() => { setUploadedImages([]); setBarcodeInput(''); handleBackToScan(); }}
+                    onNutrition={() => setActiveDetailView('breakdown')}
+                    onIngredients={tab => { setIngredientTab(tab); setActiveDetailView('additives'); }}
+                    onHistory={hasSafetyEvents ? () => setActiveDetailView('history') : undefined}
+                    additionalWarnings={<>
+                      {personalAdditiveRisks.length > 0 && <View style={[reportUi.card, { backgroundColor: '#FFF9EC', gap: 8 }]}>
+                        <View style={reportUi.row}><AlertTriangle size={18} color="#AD762C" /><Text style={[reportUi.sectionTitle, { fontSize: 15 * fontScale }]}>個人化添加物提醒</Text></View>
+                        {personalAdditiveRisks.map((risk, index) => <View key={index} style={{ gap: 3 }}>
+                          <Text style={{ fontWeight: '700', fontSize: 13 * fontScale, color: '#6D552F' }}>{risk.name}</Text>
+                          <Text style={{ fontSize: 12 * fontScale, lineHeight: 20 * fontScale, color: '#857658' }}>{risk.reason}</Text>
+                          {risk.reviewedByHuman === false && <Text style={{ fontSize: 11 * fontScale, color: '#9A8D76' }}>未經人工複核・來源請見成分詳情</Text>}
+                        </View>)}
+                      </View>}
+                      {nutritionWarnings.length > 0 && <View style={[reportUi.card, { backgroundColor: '#FFF9EC', gap: 8 }]}>
+                        <Text style={[reportUi.sectionTitle, { fontSize: 15 * fontScale }]}>個人化營養提醒</Text>
+                        {nutritionWarnings.map((warning, index) => <Text key={index} style={{ fontSize: 13 * fontScale, lineHeight: 21 * fontScale, color: '#857658' }}>{warning.condition}・{warning.title}：{warning.detail}</Text>)}
+                      </View>}
+                    </>}
+                  />
+                ) : activeDetailView === 'breakdown' ? (
+                  <NutritionDetails result={analysisResult} onBack={() => setActiveDetailView(null)} />
+                ) : activeDetailView === 'additives' ? (
+                  <IngredientExplorer key={ingredientTab} initialTab={ingredientTab} ingredients={allIngredients}
+                    onBack={() => setActiveDetailView(null)} onNavigate={scrollToTop} />
+                ) : (
+                  <View style={reportUi.stack}>
+                    <ScreenHeader title="廠商食安事件" onBack={() => setActiveDetailView(null)} />
+                    {safeFoodSafetyEvents.map((event, index) => <DropdownEvent key={index} event={event} index={index} />)}
                   </View>
-
-                  {/* Cloud 不可用、Fog 以過期快取降級回應時，必須讓使用者知道 */}
-                  {dataFreshness.warning && (
-                    <View style={s.staleBanner}>
-                      <Info size={13} color="#b45309" />
-                      <Text style={s.staleBannerText}>{dataFreshness.warning}</Text>
-                    </View>
-                  )}
-
-                  {matchedAllergens.length > 0 && (
-                    <View style={s.allergenHitBanner}>
-                      <View style={s.allergenHitHeader}>
-                        <AlertOctagon size={20} color="#fff" />
-                        <Text style={s.allergenHitTitle}>個人化過敏原警示</Text>
-                      </View>
-                      <Text style={s.allergenHitSub}>根據您的設定，此產品含有以下過敏原：</Text>
-                      <View style={s.allergenHitBadgeRow}>
-                        {matchedAllergens.map((a, i) => (
-                          <View key={i} style={s.allergenHitBadge}>
-                            <Text style={s.allergenHitBadgeText}>{a}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    </View>
-                  )}
-
-                  {analysisResult.cached === false && (
-                    <View style={s.cacheMissBanner}>
-                      <Info size={13} color="#92400e" />
-                      <Text style={s.cacheMissBannerText}>
-                        {uploadedImages.length === 0
-                          ? '首次分析此產品 · 下次可同時上傳標籤照片以提升 AI 解析準確度'
-                          : '首次分析此產品 · AI 即時運算完成'}
-                      </Text>
-                    </View>
-                  )}
-
-                  {activeDetailView === null ? (
-                    <>
-                      {/* Product name compact header */}
-                      {analysisResult.product_info && (
-                        <View style={s.productCompact}>
-                          <View style={s.productIcon}>
-                            <ShoppingBag size={18} color="#757575" />
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={s.productName} numberOfLines={1}>{analysisResult.product_info.name}</Text>
-                            <Text style={s.productMeta}>
-                              {analysisResult.product_info.brand} ／ {analysisResult.product_info.manufacturer}
-                            </Text>
-                          </View>
-                          {analysisResult.product_info.barcode && (
-                            <View style={s.barcodePill}>
-                              <Text style={s.barcodePillText}>{analysisResult.product_info.barcode}</Text>
-                            </View>
-                          )}
-                        </View>
-                      )}
-
-                      {/* Allergen warnings compact */}
-                      {generalAllergenWarnings.length > 0 && (
-                        <View style={s.card}>
-                          {generalAllergenWarnings.map((w, i) => (
-                            <View key={i} style={[s.allergenWarnBox, i > 0 && { marginTop: 6 }]}>
-                              <AlertOctagon size={14} color="#b45309" />
-                              <Text style={s.allergenWarnText}>{w}</Text>
-                            </View>
-                          ))}
-                        </View>
-                      )}
-
-                      {/* Gauge — main dashboard chart */}
-                      {/* 點分數 → 看完整算式。教授要的「占比與計算方式」在那一頁。
-                          等級以 Cloud 的 nutri_grade 為準：score 是 Nutri-Score
-                          原始分數（越低越好），呈現端自己推會判錯（見 Gauge.tsx）。 */}
-                      <Pressable onPress={() => setActiveDetailView('breakdown')}>
-                        <Gauge
-                          score={scoreValue}
-                          grade={analysisResult.nutri_grade}
-                          type="health"
-                          label="營養結構佔比評估 (糖分與熱量)"
-                          pos={dynamicPos}
-                          neg={dynamicNeg}
-                          healthSegments={healthSegments}
-                          bonusSegments={bonusSegments}
-                        />
-                        <View style={s.scoreTapRow}>
-                          <Text style={s.scoreTapText}>
-                            Nutri-Score {scoreValue} 分・分數越低越好
-                          </Text>
-                          <View style={s.row}>
-                            <Text style={s.scoreTapLink}>看計算方式</Text>
-                            <ChevronRight size={13} color={BRAND} />
-                          </View>
-                        </View>
-                      </Pressable>
-
-                      {/* Personal additive risk — only shown when profile matches */}
-                      {personalAdditiveRisks.length > 0 && (
-                        <View style={s.personalRiskCard}>
-                          <View style={s.row}>
-                            <AlertTriangle size={15} color="#b45309" />
-                            <Text style={s.personalRiskTitle}>個人化添加物風險警示</Text>
-                          </View>
-                          {personalAdditiveRisks.map((r, i) => (
-                            <View key={i} style={s.personalRiskRow}>
-                              <Text style={s.personalRiskName}>{r.name}</Text>
-                              <Text style={s.personalRiskReason}>{r.reason}</Text>
-                              {/* 出處與複核狀態。這句話是查來的還是模型整理的，
-                                  使用者有權分辨——與「輸出的每個字都要有來源」
-                                  同一條原則。沒記出處時整行不顯示，不要寫成
-                                  「來源：無」，那會讀起來像「查證過但沒有來源」。 */}
-                              {/* 2026-09-22：原本優先顯示 sourceTitle，改為只顯示
-                                  網址。庫內的標題不可信（同一個網址掛了 8 種標題），
-                                  而標題看起來比網址正式，反而更容易讓人誤信。
-                                  年份同理，已不再送出。 */}
-                              {(r.sourceUrl || r.reviewedByHuman === false) && (
-                                <Text style={s.personalRiskSource}>
-                                  {r.sourceUrl}
-                                  {r.reviewedByHuman === false ? '・未經人工複核' : ''}
-                                </Text>
-                              )}
-                            </View>
-                          ))}
-                        </View>
-                      )}
-
-                      {/* Chronic-condition nutrition thresholds — sodium / sugar */}
-                      {nutritionWarnings.length > 0 && (
-                        <View style={s.personalRiskCard}>
-                          <View style={s.row}>
-                            <Activity size={15} color="#b45309" />
-                            <Text style={s.personalRiskTitle}>個人化營養警示</Text>
-                          </View>
-                          {nutritionWarnings.map((w, i) => (
-                            <View key={i} style={s.personalRiskRow}>
-                              <Text style={s.personalRiskName}>{w.condition}族群{w.title}</Text>
-                              <Text style={s.personalRiskReason}>{w.detail}</Text>
-                            </View>
-                          ))}
-                        </View>
-                      )}
-
-                      {/* Entry rows
-
-                          ~~評分明細~~ **2026-09-13 移除這一列**：它與分數卡下方的
-                          「看逐項計算」通到同一頁，兩個入口做同一件事會讓人以為是
-                          兩種不同的東西。留分數卡那個——它就貼在被解釋的對象旁邊，
-                          而這個清單裝的是**其他主題**（添加物、廠商歷史），把計算
-                          明細混進來反而暗示它是另一個主題。
-                          （順帶一提原本的標題「成分細則扣分分解」也是錯的：
-                          扣分的是營養素，不是成分。） */}
-                      <View style={s.card}>
-                        {/* Additives */}
-                        <Pressable style={s.entryRow} onPress={() => setActiveDetailView('additives')}>
-                          <View style={s.gatewayIcon}>
-                            <Layers size={16} color="#757575" />
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={s.entryRowTitle}>化學配料與食品添加物</Text>
-                            <Text style={s.entryRowSub}>
-                              {totalAdditivesCount} 種添加物
-                              {highRiskCount > 0 ? `・${highRiskCount} 項高風險` : '・無高風險項目'}
-                            </Text>
-                          </View>
-                          {highRiskCount > 0
-                            ? <View style={s.entryBadgeWarn}><Text style={s.entryBadgeWarnText}>注意</Text></View>
-                            : <View style={s.entryBadgeSafe}><Text style={s.entryBadgeSafeText}>安全</Text></View>
-                          }
-                          <ChevronRight size={15} color={TEXT_MID} />
-                        </Pressable>
-
-                        {/* History — 僅在真的有事件時顯示，見 hasSafetyEvents 的說明 */}
-                        {hasSafetyEvents && (
-                          <>
-                            <View style={s.entryDivider} />
-                            <Pressable style={s.entryRow} onPress={() => setActiveDetailView('history')}>
-                              <View style={s.gatewayIcon}>
-                                <ShieldCheck size={16} color="#757575" />
-                              </View>
-                              <View style={{ flex: 1 }}>
-                                <Text style={s.entryRowTitle}>製造廠商食安事件</Text>
-                                <Text style={s.entryRowSub}>
-                                  發現 {safeFoodSafetyEvents.length} 件稽查記錄
-                                </Text>
-                              </View>
-                              <View style={s.entryBadgeWarn}><Text style={s.entryBadgeWarnText}>查看</Text></View>
-                              <ChevronRight size={15} color={TEXT_MID} />
-                            </Pressable>
-                          </>
-                        )}
-                      </View>
-                    </>
-                  ) : activeDetailView === 'breakdown' ? (
-                    // ── Breakdown detail view ──
-                    <View style={{ gap: 12 }}>
-                      <Pressable style={[s.backNav, s.row]} onPress={() => setActiveDetailView(null)}>
-                        <ArrowLeft size={15} color={TEXT_DARK} />
-                        <Text style={s.backNavText}>返回診斷儀表板</Text>
-                      </Pressable>
-                      <View style={s.card}>
-                        <Text style={s.cardTitle}>Nutri-Score 計算明細</Text>
-                        {/* 先給總帳，再給逐項。只有逐項的話讀者得自己加，
-                            而且加起來對不對也無從確認。 */}
-                        <View style={s.totalsRow}>
-                          <Text style={s.totalsText}>
-                            扣分合計 {scoreBreakdownList.filter(i => i.points < 0)
-                              .reduce((n, i) => n + Math.abs(i.points), 0)}
-                            　加分合計 {scoreBreakdownList.filter(i => i.points > 0)
-                              .reduce((n, i) => n + i.points, 0)}
-                          </Text>
-                          <Text style={s.totalsScore}>
-                            = {scoreValue} 分・{analysisResult.nutri_grade ?? '—'} 級
-                          </Text>
-                        </View>
-                        <Text style={s.breakdownDesc}>
-                          分數越低越好。等級的分界隨品類而異——飲料要 2 分以下才是 B，
-                          只有純水可能拿到 A。
-                        </Text>
-                        <View style={s.aiBox}>
-                          <View style={s.row}>
-                            <Info size={12} color="#757575" />
-                            <Text style={s.aiLabel}>評分說明</Text>
-                          </View>
-                          <Text style={s.aiText}>
-                            {analysisResult.overall_summary || getAiProductSummary(analysisResult, allIngredients, totalAdditivesCount)}
-                          </Text>
-                        </View>
-                        <View style={{ marginTop: 12, gap: 8 }}>
-                          {scoreBreakdownList.length > 0 ? (
-                            scoreBreakdownList.map((item, idx) => {
-                              // 占比＝這一項拿到的分 ÷ 這一項的上限。
-                              // maxPoints 缺席時（舊快取）不畫條，也不假造一個分母。
-                              const abs = Math.abs(item.points);
-                              const max = item.maxPoints ?? null;
-                              const frac = max ? Math.min(abs / max, 1) : null;
-                              return (
-                                <View key={idx} style={s.breakdownRow}>
-                                  <View style={{ flex: 1 }}>
-                                    <View style={s.breakdownHead}>
-                                      <Text style={s.breakdownReason}>{item.reason}</Text>
-                                      {/* 實測值。**null 是「未標示」不是 0**——
-                                          寫成 0 會宣稱這項含量為零，那是編造。 */}
-                                      <Text style={s.breakdownValue}>
-                                        {item.value === null || item.value === undefined
-                                          ? '未標示'
-                                          : `${item.value} ${item.unit ?? ''}`.trim()}
-                                      </Text>
-                                    </View>
-                                    {frac !== null && (
-                                      <View style={s.barTrack}>
-                                        <View style={[
-                                          s.barFill,
-                                          { width: `${frac * 100}%` },
-                                          item.points > 0 ? s.barFillGreen : s.barFillRed,
-                                        ]} />
-                                      </View>
-                                    )}
-                                    <Text style={s.breakdownDesc}>{item.description}</Text>
-                                  </View>
-                                  <View style={[
-                                    s.scoreBadge,
-                                    item.points > 0 ? s.scoreBadgeGreen : item.points < 0 ? s.scoreBadgeRed : s.scoreBadgeGray,
-                                  ]}>
-                                    <Text style={[
-                                      s.scoreNum,
-                                      item.points > 0 ? s.scoreNumGreen : item.points < 0 ? s.scoreNumRed : s.scoreNumGray,
-                                    ]}>
-                                      {item.points > 0 ? `+${item.points}` : item.points}
-                                    </Text>
-                                    {/* 分母要寫出來：只有「−7 分」看不出是滿分還是一半。 */}
-                                    {max ? <Text style={s.scoreMax}>／{max}</Text> : null}
-                                  </View>
-                                </View>
-                              );
-                            })
-                          ) : (
-                            <Text style={{ fontSize: 11, color: '#A89481', fontStyle: 'italic' }}>
-                              無特定營養比例增扣減明細
-                            </Text>
-                          )}
-                        </View>
-                      </View>
-                    </View>
-                  ) : activeDetailView === 'additives' ? (
-                    // ── Additives detail view ──
-                    <View style={{ gap: 12 }}>
-                      <Pressable
-                        style={[s.backNav, s.row]}
-                        onPress={() => { setActiveDetailView(null); setAdditiveSubView(null); }}
-                      >
-                        <ArrowLeft size={15} color={TEXT_DARK} />
-                        <Text style={s.backNavText}>返回診斷儀表板</Text>
-                      </Pressable>
-                      {additiveSubView === null ? (
-                        // ── 總覽：三個統計卡，點進去才看清單 ──
-                        <View style={s.card}>
-                          <Text style={s.cardTitle}>完整化學配料安全分級報告</Text>
-                          <View style={s.aiBox}>
-                            <View style={s.row}>
-                              <Info size={12} color="#757575" />
-                              <Text style={s.aiLabel}>添加物概要</Text>
-                            </View>
-                            <Text style={s.aiText}>
-                              {analysisResult.additives_summary || getAiAdditivesSummary(analysisResult, totalAdditivesCount, highRiskCount)}
-                            </Text>
-                          </View>
-                          <View style={[s.row, { gap: 8, marginTop: 12 }]}>
-                            {([
-                              { key: 'all' as const, label: '成分', val: allIngredients.length, col: '#4D3A31' },
-                              { key: 'additives' as const, label: '添加物', val: totalAdditivesCount, col: '#991b1b' },
-                              { key: 'risky' as const, label: '須注意', val: highRiskCount, col: highRiskCount > 0 ? '#b45309' : '#009B52' },
-                            ]).map(st => (
-                              <Pressable
-                                key={st.key}
-                                onPress={() => setAdditiveSubView(st.key)}
-                                style={[s.miniStat, s.miniStatTappable, { flex: 1 }]}
-                              >
-                                <Text style={[s.miniStatNum, { color: st.col }]}>{st.val}</Text>
-                                <Text style={s.miniStatLabel}>{st.label}</Text>
-                                {/* 數字本身看不出可以點。這一列是唯一的入口，
-                                    沒有它使用者會以為清單被拿掉了。 */}
-                                <View style={[s.row, { gap: 2, marginTop: 4 }]}>
-                                  <Text style={s.miniStatHint}>查看</Text>
-                                  <ChevronRight size={10} color={TEXT_MID} />
-                                </View>
-                              </Pressable>
-                            ))}
-                          </View>
-                          {totalAdditivesCount === 0 && (
-                            /* ⚠ 空清單**不等於**「本產品不含添加物」。這段留在總覽頁，
-                             * 因為添加物為 0 時使用者不會去點那張卡，看不到頁內的說明。
-                             *
-                             * 2026-09-10 以 177 案量測：添加物為 0 的案子有 42 個，
-                             * 其中 11 個是「標示上有、我們沒讀到」，而系統**分不出來**
-                             * ——兩組的成分項數分布幾乎完全重疊。既然分不出來，
-                             * 畫面就不能宣稱任何一邊。 */
-                            <View style={[s.tipBox, s.row, { alignItems: 'flex-start', marginTop: 12 }]}>
-                              <AlertTriangle size={14} color="#b45309" style={{ marginTop: 2 }} />
-                              <View style={{ flex: 1, gap: 4 }}>
-                                <Text style={[s.tipText, { fontWeight: '800', color: TEXT_DARK }]}>
-                                  未偵測到添加物
-                                </Text>
-                                <Text style={s.tipText}>
-                                  這可能是產品確實未使用，也可能是成分標示沒有辨識成功。
-                                  系統無法分辨這兩種情況，
-                                  <Text style={{ fontWeight: '800' }}>請以包裝上的成分欄為準</Text>。
-                                </Text>
-                              </View>
-                            </View>
-                          )}
-                        </View>
-                      ) : (
-                        // ── 子頁：一次只顯示一份清單 ──
-                        (() => {
-                          const view = {
-                            all: {
-                              title: '全部成分',
-                              note: '依標示順序列出。標有「添加物」徽章者已比對到添加物資料庫；未標記者為未比對到，不代表確定不是添加物。',
-                              list: allIngredients,
-                              empty: '沒有辨識到任何成分。',
-                            },
-                            additives: {
-                              title: '食品添加物',
-                              note: '已比對到添加物資料庫的項目。',
-                              list: additiveIngredients,
-                              empty: '未偵測到添加物。這可能是產品確實未使用，也可能是標示沒有辨識成功——系統無法分辨，請以包裝上的成分欄為準。',
-                            },
-                            risky: {
-                              title: '須注意的添加物',
-                              note: '對特定族群（孕婦、幼童、腎功能不全者等）有明確風險提示的添加物。每一則提示都附有來源。',
-                              list: riskyIngredients,
-                              empty: '本產品的添加物中，沒有對特定族群的高風險提示。',
-                            },
-                          }[additiveSubView];
-                          return (
-                            <View style={s.card}>
-                              {/* 返回總覽，不是直接回儀表板——少一階會讓使用者
-                                  要看第二份清單時得從頭再點一次。 */}
-                              <Pressable
-                                style={[s.row, { paddingVertical: 4, marginBottom: 8 }]}
-                                onPress={() => setAdditiveSubView(null)}
-                              >
-                                <ArrowLeft size={14} color={TEXT_DARK} />
-                                <Text style={s.backNavText}>返回添加物總覽</Text>
-                              </Pressable>
-                              <Text style={s.cardTitle}>
-                                {view.title}
-                                <Text style={s.cardSubtitle}>　{view.list.length} 項</Text>
-                              </Text>
-                              <Text style={[s.tipText, { marginTop: 4, marginBottom: 8 }]}>{view.note}</Text>
-                              {additiveSubView === 'additives' && additiveCategoryStats.length > 0 && (
-                                <View style={s.catBox}>
-                                  <Text style={s.catBoxTitle}>依類別</Text>
-                                  <View style={s.catWrap}>
-                                    {additiveCategoryStats.map(([cat, n]) => (
-                                      <View
-                                        key={cat}
-                                        style={[s.catChip, cat === '未分類' && s.catChipMuted]}
-                                      >
-                                        <Text style={[s.catChipText, cat === '未分類' && s.catChipTextMuted]}>
-                                          {cat}
-                                        </Text>
-                                        <Text style={[s.catChipNum, cat === '未分類' && s.catChipTextMuted]}>
-                                          {n}
-                                        </Text>
-                                      </View>
-                                    ))}
-                                  </View>
-                                  {/* 不解釋的話會被當成加總錯誤。 */}
-                                  <Text style={s.catNote}>
-                                    一項添加物可能同時屬多個類別，各類數字相加會大於添加物總數（{totalAdditivesCount}）。
-                                  </Text>
-                                </View>
-                              )}
-                              {view.list.length > 0 ? (
-                                <IngredientsList ingredients={view.list} />
-                              ) : (
-                                <View style={[s.tipBox, s.row, { alignItems: 'flex-start' }]}>
-                                  <Info size={14} color={TEXT_MID} style={{ marginTop: 2 }} />
-                                  <Text style={[s.tipText, { flex: 1 }]}>{view.empty}</Text>
-                                </View>
-                              )}
-                            </View>
-                          );
-                        })()
-                      )}
-                      <View style={[s.tipBox, s.row, { alignItems: 'flex-start' }]}>
-                        <Info size={14} color={TEXT_MID} style={{ marginTop: 2 }} />
-                        <Text style={[s.tipText, { flex: 1 }]}>
-                          雖然本食品中之人工添加劑均符合衛生福利部食品藥物管理署 (TFDA) 標準，但過度攝入仍可能增加身體代謝負擔，建議配合均衡飲食。
-                        </Text>
-                      </View>
-                    </View>
-                  ) : (
-                    // ── History detail view ──
-                    // 目前進不來：唯一的入口列已隨 hasSafetyEvents 隱藏（Cloud 端功能停用中）。
-                    // 刻意保留整段而非刪除——功能恢復時只要 Cloud 開始回傳事件，入口列會自動
-                    // 出現，這裡不必重寫。下方的空狀態文案僅在「有入口但事件為空」時才會被看到，
-                    // 那是功能恢復後才可能出現的情境。
-                    <View style={{ gap: 12 }}>
-                      <Pressable style={[s.backNav, s.row]} onPress={() => setActiveDetailView(null)}>
-                        <ArrowLeft size={15} color={TEXT_DARK} />
-                        <Text style={s.backNavText}>返回診斷儀表板</Text>
-                      </Pressable>
-                      <View style={s.card}>
-                        <Text style={s.cardTitle}>製造廠商歷年食安稽查詳情</Text>
-                        <Text style={s.cardSubtitle}>檢索自政府開放之不合格公告名單</Text>
-                        <View style={s.aiBox}>
-                          <View style={s.row}>
-                            <Sparkles size={12} color="#757575" />
-                            <Text style={s.aiLabel}>AI 廠商稽查信用簡析</Text>
-                          </View>
-                          {/* 2026-09-13：Cloud 不再回 safety_events_summary
-                              （食安管線停用中，產出的只會是沒查證過的安心話）。
-                              這段改用本地依事件內容組出的敘述——**有事件才會走到
-                              這裡**（整個詳情頁由 hasSafetyEvents 擋住）。 */}
-                          {/* 食安事件管線停用中，這一段本來就進不來。
-                              原本呼叫的 getAiHistorySummary 會針對具名企業產生
-                              憑空的合規背書與違規指控，已於 2026-09-14 移除。 */}
-                          <Text style={s.aiText}>食安事件查詢目前停用中。</Text>
-                        </View>
-                        <View style={{ marginTop: 12 }}>
-                          {safeFoodSafetyEvents.length > 0 ? (
-                            safeFoodSafetyEvents.map((evt, idx) => (
-                              <DropdownEvent key={idx} event={evt} index={idx} />
-                            ))
-                          ) : (
-                            <View style={s.emptyEvents}>
-                              <Text style={s.emptyEventsText}>
-                                目前在政府公開食品黑名單中，無此製造廠之重大安全稽處記錄。
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                      </View>
-                    </View>
-                  )}
-                </>
+                )
               )}
             </View>
           )}
@@ -1756,7 +999,7 @@ const SEL_TEXT = '#007380';
 
 const createStyles = (scale: number) => StyleSheet.create({
   root: { flex: 1, backgroundColor: '#F5F5F5' },
-  scroll: { paddingHorizontal: 20, paddingVertical: 16, gap: 0 },
+  scroll: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 120, gap: 0, width: '100%', maxWidth: 680, alignSelf: 'center' },
 
   // 雙指縮放。overflow: hidden 是必要的——放大後內容會超出這一層的邊界，
   // 不裁掉會蓋到浮動按鈕。

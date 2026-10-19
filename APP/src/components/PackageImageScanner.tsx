@@ -245,6 +245,8 @@ export default function PackageImageScanner({ onImageCaptured, images = [], onRe
           style={[s.actionBtn, s.actionBtnPrimary, loading === 'camera' && s.actionBtnLoading]}
           onPress={takePhoto}
           disabled={!!loading}
+          accessibilityRole="button"
+          accessibilityLabel="相機拍照"
         >
           <View style={s.actionBtnIcon}>
             <Camera size={20} color="#009B52" />
@@ -259,6 +261,8 @@ export default function PackageImageScanner({ onImageCaptured, images = [], onRe
           style={[s.actionBtn, s.actionBtnSecondary, loading === 'library' && s.actionBtnLoading]}
           onPress={pickFromLibrary}
           disabled={!!loading}
+          accessibilityRole="button"
+          accessibilityLabel="選取相簿"
         >
           <View style={[s.actionBtnIcon, s.actionBtnIconSecondary]}>
             <ImagePlus size={20} color="#757575" />
@@ -335,7 +339,7 @@ const s = StyleSheet.create({
     padding: 14, borderRadius: 16, borderWidth: 1,
   },
   actionBtnPrimary: { backgroundColor: '#E6F7EE', borderColor: '#DDDDDD' },
-  actionBtnSecondary: { backgroundColor: '#fff', borderColor: '#DDDDDD' },
+  actionBtnSecondary: { backgroundColor: '#E6F7EE', borderColor: '#D5E6DC' },
   actionBtnLoading: { opacity: 0.5 },
 
   actionBtnIcon: {
@@ -343,10 +347,10 @@ const s = StyleSheet.create({
     backgroundColor: '#fff', borderWidth: 1, borderColor: '#DDDDDD',
     alignItems: 'center', justifyContent: 'center',
   },
-  actionBtnIconSecondary: { backgroundColor: '#E6F7EE' },
+  actionBtnIconSecondary: { backgroundColor: '#FFFFFF' },
 
   actionBtnLabel: { fontSize: 13, fontWeight: '700', color: '#1A1A1A' },
-  actionBtnLabelSecondary: { color: '#009B52' },
+  actionBtnLabelSecondary: { color: '#1A1A1A' },
   actionBtnSub: { fontSize: 10, color: '#757575', marginTop: 1 },
 
   previewSection: { gap: 8 },
