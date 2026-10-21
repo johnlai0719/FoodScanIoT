@@ -179,14 +179,13 @@ export default function HomeScreen() {
   // 過敏原的自定義欄位保留——它會直接以輸入文字比對成分與標示，法定 11 大類以外
   // 的過敏原（如木瓜）確實需要它才能警示。
   useEffect(() => {
-    AsyncStorage.multiGet(['targetGroup', 'customAllergen', 'chronicDiseases', 'allergens', 'dietaryPreferences']).then(pairs => {
+    AsyncStorage.multiGet(['targetGroup', 'customAllergen', 'chronicDiseases', 'allergens']).then(pairs => {
       pairs.forEach(([key, value]) => {
         if (!value) return;
         if (key === 'targetGroup') setTargetGroup(value as UserConditions['group']);
         if (key === 'customAllergen') setCustomAllergen(value);
         if (key === 'chronicDiseases') setChronicDiseases(JSON.parse(value));
         if (key === 'allergens') setAllergens(JSON.parse(value));
-        if (key === 'dietaryPreferences') setDietaryPreferences(JSON.parse(value));
       });
     });
   }, []);
@@ -196,7 +195,6 @@ export default function HomeScreen() {
   const [resultPhoto, setResultPhoto] = useState<string | undefined>();
   const [resultIsDemo, setResultIsDemo] = useState(false);
   const [ingredientTab, setIngredientTab] = useState<IngredientTab>('all');
-  const [dietaryPreferences, setDietaryPreferences] = useState<string[]>([]);
   const [profileReturnView, setProfileReturnView] = useState<'scan' | 'result'>('scan');
   const scrollRef = useRef<ScrollView>(null);
   const scrollToTop = () => requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: 0, animated: false }));
@@ -589,17 +587,16 @@ export default function HomeScreen() {
           {/* ══════════ 健康設定（由右下角齒輪進入）══════════ */}
           {view === 'profile' && (
             <ProfileSettings
-              initial={{ group: targetGroup, allergens, chronic: chronicDiseases, customAllergen, dietary: dietaryPreferences }}
+              initial={{ group: targetGroup, allergens, chronic: chronicDiseases, customAllergen }}
               onBack={() => setView(profileReturnView)}
               onSave={async (values: ProfileValues) => {
                 await AsyncStorage.multiSet([
                   ['targetGroup', values.group], ['allergens', JSON.stringify(values.allergens)],
                   ['chronicDiseases', JSON.stringify(values.chronic)], ['customAllergen', values.customAllergen],
-                  ['dietaryPreferences', JSON.stringify(values.dietary)],
                 ]);
                 setTargetGroup(values.group); setAllergens(values.allergens);
                 setChronicDiseases(values.chronic); setCustomAllergen(values.customAllergen);
-                setDietaryPreferences(values.dietary); setView(profileReturnView);
+                setView(profileReturnView);
               }}
             />
           )}
