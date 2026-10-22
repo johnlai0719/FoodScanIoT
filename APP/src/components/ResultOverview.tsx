@@ -37,8 +37,7 @@ export default function ResultOverview({ result, photoUri, isDemo = false, match
   const [info, setInfo] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
   const narrow = fontScale > 1.1;
-  const company = [result.product_info?.brand, result.product_info?.manufacturer].filter(Boolean)
-    .filter((name, i, all) => all.indexOf(name) === i).join(' ／ ');
+  const manufacturer = result.product_info?.manufacturer?.trim();
   const facts = [
     { label: '熱量', value: model.nutrition.calories, unit: 'kcal', Icon: Flame, color: '#E7950F', bg: '#FFFAEF', border: '#F8ECD6' },
     { label: '糖', value: model.nutrition.sugar, unit: 'g', Icon: Box, color: '#397AD5', bg: '#F3F8FE', border: '#E0EBFA' },
@@ -53,7 +52,7 @@ export default function ResultOverview({ result, photoUri, isDemo = false, match
         : <View style={[s.photo, s.photoPlaceholder]}><Package size={30} color="#8BABA0" strokeWidth={1.5} /></View>}
       <View style={s.productMain}>
         <Text style={s.productName}>{result.product_info?.name || '未辨識到品名'}</Text>
-        {!!company && <Text style={s.company}>{company}</Text>}
+        {!!manufacturer && <Text style={s.company}>{manufacturer}</Text>}
         <View style={s.productMeta}>
           <View style={[s.status, freshness.warning && s.staleStatus]}>
             <CheckCircle2 size={13} color={freshness.warning ? '#A46D14' : C.green} strokeWidth={2} />
