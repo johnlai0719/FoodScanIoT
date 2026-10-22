@@ -7,6 +7,7 @@ import { useFontScale } from '../contexts/FontScaleContext';
 import { formatAbsoluteTime, getDataFreshness } from '../utils/dataFreshness';
 import { formatNutritionValue, getResultPresentation } from '../utils/resultPresentation';
 import NutritionRing from './NutritionRing';
+import NutritionLegend from './NutritionLegend';
 import AdditiveCategorySummary from './AdditiveCategorySummary';
 import { DetailButton, ScreenHeader, reportColors as C, ui } from './reportUi';
 
@@ -35,7 +36,7 @@ export default function ResultOverview({ result, photoUri, isDemo = false, match
   const freshness = getDataFreshness(result);
   const [info, setInfo] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
-  const narrow = width < 370 || fontScale > 1.1;
+  const narrow = fontScale > 1.1;
   const company = [result.product_info?.brand, result.product_info?.manufacturer].filter(Boolean)
     .filter((name, i, all) => all.indexOf(name) === i).join(' ／ ');
   const facts = [
@@ -73,18 +74,18 @@ export default function ResultOverview({ result, photoUri, isDemo = false, match
         <ChartNoAxesColumnIncreasing size={23} color={C.green} strokeWidth={2.4} />
         <Text style={s.title}>營養評估</Text>
         <Pressable style={s.infoButton} onPress={() => setInfo(!info)} accessibilityRole="button" accessibilityLabel="營養評估說明" aria-expanded={info} accessibilityState={{ expanded: info }}><Info size={17} color={C.muted} /></Pressable>
-        <View style={[s.gradeLabel, { backgroundColor: model.gradeStyle.background }]}>
-          <Text style={[s.gradeText, { color: model.gradeStyle.color }]}>{model.grade ? `${model.grade} 級・` : ''}{model.gradeStyle.label}</Text>
-        </View>
       </View>
       {info && <Text style={s.help}>Nutri-Score 分數越低越好；等級依產品類別與後端計算結果顯示。圓環呈現各扣分項目的占比。</Text>}
       <View style={[s.nutrition, narrow && { flexDirection: 'column' }]}>
-        <View style={s.ring}><NutritionRing result={result} size={narrow ? 132 : 120} /></View>
+        <View style={s.ring}><NutritionRing result={result} size={width < 370 ? 144 : 160} /></View>
         <View style={[s.nutritionMain, narrow && { borderLeftWidth: 0, paddingLeft: 0, width: '100%' }]}>
-          <Text style={s.reason}>{model.leadingPenalty ? `主要扣分：${model.leadingPenalty.reason}` : '營養標示與評級'}</Text>
-          <Text style={s.description} numberOfLines={3}>{model.leadingPenalty?.description || '依產品營養標示計算。查看完整分析，了解各項營養數值與計分方式。'}</Text>
+          <NutritionLegend result={result} />
         </View>
       </View>
+      {!!model.leadingPenalty && <View style={{ marginTop: 12 }}>
+        <Text style={s.reason}>主要扣分：{model.leadingPenalty.reason}</Text>
+        {!!model.leadingPenalty.description && <Text style={s.description} numberOfLines={3}>{model.leadingPenalty.description}</Text>}
+      </View>}
       <Text style={s.basis}>每 100 公克／100 毫升</Text>
       <View style={s.factRow}>{facts.map(({ label, value, unit, Icon, color, bg, border }) => <View key={label} style={[s.fact, { backgroundColor: bg, borderColor: border }]}>
         <View style={ui.row}><Icon size={16} color={color} strokeWidth={1.8} /><Text style={s.factLabel}>{label}</Text></View>
@@ -128,7 +129,6 @@ const styles = (scale: number) => StyleSheet.create({
   allergyTitle: { color: '#FFFFFF', fontSize: 19 * scale, fontWeight: '800', flex: 1 }, allergyBody: { color: '#FFF8F8', fontSize: 13 * scale, lineHeight: 21 * scale },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 }, allergyChip: { backgroundColor: '#EC5558', borderColor: '#FF9FA2', borderWidth: 1, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 5 }, allergyChipText: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 * scale },
   title: { color: C.text, fontWeight: '800', fontSize: 18 * scale, flexGrow: 1 }, infoButton: { padding: 4 },
-  gradeLabel: { paddingHorizontal: 8, paddingVertical: 5, borderRadius: 9, marginLeft: 'auto' }, gradeText: { fontSize: 11 * scale, fontWeight: '700' },
   help: { fontSize: 12 * scale, lineHeight: 19 * scale, color: C.muted, marginTop: 10 }, nutrition: { flexDirection: 'row', alignItems: 'center', gap: 13, marginTop: 14 },
   ring: { alignItems: 'center', justifyContent: 'center' }, nutritionMain: { flex: 1, minWidth: 0, borderLeftWidth: 1, borderLeftColor: C.border, paddingLeft: 13 },
   reason: { fontSize: 14 * scale, lineHeight: 21 * scale, fontWeight: '800', color: C.text, marginBottom: 5 }, description: { color: '#73777A', fontSize: 12 * scale, lineHeight: 19 * scale },

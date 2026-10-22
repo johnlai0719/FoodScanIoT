@@ -1,5 +1,5 @@
 import { AnalysisResponse } from '../../types';
-import { formatNutritionValue, getAdditiveCategoryStats, getResultPresentation } from '../resultPresentation';
+import { formatNutritionValue, getAdditiveCategoryStats, getResultPresentation, getNutritionRingSegments, getPenaltyColor } from '../resultPresentation';
 
 const makeResult = (overrides: Partial<AnalysisResponse> = {}): AnalysisResponse => ({
   health_score: 17, risk_level: 'medium', score_breakdown: [],
@@ -7,6 +7,27 @@ const makeResult = (overrides: Partial<AnalysisResponse> = {}): AnalysisResponse
 });
 
 describe('result presentation', () => {
+  it('builds the ring and legend from actual penalties with shared colors and proportions', () => {
+    const result = makeResult({ score_breakdown: [
+      { reason: '熱量', description: '', points: -1, key: 'energy' },
+      { reason: '鈉', description: '', points: -16, key: 'salt' },
+      { reason: '糖', description: '', points: 0, key: 'sugars' },
+      { reason: '蛋白質', description: '', points: 3, key: 'protein' },
+    ] });
+    const segments = getNutritionRingSegments(result);
+    expect(segments.map(item => item.key)).toEqual(['salt', 'energy']);
+    expect(segments[0].fraction).toBeCloseTo(16 / 17);
+    expect(segments.reduce((sum, item) => sum + item.fraction, 0)).toBeCloseTo(1);
+    expect(segments[0].color).toBe(getPenaltyColor('salt'));
+    expect(segments[1].color).not.toBe(segments[0].color);
+  });
+
+  it('does not invent ring portions when no penalties were supplied', () => {
+    expect(getNutritionRingSegments(makeResult({ nutri_grade: 'A' }))).toEqual([]);
+    expect(getPenaltyColor('legacy')).toBe('#87929C');
+    expect(getPenaltyColor()).toBe('#87929C');
+  });
+
   it('counts every distinct official function, without counting unmatched or near-miss ingredients', () => {
     const stats = getAdditiveCategoryStats([
       { name: 'A', isAdditive: true, description: '', category: ['調味劑', '調味劑', ' 抗氧化劑 '] },

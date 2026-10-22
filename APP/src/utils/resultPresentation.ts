@@ -61,6 +61,16 @@ export function formatNutritionValue(value: number | null | undefined): string {
 }
 
 export const PENALTY_COLORS: Record<string, string> = {
-  energy: '#FFA916', sugars: '#DB6515', sfa: '#CD511B', salt: '#A7380E',
-  sweeteners: '#CB3F36',
+  energy: '#E89A14', sugars: '#397AD5', sfa: '#9270B8', salt: '#D54A37',
+  sweeteners: '#C05A91',
 };
+
+export const getPenaltyColor = (key?: string) => PENALTY_COLORS[key ?? ''] ?? '#87929C';
+
+export function getNutritionRingSegments(result: AnalysisResponse) {
+  const { penalties } = getResultPresentation(result);
+  const total = penalties.reduce((sum, item) => sum + Math.abs(item.points), 0);
+  return penalties.map(item => ({
+    ...item, color: getPenaltyColor(item.key), fraction: Math.abs(item.points) / total,
+  }));
+}

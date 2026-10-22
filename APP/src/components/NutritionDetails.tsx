@@ -1,14 +1,16 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Info, Plus, Minus } from 'lucide-react-native';
 import { AnalysisResponse } from '../types';
 import { useFontScale } from '../contexts/FontScaleContext';
-import { formatNutritionValue, getResultPresentation } from '../utils/resultPresentation';
+import { formatNutritionValue, getResultPresentation, getPenaltyColor } from '../utils/resultPresentation';
 import NutritionRing from './NutritionRing';
+import NutritionLegend from './NutritionLegend';
 import { ScreenHeader, reportColors as C, ui } from './reportUi';
 
 export default function NutritionDetails({ result, onBack }: { result: AnalysisResponse; onBack: () => void }) {
   const { fontScale } = useFontScale();
+  const { width } = useWindowDimensions();
   const s = useMemo(() => styles(fontScale), [fontScale]);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [showInfo, setShowInfo] = useState(false);
@@ -17,15 +19,13 @@ export default function NutritionDetails({ result, onBack }: { result: AnalysisR
   const bonus = model.breakdown.filter(item => item.points > 0).reduce((sum, item) => sum + item.points, 0);
   return <View style={ui.stack}>
     <ScreenHeader title="營養評估" onBack={onBack} right={<Pressable style={ui.iconButton} accessibilityLabel="計分說明" accessibilityRole="button" aria-expanded={showInfo} accessibilityState={{ expanded: showInfo }} onPress={() => setShowInfo(!showInfo)}><Info size={20} color={C.text} /></Pressable>} />
-    <View style={s.intro}><Text style={s.introText}>Nutri-Score 原始分數 {model.score ?? '未提供'}{model.grade ? ` 分（${model.grade} 級）` : ''}，分數越低越好。營養數值以每 100 公克／100 毫升為基準；未標示的欄位不會當作含量為零。</Text></View>
-    {showInfo && <View style={ui.card}><Text style={s.description}>Nutri-Score 由扣分項目減去加分項目計算。飲料與一般食品的等級分界不同，等級採用本次分析結果。圓環為扣分項目的占比，不是健康百分比。</Text></View>}
-    <View style={s.hero}>
-      <NutritionRing result={result} size={160} />
-      <View style={{ gap: 8, flexShrink: 1 }}>
-        <View style={[s.grade, { backgroundColor: model.gradeStyle.background }]}><Text style={[s.gradeBig, { color: model.gradeStyle.color }]}>{model.grade ? `${model.grade} 級` : '未分級'}</Text><Text style={[s.gradeLabel, { color: model.gradeStyle.color }]}>{model.gradeStyle.label}</Text></View>
-        <Text style={s.equation}>扣分 {penalty} − 加分 {bonus}</Text>
-        <Text style={s.equation}>原始分數 {model.score ?? '—'}</Text>
+    <View style={s.intro}><Text style={s.introText}>中央顯示本次 Nutri-Score 營養等級。營養數值以每 100 公克／100 毫升為基準；未標示的欄位不會當作含量為零。</Text></View>
+    {showInfo && <View style={ui.card}><Text style={s.description}>Nutri-Score 由扣分項目減去加分項目計算。飲料與一般食品的等級分界不同，等級採用本次分析結果。原始分數 {model.score ?? '未提供'}（越低越好），扣分 {penalty} − 加分 {bonus}。圓環為扣分項目的占比，不是健康百分比。</Text></View>}
+    <View style={[s.hero, fontScale > 1.1 && { flexDirection: 'column', alignItems: 'stretch' }]}>
+      <View style={{ alignItems: 'center' }}>
+        <NutritionRing result={result} size={width < 370 ? 144 : 160} />
       </View>
+      <View style={{ flex: 1, minWidth: 0 }}><NutritionLegend result={result} /></View>
     </View>
     <View style={[ui.card, { padding: 0, overflow: 'hidden' }]}>
       {model.breakdown.length ? model.breakdown.map((item, index) => {
@@ -40,7 +40,7 @@ export default function NutritionDetails({ result, onBack }: { result: AnalysisR
             <View style={s.itemRow}>
               <View style={{ flex: 1, gap: 8 }}>
                 <View style={s.labelRow}><Text style={s.itemLabel}>{item.reason}</Text><Text style={s.value}>{formatNutritionValue(item.value)}{typeof item.value === 'number' ? ` ${item.unit ?? ''}` : ''}</Text></View>
-                <View style={s.track}>{ratio !== null && <View style={[s.fill, { width: `${ratio * 100}%`, backgroundColor: isPenalty ? '#F55A1D' : '#23A66E' }]} />}</View>
+                <View style={s.track}>{ratio !== null && <View style={[s.fill, { width: `${ratio * 100}%`, backgroundColor: isPenalty ? getPenaltyColor(item.key) : '#23A66E' }]} />}</View>
               </View>
               <View style={[s.points, isPenalty && s.penalty]}><Text style={[s.pointNumber, isPenalty && { color: '#DE2B30' }]}>{item.points > 0 ? '+' : ''}{item.points}</Text><Text style={[s.pointMax, isPenalty && { color: '#C73C3C' }]}>{max == null ? '分' : `/ ${max}`}</Text></View>
               {open ? <Minus size={14} color={C.muted} /> : <Plus size={14} color={C.muted} />}
@@ -56,8 +56,7 @@ export default function NutritionDetails({ result, onBack }: { result: AnalysisR
 
 const styles = (scale: number) => StyleSheet.create({
   intro: { backgroundColor: '#EAF7EF', borderRadius: 13, borderWidth: 1, borderColor: '#D6ECDF', padding: 14 }, introText: { color: '#345345', fontSize: 13 * scale, lineHeight: 22 * scale },
-  hero: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 22, paddingVertical: 15 },
-  grade: { paddingHorizontal: 15, paddingVertical: 12, borderRadius: 12, gap: 4 }, gradeBig: { fontWeight: '800', fontSize: 25 * scale, textAlign: 'center' }, gradeLabel: { fontWeight: '700', fontSize: 12 * scale }, equation: { color: C.muted, fontSize: 12 * scale },
+  hero: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, paddingVertical: 15 },
   item: { padding: 14, gap: 9 }, itemBorder: { borderTopWidth: 1, borderTopColor: '#ECEEEE' }, itemRow: { flexDirection: 'row', alignItems: 'center', gap: 9 }, labelRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 5 }, itemLabel: { color: C.text, fontSize: 13 * scale, fontWeight: '700', flexShrink: 1 }, value: { fontSize: 11 * scale, color: C.muted },
   track: { height: 7, borderRadius: 4, backgroundColor: '#F1F2F3', borderWidth: 1, borderColor: '#E1E4E4', overflow: 'hidden' }, fill: { height: '100%', borderRadius: 4 },
   points: { minWidth: 42, paddingVertical: 5, paddingHorizontal: 6, backgroundColor: '#F3F4F5', borderWidth: 1, borderColor: '#E4E6E7', borderRadius: 9, alignItems: 'center' }, penalty: { backgroundColor: '#FFF0F0', borderColor: '#F8D0D2' }, pointNumber: { color: '#616A70', fontWeight: '800', fontSize: 17 * scale }, pointMax: { fontSize: 10 * scale, color: '#7A8085' },
