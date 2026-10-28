@@ -23,21 +23,41 @@ def offline(*args):
     raise CloudUnavailable('offline')
 
 
+def test_real_queue_transitions_emit_metadata_without_photos_or_profile(fog, monkeypatch):
+    mod, client = fog
+    events = []
+    monkeypatch.setattr(mod, 'emit_fog', lambda *args, **kwargs: events.append((args, kwargs)))
+    monkeypatch.setattr(mod, 'forward_cloud', offline)
+    response = client.post('/query', json={'barcode':'471','label_images':['private-photo'], 'user_conditions':{'group':'child'}},
+                           headers={'X-Request-Id':'observed-job','X-Demo-Scenario':'queue'})
+    assert response.status_code == 202
+    assert [args[1] for args, kwargs in events] == ['received','cache_miss','cloud_forwarded','cloud_unavailable','queued']
+    monkeypatch.setattr(mod, 'forward_cloud', lambda *args: (SimpleNamespace(ok=True,status_code=200,headers={}), {'status':'success','health_score':0}))
+    mod.sync_once()
+    assert [args[1] for args, kwargs in events][-2:] == ['replay_started', 'replay_completed']
+    assert 'private-photo' not in repr(events) and 'user_conditions' not in repr(events)
+    assert events[-1][0][0] == 'observed-job'
+
+
 def test_offline_upload_is_durable_sanitized_and_not_an_analysis(fog, monkeypatch):
     mod, client = fog
     monkeypatch.setattr(mod, 'forward_cloud', offline)
     payload = {'barcode': '471', 'label_images': ['image'], 'user_conditions': {'group': 'child'}, 'device_id': 'secret'}
-    r = client.post('/query', json=payload)
+    r = client.post('/query', json=payload, headers={'X-Request-Id': 'app-original'})
     assert r.status_code == 202
     body = r.json()
     assert body['status'] == 'queued'
+    assert body['request_id'] == 'app-original'
     assert 'health_score' not in body
     assert r.headers['X-Cache'] == 'QUEUED'
-    assert client.post('/query', json=payload).json()['queue_id'] == body['queue_id']
+    duplicate = client.post('/query', json=payload, headers={'X-Request-Id': 'app-duplicate'}).json()
+    assert duplicate['queue_id'] == body['queue_id']
+    assert duplicate['request_id'] == 'app-original'
     job = mod.queue_store().claim()
     assert job['payload'] == {'barcode': '471', 'label_images': ['image']}
     status = client.get(body['status_url']).json()
     assert status['state'] == 'processing'
+    assert status['request_id'] == 'app-original'
     assert 'payload_json' not in status
 
 

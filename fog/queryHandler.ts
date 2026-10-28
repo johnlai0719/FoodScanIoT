@@ -1,6 +1,7 @@
 import fetch from 'node-fetch';
 import { AnalysisResultLike, FogQueryRequest } from './types';
 import { getCache, setCache, getStaleCache } from './cache';
+import { emitFog, resultSummary } from './pipelineEvents';
 
 // 延遲埋點。**只量本行程內的時距，不傳時間戳**——決策單 #15 未定的正是
 // 「跨機器時鐘怎麼校正」，而手機／Pi／雲端三個時鐘任兩個相減都含未知偏移。
@@ -26,17 +27,24 @@ const CLOUD_TIMEOUT = 105000;
 // request id 來自 App、會被原樣轉發，不合格就不轉，避免把使用者輸入塞進標頭。
 const SAFE_REQUEST_ID = /^[A-Za-z0-9_.:-]{1,64}$/;
 
-export async function handleQuery(reqData: FogQueryRequest, requestId?: string, bypassCache = false, localOnly = false): Promise<{ status: number, data: any, cacheHeader: string, headers: Record<string, string> }> {
+export async function handleQuery(reqData: FogQueryRequest, requestId?: string, bypassCache = false, localOnly = false, demoScenario?: string): Promise<{ status: number, data: any, cacheHeader: string, headers: Record<string, string> }> {
   const { barcode } = reqData;
   const startTime = Date.now();
   // App 產生的 request id 要逐層往下帶，三層的計時紀錄才併得起來。
   const rid = requestId && SAFE_REQUEST_ID.test(requestId) ? requestId : '';
+  const scenario = ['cloud', 'miss', 'cache', 'queue'].includes(demoScenario || '') ? demoScenario : undefined;
+  const observe = (event: Parameters<typeof emitFog>[1], status: 'active' | 'done' | 'failed' = 'active',
+    detail: Record<string, unknown> = {}, payload: Record<string, unknown> = {}) =>
+    emitFog(rid, event, status, detail, payload);
+  observe('received', 'active', {}, { image_count: reqData.label_images?.length || 0,
+    ...(scenario ? { demo_scenario: scenario } : {}) });
   const upstreamHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(rid ? { 'X-Request-Id': rid } : {}),
     // Preserve legacy upload opt-out; Python rejects it without uploading or queueing.
     ...(localOnly ? { 'X-Local-Only': '1' } : {}),
     ...(bypassCache ? { 'X-Bypass-Cache': '1' } : {}),
+    ...(scenario ? { 'X-Demo-Scenario': scenario } : {}),
   };
   // 下游（Python → Cloud）自己量的那幾段，原樣往上帶，讓 App 一次收齊三層。
   const passThrough: Record<string, string> = {};
@@ -73,6 +81,7 @@ export async function handleQuery(reqData: FogQueryRequest, requestId?: string, 
   const cachedData = fresh || (isUsable(staleCandidate) ? staleCandidate : null);
   const cacheWarning = cachedData && !fresh ? { _warning: '此為本地舊快取，尚未取得最新資料' } : {};
   if (cachedData) {
+    observe('cache_hit', 'active', { cache_status: fresh ? 'HIT' : 'HIT-STALE' });
     console.log(`[HIT] ${barcode} -> Normalizing cached result...`);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000); // 正規化給 15 秒就好
@@ -95,6 +104,8 @@ export async function handleQuery(reqData: FogQueryRequest, requestId?: string, 
 
       if (response.ok) {
         const normalizedResult = await response.json() as AnalysisResultLike;
+        observe('cache_returned', 'done', { cache_status: fresh ? 'HIT' : 'HIT-STALE', http_status: 200 },
+          { ...resultSummary(normalizedResult), cached: true });
         return {
           status: 200,
           data: {
@@ -107,12 +118,16 @@ export async function handleQuery(reqData: FogQueryRequest, requestId?: string, 
         };
       } else {
         console.warn(`[WARN] Python re-calc failed: ${response.status}`);
+        observe('cache_returned', 'done', { cache_status: 'HIT-RAW', http_status: 200 },
+          { ...resultSummary(cachedData), cached: true });
         return { status: 200, data: { ...cachedData, cached: true, ...cacheWarning },
           cacheHeader: 'HIT-RAW', headers: timingHeaders() };
       }
     } catch (e: any) {
       clearTimeout(timeoutId);
       console.warn(`[WARN] Python re-calc error: ${e.message}`);
+      observe('cache_returned', 'done', { cache_status: 'HIT-RAW', http_status: 200 },
+        { ...resultSummary(cachedData), cached: true });
       return {
         status: 200,
         data: {
@@ -127,6 +142,9 @@ export async function handleQuery(reqData: FogQueryRequest, requestId?: string, 
   }
 
   // 2. 快取未命中，轉發至 Cloud
+  if (!localOnly) observe(bypassCache ? 'cache_bypass' : barcode === 'TEST' ? 'cache_excluded' : 'cache_miss',
+    'active', { cache_status: bypassCache ? 'BYPASS' : barcode === 'TEST' ? 'EXCLUDED' : 'MISS' });
+  observe('manager_forwarded');
   console.log(`[MISS] ${barcode} -> Forwarding to Python/Cloud...`);
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), CLOUD_TIMEOUT);
@@ -146,6 +164,12 @@ export async function handleQuery(reqData: FogQueryRequest, requestId?: string, 
 
     if (response.ok) {
       const cloudResult = await response.json() as AnalysisResultLike;
+      if (cloudResult.status === 'queued') {
+        observe('queued', 'active', { cache_status: 'QUEUED', queue_id: cloudResult.queue_id, http_status: 202 },
+          cloudResult.request_id && cloudResult.request_id !== rid ? { canonical_request_id: cloudResult.request_id } : {});
+      } else {
+        observe('manager_returned', 'done', { http_status: response.status }, resultSummary(cloudResult));
+      }
       
       // 🛠️ 修正：只有當結果狀態為成功時，才寫入快取
       const isDegraded = cloudResult.overall_summary === '診斷引擎暫時降級運作。';
@@ -166,11 +190,13 @@ export async function handleQuery(reqData: FogQueryRequest, requestId?: string, 
         headers: timingHeaders()
       };
     } else {
+      observe('unavailable', 'failed', { http_status: response.status });
       return { status: response.status, data: await response.json(),
         cacheHeader: 'ERROR', headers: timingHeaders() };
     }
 
   } catch (error: any) {
+    observe('unavailable', 'failed', { http_status: 503 });
     clearTimeout(timeoutId);
     console.error(`[ERR] ${barcode} -> Cloud Timeout/Error: ${error.message}`);
 

@@ -1,9 +1,14 @@
 import fetch from 'node-fetch';
 import { getCache, getStaleCache, setCache } from './cache';
 import { handleQuery } from './queryHandler';
+import { emitFog } from './pipelineEvents';
 
 jest.mock('node-fetch', () => ({ __esModule: true, default: jest.fn() }));
 jest.mock('./cache', () => ({ getCache: jest.fn(), getStaleCache: jest.fn(), setCache: jest.fn() }));
+jest.mock('./pipelineEvents', () => ({
+  emitFog: jest.fn(),
+  resultSummary: (result: any) => result.status === 'success' ? { result: { health_score: result.health_score } } : {},
+}));
 const mockedFetch = fetch as jest.MockedFunction<typeof fetch>;
 const respond = (status: number, body: object) => ({
   ok: status >= 200 && status < 300, status,
@@ -54,5 +59,23 @@ test('cache bypass skips both reads but still stores a fresh Cloud result', asyn
   expect(getStaleCache).not.toHaveBeenCalled();
   expect(setCache).toHaveBeenCalledWith('471', expect.objectContaining({ health_score: 90 }));
   expect(result.cacheHeader).toBe('BYPASS');
+  expect(emitFog).toHaveBeenCalledWith('bypass-test', 'cache_bypass', 'active', { cache_status: 'BYPASS' }, {});
+  expect((emitFog as jest.Mock).mock.calls.some(call => call[1] === 'cache_miss')).toBe(false);
   expect(mockedFetch.mock.calls[0][1]?.headers).toEqual(expect.objectContaining({ 'X-Bypass-Cache': '1' }));
+});
+
+test('the requested cache demo is only intent; an actual miss is still reported as MISS', async () => {
+  mockedFetch.mockResolvedValue(respond(200, { status: 'success', health_score: 0 }) as any);
+  await handleQuery({ barcode: '471' }, 'demo-miss', false, false, 'cache');
+  expect(emitFog).toHaveBeenCalledWith('demo-miss', 'received', 'active', {}, { image_count: 0, demo_scenario: 'cache' });
+  expect(emitFog).toHaveBeenCalledWith('demo-miss', 'cache_miss', 'active', { cache_status: 'MISS' }, {});
+  expect((mockedFetch.mock.calls[0][1]?.headers as any)['X-Demo-Scenario']).toBe('cache');
+});
+
+test('cache hit is observed without pretending Vision or Gemini ran', async () => {
+  (getCache as jest.Mock).mockReturnValue({ status: 'success', health_score: 0 });
+  mockedFetch.mockResolvedValue(respond(200, { status: 'success', health_score: 0 }) as any);
+  await handleQuery({ barcode: '471' }, 'demo-hit');
+  const events = (emitFog as jest.Mock).mock.calls.map(call => call[1]);
+  expect(events).toEqual(['received', 'cache_hit', 'cache_returned']);
 });

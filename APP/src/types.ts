@@ -3,24 +3,50 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/**
+ * 族群注意資訊。
+ *
+ * ⚠ **這不是「經驗證的醫療風險」。** 它是「具來源可追溯的族群注意資訊」——
+ * 系統只在能指認特定族群、具體機制，並附有可追溯來源與原文證據時才建立一筆；
+ * 否則不自行推論。目前庫內 65 條全部 `reviewedByHuman: false`。
+ *
+ * 三層在**資料庫裡**刻意分開，不要合併：
+ *   source_quote     來源真正寫了什麼
+ *   ai_reasoning     模型怎麼解讀它（＝這裡的 reason）
+ *   reviewed_by_human 有沒有人確認過這個解讀
+ *
+ * ⚠ `source_quote` **不送到 App**，留在資料庫備查（決定：評審問起再拿出來）。
+ *   畫面上給 sourceUrl 已足以追溯。**畫面沒有原文不代表沒有原文。**
+ *
+ * ⚠ 沒有這一筆**不代表安全**，只代表沒有達到系統的證據納入門檻。
+ */
 export interface GroupRisk {
   group: string;
   riskLevel: number;
-  /** 中文說明。來源是資料庫的 `ai_reasoning`，缺時退到 `source_quote`。 */
+  /** 模型對來源的解讀（資料庫的 `ai_reasoning`）。**不是原文。** */
   reason: string;
-  confidence?: string;
   /**
-   * 依據的出處。2026-09-13 加入——在這之前畫面講得出理由、講不出依據，
-   * 而資料庫裡一直存著 WHO／EFSA／JECFA 的連結與原文引述。
-   * 空字串代表那一筆沒有記出處，**不要顯示成連結**。
+   * 可追溯的來源網址。
+   * 服務層保證：**沒有網址的條目根本不會送出**，所以畫面上每一條都點得開。
    */
   sourceUrl?: string;
-  sourceTitle?: string;
-  sourceYear?: number | null;
   /**
-   * 這筆說明有沒有經過人工逐筆複核。多數是 false——`ai_reasoning` 由模型
-   * 產生（有 source_quote 佐證）。**false 時必須在畫面上標出來**，
-   * 否則使用者無從分辨它是已審定的結論還是待複核的整理。
+   * 證據狀態。目前只有 `source_backed`＝附有可追溯的來源證據。
+   *
+   * ⚠ 刻意**不叫 confidence、也不再出現 `verified`**：沒有任何一條經過人工
+   *   逐筆複核，把它呈現成「已驗證」會答不出「誰驗證的」。
+   */
+  evidenceStatus?: string;
+  /**
+   * 證據層級。`regulatory_or_authority` ＝主管機關／國際評估機構文件。
+   * 其餘層級（臨床研究、綜述、觀察性、機制推論）需人逐篇認定，
+   * 未認定者為 null——**不由系統推論**。
+   */
+  evidenceScope?: string | null;
+  /**
+   * 這筆解讀有沒有經過人工逐筆複核。目前全部是 false。
+   * **false 時必須在畫面上標出來**，否則使用者無從分辨它是已審定的結論
+   * 還是待複核的整理。
    */
   reviewedByHuman?: boolean;
 }

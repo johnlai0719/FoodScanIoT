@@ -190,3 +190,8 @@ APP/expo-qr.png
 !tools/STRUCTURED_PIPELINE.md
 .artifacts/
 .cache/
+
+# App configuration assets generated from the existing FoodScan SVG.
+!APP/assets/images/icon.png
+!APP/assets/images/android-icon-foreground.png
+!APP/assets/images/favicon.png

@@ -106,8 +106,12 @@ def test_app_renders_a_category_badge_on_each_additive():
 
 
 def test_app_computes_a_per_category_breakdown():
-    src = _src("screens", "HomeScreen.tsx")
-    assert "additiveCategoryStats" in src, "沒有依類別的統計"
+    assert "ResultOverview" in _src("screens", "HomeScreen.tsx")
+    assert "<AdditiveCategorySummary" in _src("components", "ResultOverview.tsx")
+    component = _src("components", "AdditiveCategorySummary.tsx")
+    assert "getAdditiveCategoryStats(ingredients)" in component, "沒有依類別的統計"
+    src = _src("utils", "resultPresentation.ts")
+    assert "getAdditiveCategoryStats" in src
     assert "未分類" in src, \
         "統計沒有把「沒配到知識庫」獨立成一格——併進任何一類都是錯的"
 
@@ -118,5 +122,6 @@ def test_app_explains_that_categories_can_overlap():
     一項添加物可以同時屬多類（己二烯酸鉀是防腐劑也是殺菌劑），
     為了讓總和好看而只取第一類，等於憑空抹掉一個身分。
     """
-    src = _src("screens", "HomeScreen.tsx")
-    assert "相加會大於" in src, "畫面沒有說明各類數字相加會大於添加物總數"
+    src = _src("components", "AdditiveCategorySummary.tsx")
+    assert "totalAssignments > additiveCount" in src
+    assert "大於添加物總數" in src, "畫面沒有說明各類數字相加會大於添加物總數"

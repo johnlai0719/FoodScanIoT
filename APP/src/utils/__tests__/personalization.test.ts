@@ -179,6 +179,29 @@ describe('慢性病營養閾值', () => {
 });
 
 describe('族群添加物風險', () => {
+  it.each(['pregnant', 'child'] as const)('%s 只改變添加物提醒，不改變營養、過敏原或產品分數', group => {
+    const result = makeResult({
+      ingredients_detail: [{
+        name: '測試添加物', isAdditive: true, description: '',
+        groupRisks: [
+          { group: 'pregnant', riskLevel: 1, reason: '孕婦提醒測試' },
+          { group: 'child', riskLevel: 1, reason: '幼童提醒測試' },
+        ],
+      }],
+      data: { nutrition_facts: { sodium: 2000, sugar: 30, saturated_fat: 10 } },
+    });
+    const snapshot = JSON.stringify(result);
+    const adult = analyzePersonalRisks(result, { ...ADULT, allergens: ['牛奶'] });
+    const selected = analyzePersonalRisks(result, { ...ADULT, group, allergens: ['牛奶'] });
+    expect(selected.additiveRisks.map(risk => risk.group)).toEqual([group]);
+    expect(adult.additiveRisks).toEqual([]);
+    expect(selected.nutritionWarnings).toEqual([]);
+    expect(selected.matchedAllergens).toEqual(adult.matchedAllergens);
+    expect(JSON.stringify(result)).toBe(snapshot);
+    const chronic = analyzePersonalRisks(result, { ...ADULT, group, chronicConditions: ['hypertension'] });
+    expect(chronic.nutritionWarnings.map(warning => warning.condition)).toEqual(['高血壓']);
+  });
+
   it('幼童族群命中 child 風險', () => {
     const r = analyzePersonalRisks(makeResult(), { ...ADULT, group: 'child' });
     expect(r.additiveRisks.map(x => x.group)).toEqual(['child']);

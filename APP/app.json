@@ -24,7 +24,8 @@
     "plugins": [
       "expo-image-picker",
       "expo-camera",
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-asset"
     ],
     "experiments": {
       "reactCompiler": true

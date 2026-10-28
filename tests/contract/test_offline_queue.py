@@ -44,11 +44,12 @@ def test_fifo_retry_blocks_later_upload_and_survives_expired_lease(store):
 
 
 def test_completion_caches_atomically_and_releases_uploaded_images(store):
-    job_id = store.enqueue({'barcode': '471', 'label_images': ['sensitive-image']})
+    job_id = store.enqueue({'barcode': '471', 'label_images': ['sensitive-image']}, 'app-original')
     result = {'status': 'success', 'health_score': 80}
     store.complete(store.claim(), result)
     status = store.get(job_id)
     assert status['state'] == 'completed'
+    assert status['request_id'] == 'app-original'
     assert status['result'] == result
     assert 'payload_json' not in status
     with store.connect() as db:

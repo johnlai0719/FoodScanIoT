@@ -22,6 +22,7 @@ import telemetry as T
 from version import get_commit
 # Durable offline outbox; OCR engines are no longer loaded by Fog.
 from offline_queue import OfflineQueue
+from fog_events import emit as emit_fog, result_summary
 import threading
 from starlette.concurrency import run_in_threadpool
 
@@ -116,16 +117,22 @@ def sync_once():
     job = q.claim()
     if not job:
         return False
+    observation = {'queue_id': job['id'], 'attempt': job['attempts']}
+    emit_fog(job['request_id'], 'replay_started', detail=observation)
     try:
         r, result = forward_cloud(job["payload"], job["request_id"])
         if not r.ok:
             q.fail(job, f"Cloud HTTP {r.status_code}")
+            emit_fog(job['request_id'], 'replay_failed', 'failed', {**observation, 'http_status': r.status_code})
         elif result.get("status") == "error":
             q.retry(job, result.get("message", "Cloud analysis error"))
+            emit_fog(job['request_id'], 'replay_retry', detail=observation)
         else:
             q.complete(job, result)
+            emit_fog(job['request_id'], 'replay_completed', 'done', observation, result_summary(result))
     except Exception as exc:
         q.retry(job, exc)
+        emit_fog(job['request_id'], 'replay_retry', detail=observation)
     return True
 
 
@@ -240,6 +247,9 @@ async def query(request: Request, response: Response):
     if not isinstance(data, dict) or not isinstance(data.get("barcode"), str):
         raise HTTPException(status_code=400, detail="需要提供條碼")
     barcode = data["barcode"]
+    scenario = request.headers.get('X-Demo-Scenario')
+    emit_fog(rid, 'received', payload={'image_count': len(data.get('label_images') or []),
+             **({'demo_scenario': scenario} if scenario in ('cloud', 'miss', 'cache', 'queue') else {})})
     # Historical privacy opt-out must never become an implicit queued upload.
     if request.headers.get("X-Local-Only") == "1":
         response.status_code = 409
@@ -251,20 +261,30 @@ async def query(request: Request, response: Response):
     if request.headers.get("X-Bypass-Cache") != "1" and barcode != "TEST":
         cached, age, stale = get_stale_from_db(barcode)
         if cached:
+            emit_fog(rid, 'cache_hit', detail={'cache_status': 'HIT-STALE' if stale else 'HIT'})
             response.headers["X-Cache"] = "HIT-STALE" if stale else "HIT"
             result = normalize_result(cached)
             result["cached"] = True
             if stale:
                 result["_cache_age_seconds"] = age
                 result["_warning"] = "此為本地舊快取，尚未取得最新資料"
+            emit_fog(rid, 'cache_returned', 'done', {'cache_status': 'HIT-STALE' if stale else 'HIT'},
+                     {**result_summary(result), 'cached': True})
             return result
+    bypass = request.headers.get('X-Bypass-Cache') == '1'
+    emit_fog(rid, 'cache_bypass' if bypass else 'cache_excluded' if barcode == 'TEST' else 'cache_miss',
+             detail={'cache_status': 'BYPASS' if bypass else 'EXCLUDED' if barcode == 'TEST' else 'MISS'})
     # Persist only the same sanitized analysis payload that Cloud receives.
     payload = mask_sensitive_data(data)
     payload.pop("cached_result", None)
     def queued_response(job_id):
+        original_rid = queue_store().get(job_id)['request_id']
+        emit_fog(rid, 'queued', detail={'queue_id': job_id, 'cache_status': 'QUEUED'},
+                 payload={'canonical_request_id': original_rid} if original_rid and original_rid != rid else {})
         response.status_code = 202
         response.headers["X-Cache"] = "QUEUED"
         return {"status": "queued", "queued": True, "queue_id": job_id,
+                "request_id": queue_store().get(job_id)["request_id"],
                 "message": "目前無法連線雲端或任務尚在排隊。資料已暫存在 Fog，連線恢復後會依序送出分析。",
                 "barcode": barcode, "cached": False,
                 "status_url": f"/queue/{job_id}"}
@@ -275,11 +295,13 @@ async def query(request: Request, response: Response):
         if time.monotonic() < _cloud_retry_after:
             raise CloudUnavailable("雲端連線暫時不可用")
         with sw.lap("upstream"):
+            emit_fog(rid, 'cloud_forwarded')
             r, result = await run_in_threadpool(forward_cloud, payload, rid)
         ct = r.headers.get(T.CLOUD_HEADER)
         if ct:
             response.headers[T.CLOUD_HEADER] = ct
         if not r.ok:
+            emit_fog(rid, 'unavailable', 'failed', {'http_status': r.status_code})
             response.status_code = r.status_code
             return {"status": "error", "message": result.get("message", f"Cloud HTTP {r.status_code}")}
         if is_cacheable_result(result) and barcode != "TEST":
@@ -287,11 +309,14 @@ async def query(request: Request, response: Response):
                 db.execute("INSERT OR REPLACE INTO cache VALUES (?,?,?,?)",
                            (barcode, json.dumps(result), int(time.time()), 86400))
         response.headers["X-Cache"] = "MISS"
+        emit_fog(rid, 'cloud_returned', 'done', {'http_status': r.status_code}, result_summary(result))
         return normalize_result(result)
     except CloudUnavailable:
+        emit_fog(rid, 'cloud_unavailable')
         try:
             job_id = queue_store().enqueue(payload, rid)
         except Exception:
+            emit_fog(rid, 'storage_failed', 'failed')
             response.status_code = 503
             return {"status": "error", "message": "目前無法連線雲端，且本地暫存失敗。請保留照片並稍後重試。", "queued": False}
         return queued_response(job_id)

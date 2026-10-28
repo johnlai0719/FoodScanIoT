@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, LayoutAnimation, Platform, UIManager, Linking } from 'react-native';
 import { ChevronUp, ChevronDown, ExternalLink } from 'lucide-react-native';
 import { IngredientDetail } from '../types';
 import { useFontScale } from '../contexts/FontScaleContext';
 import { groupLabel } from '../constants/groupVocabulary';
+import { essentialDescription, remainingSentences } from '../utils/additiveText';
 
 if (Platform.OS === 'android') {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
@@ -15,12 +16,21 @@ interface Props {
 
 export default function IngredientsList({ ingredients }: Props) {
   const { fontScale } = useFontScale();
-  const styles = createStyles(fontScale);
+  const styles = useMemo(() => createStyles(fontScale), [fontScale]);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(0);
+  // 「詳細說明」是第二層展開，與第一層的 expandedIndex 分開記：
+  // 收起再打開同一項時，詳細說明要回到收起狀態，不然第一眼又變長了。
+  const [detailIndex, setDetailIndex] = useState<number | null>(null);
 
   const toggle = (idx: number) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedIndex(expandedIndex === idx ? null : idx);
+    setDetailIndex(null);
+  };
+
+  const toggleDetail = (idx: number) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setDetailIndex(detailIndex === idx ? null : idx);
   };
 
   return (
@@ -28,6 +38,13 @@ export default function IngredientsList({ ingredients }: Props) {
       {ingredients.map((ing, idx) => {
         const isAdditive = ing.isAdditive === true || ing.isAdditive === 'true';
         const isExpanded = expandedIndex === idx;
+        const isDetailOpen = detailIndex === idx;
+        // 第一眼只給安全性評估與注意事項；「這是什麼」交給上面的類別徽章。
+        // 理由與量測見 utils/additiveText.ts。
+        const shortDesc = essentialDescription(ing.description || '');
+        const restSentences = remainingSentences(ing.description || '');
+        // 有沒有東西可以再展開：剩餘句子、或那段法規限量原文。
+        const hasMore = restSentences.length > 0 || !!ing.purpose;
 
         return (
           <View key={idx} style={[styles.card, isAdditive ? styles.cardAdditive : styles.cardNormal]}>
@@ -60,7 +77,16 @@ export default function IngredientsList({ ingredients }: Props) {
 
             {isExpanded && (
               <View style={styles.body}>
-                <Text style={styles.description}>{ing.description || '一般成分，無特定化學危害紀錄。'}</Text>
+                {/* 退路分兩種。先前一律用「一般成分，無特定化學危害紀錄。」，
+                    但那句話套在**添加物**身上是錯的兩次：它不是一般成分，而
+                    「無特定化學危害紀錄」會被讀成「經評估無需注意」——沒有紀錄
+                    的原因是資料庫未載明，不是評估後認定無害，兩者意義相反。
+                    伺服器端 NO_FIELD_DATA_LABEL 的註解講的是同一件事。 */}
+                <Text style={styles.description}>
+                  {shortDesc ||
+                    ing.description ||
+                    (isAdditive ? '資料庫未載明此項的說明。' : '一般成分，無特定化學危害紀錄。')}
+                </Text>
 
                 {/* 掃到的原文與疑似對象**並列**。只給疑似對象就是替換，
                     那正是被否決的字典後修正；只給原文則使用者無從查證。
@@ -95,20 +121,67 @@ export default function IngredientsList({ ingredients }: Props) {
                   </View>
                 )}
 
-                {ing.purpose && (
-                  <View style={styles.purposeBox}>
-                    <Text style={styles.purposeText}>主要作用：{ing.purpose}</Text>
+                {/* 第二層：剩下的介紹句 ＋ 法規限量原文。
+                    先前這裡直接把 ing.purpose 標成「主要作用」攤開來，但那個欄位
+                    （additives.food_tech_purpose）裝的是食藥署的「使用範圍及限量」
+                    原文，含劑量數字與換行，最長 319 字——**標籤是錯的，而且它才是
+                    字數的主要來源**。它是查證用的，不該出現在第一眼。 */}
+                {hasMore && (
+                  <Pressable onPress={() => toggleDetail(idx)} style={styles.detailToggle}>
+                    <Text style={styles.detailToggleText}>
+                      {isDetailOpen ? '收起詳細說明' : '詳細說明'}
+                    </Text>
+                    {isDetailOpen
+                      ? <ChevronUp size={12} color="#757575" />
+                      : <ChevronDown size={12} color="#757575" />}
+                  </Pressable>
+                )}
+
+                {isDetailOpen && (
+                  <View style={styles.detailBox}>
+                    {restSentences.length > 0 && (
+                      <Text style={styles.description}>{restSentences.join('。')}。</Text>
+                    )}
+                    {!!ing.purpose && (
+                      <View style={styles.purposeBox}>
+                        <Text style={styles.purposeTitle}>法規使用範圍與限量</Text>
+                        <Text style={styles.purposeText}>{ing.purpose}</Text>
+                      </View>
+                    )}
                   </View>
                 )}
 
+                {/* 標題刻意不寫成「風險警示」或「經驗證」：庫內沒有任何一條
+                    經過人工逐筆複核，那樣的措辭答不出「誰驗證的」。
+                    這一塊要表達的是「有來源可追溯的注意資訊」，見 types.ts。 */}
                 {ing.groupRisks && ing.groupRisks.length > 0 && (
                   <View style={styles.risksBox}>
-                    <Text style={styles.risksTitle}>可能受體風險警示 (特定族群)</Text>
+                    <Text style={styles.risksTitle}>具來源可追溯之族群注意資訊</Text>
                     {ing.groupRisks.map((r, rid) => (
-                      <Text key={rid} style={styles.riskItem}>
-                        • {groupLabel(r.group)}：{r.reason}
-                      </Text>
+                      <View key={rid} style={styles.riskEntry}>
+                        <Text style={styles.riskItem}>
+                          • {groupLabel(r.group)}：{r.reason}
+                        </Text>
+                        {/* 來源原文（資料庫的 source_quote）**刻意不顯示**，
+                            留在庫裡備查——決定是評審問起再拿出來。畫面上給連結
+                            已足以追溯，逐條附上英文原文段落只會讓人讀不完。
+                            ⚠ 畫面沒有原文不代表沒有原文。 */}
+                        <View style={styles.riskFootRow}>
+                          {!r.reviewedByHuman && (
+                            <Text style={styles.riskUnreviewed}>未經人工複核</Text>
+                          )}
+                          {!!r.sourceUrl && (
+                            <Pressable onPress={() => Linking.openURL(r.sourceUrl!)} hitSlop={6}>
+                              <Text style={styles.riskSourceLink}>查看來源</Text>
+                            </Pressable>
+                          )}
+                        </View>
+                      </View>
                     ))}
+                    {/* 空白不等於安全——這句話是這一層的核心，不可省略。 */}
+                    <Text style={styles.riskDisclaimer}>
+                      僅在能指認特定族群、具體機制且附可追溯來源時才列出。未列出不代表無風險。
+                    </Text>
                   </View>
                 )}
 
@@ -254,7 +327,21 @@ const createStyles = (scale: number) => StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
-  purposeText: { fontSize: 11 * scale, color: '#757575', fontWeight: '600' },
+  purposeTitle: { fontSize: 10 * scale, color: '#1A1A1A', fontWeight: '800', marginBottom: 2 },
+  // 法規原文用比內文小一號、不加粗：它是查證用的附錄，不該跟介紹爭視線。
+  purposeText: { fontSize: 10 * scale, color: '#757575', fontWeight: '500', lineHeight: 15 },
+
+  // 第二層展開的入口。做成文字連結而不是按鈕——這一頁每一項都有一個，
+  // 全做成按鈕會讓清單看起來像一排操作項，而它其實只是「還有沒有更多字」。
+  detailToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    paddingVertical: 2,
+  },
+  detailToggleText: { fontSize: 11 * scale, color: '#757575', fontWeight: '700' },
+  detailBox: { gap: 8 },
   risksBox: {
     backgroundColor: '#fff1f2',
     borderColor: '#fecdd3',
@@ -270,6 +357,16 @@ const createStyles = (scale: number) => StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 2,
+  },
+  riskEntry: { gap: 3, paddingVertical: 2 },
+  riskFootRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginLeft: 6 },
+  riskUnreviewed: { fontSize: 9 * scale, color: '#9ca3af', fontWeight: '700' },
+  riskSourceLink: { fontSize: 9 * scale, color: '#0097A7', fontWeight: '700' },
+  riskDisclaimer: {
+    fontSize: 9 * scale,
+    color: '#9ca3af',
+    lineHeight: 13,
+    marginTop: 4,
   },
   riskItem: {
     fontSize: 11 * scale,

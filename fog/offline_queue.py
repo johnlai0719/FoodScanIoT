@@ -92,7 +92,7 @@ class OfflineQueue:
 
     def get(self, job_id):
         with self.connect() as db:
-            row = db.execute('SELECT id,state,created_at,updated_at,attempts,result_json,error FROM analysis_queue WHERE id=?', (job_id,)).fetchone()
+            row = db.execute('SELECT id,state,request_id,created_at,updated_at,attempts,result_json,error FROM analysis_queue WHERE id=?', (job_id,)).fetchone()
             if not row:
                 return None
             job = dict(row)

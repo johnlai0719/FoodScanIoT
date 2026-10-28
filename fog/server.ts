@@ -107,7 +107,7 @@ app.post('/query', validateQuery, async (req: Request, res: Response, next: Next
     // Old clients may opt out of cloud upload. Preserve that intent explicitly.
     const localOnly = req.header('X-Local-Only') === '1';
     const result = await handleQuery(
-      req.body as FogQueryRequest, req.header('X-Request-Id'), bypass, localOnly);
+      req.body as FogQueryRequest, req.header('X-Request-Id'), bypass, localOnly, req.header('X-Demo-Scenario'));
     res.header('X-Cache', result.cacheHeader);
     // 三層的計時標頭。**不放進 body**：`test_cloud_response_contract.py` 是
     // `set(keys) == EXPECTED` 嚴格相等，動 body 等於改 App 的資料契約；

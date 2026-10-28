@@ -1,0 +1,76 @@
+import { AnalysisResponse, IngredientDetail } from '../types';
+import { getScoreBreakdownList } from './scoring';
+
+export const isMatchedAdditive = (item: IngredientDetail) =>
+  item.isAdditive === true || item.isAdditive === 'true';
+
+export function getAdditiveCategoryStats(ingredients: IngredientDetail[]) {
+  const additives = ingredients.filter(isMatchedAdditive);
+  const counts = new Map<string, number>();
+  for (const item of additives) {
+    // A matched additive may have several official functions. Count each once;
+    // an absent category stays separate instead of inferring one from the name.
+    const categories = [...new Set((item.category ?? []).map(value => value.trim()).filter(Boolean))];
+    for (const category of categories.length ? categories : ['未分類']) {
+      counts.set(category, (counts.get(category) ?? 0) + 1);
+    }
+  }
+  const rows = [...counts].map(([name, count]) => ({ name, count }))
+    .sort((a, b) => a.name === b.name ? 0 : a.name === '未分類' ? 1 : b.name === '未分類' ? -1
+      : b.count - a.count || a.name.localeCompare(b.name, 'zh-TW'));
+  return { additiveCount: additives.length, rows, totalAssignments: rows.reduce((sum, row) => sum + row.count, 0) };
+}
+
+export const GRADE_STYLES: Record<string, { color: string; background: string; label: string }> = {
+  A: { color: '#16834C', background: '#E7F6EC', label: '營養評級較佳' },
+  B: { color: '#5D861F', background: '#F0F6DF', label: '營養評級良好' },
+  C: { color: '#9A6A00', background: '#FFF5D9', label: '營養負擔適中' },
+  D: { color: '#A43B10', background: '#FFF0CE', label: '營養負擔偏高' },
+  E: { color: '#BE3030', background: '#FFF0F0', label: '營養負擔較高' },
+};
+
+export function getResultPresentation(result: AnalysisResponse) {
+  const grade = result.nutri_grade?.trim().toUpperCase();
+  const gradeStyle = (grade && GRADE_STYLES[grade]) || {
+    color: '#68737B', background: '#F1F3F4', label: '尚無營養分級',
+  };
+  const breakdown = getScoreBreakdownList(result);
+  const penalties = breakdown.filter(item => Number.isFinite(item.points) && item.points < 0)
+    .sort((a, b) => a.points - b.points);
+  const ingredients = result.ingredients_detail ?? [];
+  const additives = ingredients.filter(isMatchedAdditive);
+  return {
+    grade: grade && GRADE_STYLES[grade] ? grade : undefined,
+    gradeStyle,
+    score: typeof result.health_score === 'number' && Number.isFinite(result.health_score)
+      ? result.health_score : null,
+    breakdown,
+    penalties,
+    leadingPenalty: penalties[0],
+    ingredients,
+    additives,
+    unmatched: ingredients.filter(item => !isMatchedAdditive(item)),
+    nutrition: result.data?.nutrition_facts ?? {},
+  };
+}
+
+export function formatNutritionValue(value: number | null | undefined): string {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? new Intl.NumberFormat('zh-TW', { maximumFractionDigits: 2 }).format(value)
+    : '未標示';
+}
+
+export const PENALTY_COLORS: Record<string, string> = {
+  energy: '#E89A14', sugars: '#397AD5', sfa: '#9270B8', salt: '#D54A37',
+  sweeteners: '#C05A91',
+};
+
+export const getPenaltyColor = (key?: string) => PENALTY_COLORS[key ?? ''] ?? '#87929C';
+
+export function getNutritionRingSegments(result: AnalysisResponse) {
+  const { penalties } = getResultPresentation(result);
+  const total = penalties.reduce((sum, item) => sum + Math.abs(item.points), 0);
+  return penalties.map(item => ({
+    ...item, color: getPenaltyColor(item.key), fraction: Math.abs(item.points) / total,
+  }));
+}

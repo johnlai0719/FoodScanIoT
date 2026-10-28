@@ -5,8 +5,13 @@
 <header class="topbar"><a class="brand" href="/" aria-label="FoodScan 首頁"><span class="brand-icon">F<span>·</span></span><span>FoodScan<span class="brand-sub">食品資訊，看得更明白</span></span></a><div class="top-actions"><span id="connection" class="connection"><i></i>連線中</span><button id="fullscreen" class="quiet">全螢幕 ↗</button></div></header>
 <main>
 <section class="heading"><div><div class="eyebrow">INNOSERVE / GEMINI ECOSYSTEM</div><h1>看見每一步，<span>理解每一口。</span></h1><p>從包裝影像到手機結果，讓 AI 的處理過程清楚可見。</p></div><div class="mode-box"><span id="mode" class="mode">LIVE PIPELINE</span><span id="request-id">等待手機發起掃描</span></div></section>
+<section id="fog-situation" class="fog-situation" aria-label="本次演示情境與 Fog 實際決策" hidden>
+<div><span class="mini-label">預定演示情境</span><h2 id="demo-scenario">一般掃描</h2><p>選擇的展示設定與實際執行結果分開呈現。</p></div>
+<div><span class="mini-label">FOG 實際回報</span><strong id="fog-outcome">等待 Fog</strong><p id="fog-explanation"></p></div>
+<details><summary>查看 Fog 事件紀錄</summary><ol id="fog-timeline"></ol></details>
+</section>
 <div class="workspace">
-<aside class="panel pipeline"><div class="panel-heading"><span class="section-number">01</span><h2>處理流程</h2><span id="count" class="muted">0 / 5</span></div><div id="stages" class="stages"></div><div class="pipeline-bottom"><span class="mini-label">CURRENT STATUS</span><strong id="status-title">準備接收影像</strong><p id="status-detail">在 FoodScan App 掃描商品，這裡會同步呈現實際處理進度。</p><div class="signal-line"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></aside>
+<aside class="panel pipeline"><div class="panel-heading"><span class="section-number">01</span><h2>處理流程</h2><span id="count" class="muted">0 / 6</span></div><div id="stages" class="stages"></div><div class="pipeline-bottom"><span class="mini-label">CURRENT STATUS</span><strong id="status-title">準備接收影像</strong><p id="status-detail">在 FoodScan App 掃描商品，這裡會同步呈現實際處理進度。</p><div class="signal-line"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></aside>
 <section class="panel visual"><div class="panel-heading"><span class="section-number">02</span><h2 id="visual-title">階段內容</h2><div id="legend" class="legend"><span><i class="red"></i>營養標示</span><span><i class="orange"></i>其他文字密集區塊</span></div></div><section id="stage-inspector" class="stage-inspector" aria-label="選取階段的處理說明">
 <div class="inspector-heading"><div><span id="detail-step" class="mini-label"></span><h3 id="detail-title"></h3></div><span id="detail-status" class="detail-status"></span></div>
 <p id="detail-description"></p><div class="io-grid"><div><span>輸入</span><p id="detail-input"></p></div><div><span>處理方式</span><p id="detail-method"></p></div><div><span>輸出</span><p id="detail-output"></p></div></div>

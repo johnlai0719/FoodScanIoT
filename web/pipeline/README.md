@@ -1,14 +1,15 @@
 # FoodScan Live Pipeline
 
-本機展示儀表板：影像接收 → Google Vision → Region Routing → Gemini → 結果同步。
+本機展示儀表板：影像接收 → Fog 決策 → Google Vision → Region Routing → Gemini → 結果同步。
 
 ## 點選階段查看處理內容
 
-左側五個階段可點選，也可用鍵盤 Tab／Enter 操作。選取後會保留選擇，定時進度更新不會切走正在查看的階段。
+左側六個階段可點選，也可用鍵盤 Tab／Enter 操作。選取後會保留選擇，定時進度更新不會切走正在查看的階段。
 
 | 階段 | 說明與實際資料 |
 |---|---|
 | 影像接收 | 輸入照片、圖片尺寸及接收方式 |
+| Fog 決策 | Node／Python 實際回報的 Hit、Miss、Bypass、排隊及補送事件 |
 | Google Vision | OCR 處理說明、青色字詞框與可展開的 OCR 原文 |
 | Region Routing | 營養與其他密集文字的規則說明、區域框、裁圖與座標 |
 | Gemini | 結構化抽取說明與實際回傳欄位（新 reader 事件提供） |
@@ -18,6 +19,37 @@
 
 ## 啟動儀表板
 
+### 本輪本地新增：Fog 情境觀測
+
+畫面分開顯示「預定演示情境」（App 選擇）與「Fog 實際回報」（Fog 發送）。App 選擇 Cache Hit 不會讓畫面偽造命中；查不到快取仍顯示 Miss。純照片 `TEST` 不共用條碼快取，顯示 `EXCLUDED`；強制重辨識顯示 `BYPASS`，不冒充自然 Miss。
+
+| Fog 實際事件 | 儀表板行為 |
+|---|---|
+| `cache_hit`／`cache_returned` | 顯示 HIT／HIT-STALE／HIT-RAW；未執行的 Vision、分區、Gemini 標示略過 |
+| `cache_miss` | 顯示未找到可用快取，後續是否送雲端或排隊依下一個 Fog 事件決定 |
+| `cache_bypass`／`cache_excluded` | 清楚區分手動略過快取及純照片不共用快取 |
+| `cloud_unavailable` | 只說雲端不可用，尚不宣稱資料已保存 |
+| `queued` | Fog SQLite 寫入成功後才回報，顯示任務編號並等待補送 |
+| `replay_started`／`replay_retry` | 顯示開始補送或等待重試及實際嘗試次數 |
+| `replay_completed` | 顯示補送完成；仍等 App 自己回報顯示結果，Fog 不代替手機確認 |
+| `storage_failed`／`unavailable`／`replay_failed` | 顯示失敗，不標成已暫存或同步完成 |
+
+事件以 `request_id` 關聯；相同待辦重複提交會保留原佇列編號並將原任務補送事件對應回新提交。每筆保留最近 40 個 Fog 事件。事件中的時間為儀表板接收時間，不用跨機器時間戳計算延遲。
+
+Fog 必須同時更新 Node 與 Python：新增 `pipelineEvents.ts`、`fog_events.py`，並更新 `server.ts`、`queryHandler.ts`、`main.py`；執行 `npm run build`。兩個 Fog 服務都設定 `PIPELINE_DASHBOARD_URL=http://儀表板的Tailnet名稱:8787`，重啟服務後才會回報。回報為可選、盡力傳送；Python 使用有界背景佇列，Node 不等待觀測器，儀表板離線不改變原分析／快取／補送結果。
+
+儀表板後端也需要重啟以載入新增事件格式；僅刷新網頁不會更新 FastAPI schema。Cloud／reader 仍可沿用原本的事件回報設定。App 的 `X-Demo-Scenario` 只傳遞演示意圖，不控制 Fog 命中／斷線，不需把任何金鑰放入 App。
+
+依使用者決定，本輪**僅完成本地版本，未更新 Pi，未重啟正式儀表板**。目前執行中的後端仍不接受新增 Fog 事件，請部署以上兩端後再連動驗收。
+
+### 合成預覽（不接 Pi，也不呼叫付費 API）
+
+```powershell
+python tools/pipeline_dashboard_preview.py
+```
+
+預設只監聽 `127.0.0.1:8788`。可分別開啟 `/preview/hit`、`/preview/miss`、`/preview/bypass`、`/preview/queue`、`/preview/replay`。畫面清楚標示合成演示，資料與正式儀表板記憶體隔離；Search API 在此預覽固定拒絕。這些畫面驗證不等同 Pi／App 端到端驗收。
+
 從決賽專案根目錄執行：
 
 ```powershell
@@ -25,6 +57,14 @@ python tools/pipeline_dashboard.py
 ```
 
 本機網址：`http://127.0.0.1:8787`。此服務僅接收進度，不會自行呼叫 Vision、Gemini 或切換原有服務。頁面可以查看已存的分區範例；範例明確標記，Gemini 與手機同步不會假裝完成。
+
+### 目前 Tailscale 遠端入口（2026-10-28）
+
+`http://johnlai-pc.tail879308.ts.net:8787/`，僅 Tailnet 可存取，使用 Tailscale Serve 轉接現有 `127.0.0.1:8787`，因此保留目前記憶體中的進度。請使用此 MagicDNS 網址；本次設定直接使用 Tailscale IP 的 Host 會回 404。
+
+Serve 的 `/api/grounding/search` 另以文字回覆覆蓋，遠端不轉送付費 Search 實驗；本機原端點仍維持原限制。撤除此入口可執行 `tailscale serve --http=8787 off`，不需關掉本機儀表板。
+
+App 的 `.env.local` 已保存 `EXPO_PUBLIC_PIPELINE_DASHBOARD_URL` 為上述網址。但本輪重啟 App 開發服務遭工具政策拒絕，現有 iOS bundle 尚未包含此設定；需日後重啟 Expo 才能取得手機同步回報。遠端儀表板 HTTP 200 與既有 Cloud／reader 事件已確認正常，未偽造手機接收確認。
 
 ## 接既有 FoodScan App
 

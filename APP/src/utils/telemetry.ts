@@ -1,5 +1,6 @@
 /**
- * 實驗量測的紀錄與匯出。一次掃描存一列，之後整批匯出做統計。
+ * 實驗量測的紀錄與匯出。每個階段存一列，以 request_id 關聯同一次掃描。
+ * 排隊的初次回覆與最後結果分列；統計時須依 phase 篩選。
  *
  * 為什麼存在 App 而不是伺服器
  * ------------------------
@@ -28,6 +29,8 @@ const MAX_RECORDS = 500;
 export type TimingSegments = Record<string, number>;
 
 export interface ScanRecord {
+  /** One request may have an initial queued acknowledgement and a later terminal event. */
+  phase?: 'response' | 'queue_completed' | 'queue_failed';
   /** 與三層的紀錄對得起來的關聯鍵，由 App 產生並逐層轉發。 */
   request_id: string;
   /** ISO 時刻。**只用於排序與人工對照，不參與任何相減。** */
@@ -94,7 +97,8 @@ export async function load(): Promise<ScanRecord[]> {
   }
 }
 
-export async function append(rec: ScanRecord): Promise<void> {
+let pendingWrites: Promise<void> = Promise.resolve();
+async function appendRecord(rec: ScanRecord): Promise<void> {
   try {
     const all = await load();
     all.push(rec);
@@ -105,10 +109,20 @@ export async function append(rec: ScanRecord): Promise<void> {
   }
 }
 
-export async function clear(): Promise<void> {
+export function append(rec: ScanRecord): Promise<void> {
+  pendingWrites = pendingWrites.then(() => appendRecord(rec));
+  return pendingWrites;
+}
+
+async function clearRecords(): Promise<void> {
   try {
     await AsyncStorage.removeItem(KEY);
   } catch { /* 同上 */ }
+}
+
+export function clear(): Promise<void> {
+  pendingWrites = pendingWrites.then(clearRecords);
+  return pendingWrites;
 }
 
 /**
@@ -124,7 +138,7 @@ export function toCSV(records: ScanRecord[]): string {
       if (seg) for (const k of Object.keys(seg)) segCols.add(`${layer}_${k}`);
     }
   }
-  const base = ['request_id', 'at', 'endpoint', 'barcode', 'n_images', 'payload_chars',
+  const base = ['request_id', 'phase', 'at', 'endpoint', 'barcode', 'n_images', 'payload_chars',
                 'http_status', 'total_ms', 'cache', 'bypass_cache', 'status', 'health_score',
                 'risk_level', 'n_additives', 'degraded', 'error'];
   const cols = [...base, ...[...segCols].sort()];

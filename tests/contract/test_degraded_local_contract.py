@@ -158,7 +158,7 @@ def _degraded_jsx() -> str:
     """
     src = _screen()
     i = src.index("{!isAnalyzing && !analysisError && degradedResult && (")
-    j = src.index("{/* Results */}", i)
+    j = src.index("{!isAnalyzing && !analysisError && !degradedResult && analysisResult && (", i)
     jsx = src[i:j]
     B = chr(92)
     jsx = re.sub(B + "{/" + B + "*.*?" + B + "*/" + B + "}", "", jsx, flags=re.S)  # JSX 註解

@@ -21,14 +21,27 @@ from vision_auto_regions import extract_words
 import grounding_search_lab as grounding_lab
 
 ROOT = Path(__file__).resolve().parents[1]
-STAGES = ('image', 'vision', 'routing', 'gemini', 'sync')
+STAGES = ('image', 'fog', 'vision', 'routing', 'gemini', 'sync')
+
+
+class FogObservation(BaseModel):
+    event: Literal['received', 'cache_hit', 'cache_miss', 'cache_bypass', 'cache_excluded',
+                   'cache_returned', 'manager_forwarded', 'manager_returned', 'cloud_forwarded',
+                   'cloud_returned', 'cloud_unavailable', 'queued', 'replay_started', 'replay_retry',
+                   'replay_completed', 'replay_failed', 'storage_failed', 'unavailable']
+    layer: Literal['node', 'python']
+    cache_status: Literal['HIT', 'HIT-STALE', 'HIT-RAW', 'MISS', 'BYPASS', 'EXCLUDED', 'QUEUED'] | None = None
+    queue_id: str | None = Field(default=None, pattern=r'^[a-f0-9]{32}$')
+    attempt: int | None = Field(default=None, ge=1)
+    http_status: int | None = Field(default=None, ge=100, le=599)
 
 
 class Event(BaseModel):
     request_id: str = Field(min_length=1, max_length=96, pattern=r'^[A-Za-z0-9_.:-]+$')
-    stage: Literal['image', 'vision', 'routing', 'gemini', 'sync', 'error']
+    stage: Literal['image', 'fog', 'vision', 'routing', 'gemini', 'sync', 'error']
     status: Literal['active', 'done', 'failed']
-    sender: Literal['app', 'cloud']
+    sender: Literal['app', 'cloud', 'fog']
+    fog: FogObservation | None = None
     duration_ms: float | None = Field(default=None, ge=0)
     payload: dict = Field(default_factory=dict)
 
@@ -44,12 +57,23 @@ def thumbnail(image, edge=1100):
 class Store:
     def __init__(self):
         self.jobs = OrderedDict()
+        self.aliases = {}
         self.lock = threading.Lock()
 
     def accept(self, event):
+        if event.stage == 'fog' and (event.sender != 'fog' or event.fog is None):
+            raise ValueError('Fog observations must come from the Fog emitter')
+        if event.stage != 'fog' and event.fog is not None:
+            raise ValueError('Fog observations require the Fog stage')
         if event.stage == 'sync' and event.status == 'done' and event.sender != 'app':
             raise ValueError('Only App acknowledgement completes synchronization')
         payload = copy.deepcopy(event.payload)
+        # Fog history and observed outcome are managed here, never taken from App payloads.
+        for key in ('fog_history', 'fog_latest'):
+            payload.pop(key, None)
+        if payload.get('demo_scenario') not in ('cloud', 'miss', 'cache', 'queue'):
+            payload.pop('demo_scenario', None)
+        canonical = payload.pop('canonical_request_id', None)
         if len(json.dumps(payload)) > 7_000_000:
             raise ValueError('Event payload too large')
         if payload.get('source_image'):
@@ -58,14 +82,43 @@ class Store:
                 payload['image_size'] = list(ImageOps.exif_transpose(im).size)
                 payload['source_image'] = thumbnail(im)
         with self.lock:
-            if event.request_id not in self.jobs:
-                self.jobs[event.request_id] = {
-                    'request_id': event.request_id, 'mode': 'live', 'created': time.time(),
+            rid = self.aliases.get(event.request_id, event.request_id)
+            if event.stage == 'fog' and isinstance(canonical, str) and re.fullmatch(r'[A-Za-z0-9_.:-]{1,96}', canonical) and canonical != rid:
+                self.aliases[canonical] = rid
+            if rid not in self.jobs:
+                self.jobs[rid] = {
+                    'request_id': rid, 'mode': 'live', 'created': time.time(),
                     'stages': {s: {'status': 'pending'} for s in STAGES},
                     'payload': {}, 'events': [], 'failed': False, 'phone_received': False}
                 while len(self.jobs) > 8:
                     self.jobs.popitem(last=False)
-            job = self.jobs[event.request_id]
+                self.aliases = {key: value for key, value in self.aliases.items() if value in self.jobs}
+            job = self.jobs[rid]
+            if event.stage == 'fog':
+                observation = event.fog.model_dump(exclude_none=True)
+                if observation['event'] in ('queued', 'replay_started', 'replay_retry', 'replay_completed') and not job['phone_received']:
+                    job['failed'] = False
+                    job.pop('error', None)
+                if observation['event'] == 'replay_started' and not job['phone_received']:
+                    for stage in ('vision', 'routing', 'gemini', 'sync'):
+                        job['stages'][stage] = {'status': 'pending'}
+                    for key in ('ocr_boxes', 'ocr_text', 'regions', 'crops', 'gemini_output', 'result'):
+                        job['payload'].pop(key, None)
+                history = job['payload'].setdefault('fog_history', [])
+                history.append({**observation, 'at': time.time()})
+                del history[:-40]
+                previous = job['payload'].get('fog_latest', {})
+                late_submission = previous.get('event', '').startswith('replay_') and not observation['event'].startswith('replay_')
+                if not late_submission and (job['stages']['fog']['status'] != 'done' or event.status in ('done', 'failed')):
+                    job['payload']['fog_latest'] = observation
+                if observation['event'] in ('cache_hit', 'cache_returned'):
+                    for skipped in ('vision', 'routing', 'gemini'):
+                        if job['stages'][skipped]['status'] == 'pending':
+                            job['stages'][skipped] = {'status': 'skipped', 'reason': 'Fog 快取回傳，本次未重新辨識'}
+                if payload.get('image_count') == 0 and job['stages']['image']['status'] == 'pending':
+                    job['stages']['image'] = {'status': 'skipped', 'reason': '本次僅查詢條碼，未上傳照片'}
+                if payload.get('result') and job['stages']['sync']['status'] == 'pending':
+                    job['stages']['sync']['status'] = 'active'
             if event.stage == 'error' or event.status == 'failed':
                 job['failed'] = True
                 job['error'] = str(payload.get('message', '處理未完成'))[:180]
