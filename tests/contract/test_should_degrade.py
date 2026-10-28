@@ -70,15 +70,10 @@ def test_cloud_unavailable_is_an_exception():
     assert issubclass(CloudUnavailable, Exception)
 
 
-def test_main_uses_the_predicate_at_both_call_sites():
-    """兩個呼叫 Cloud 的地方都要用同一個判定。
-
-    帶圖那條原本**完全不看狀態碼**（直接 `.json()`，靠解析失敗才意外降階）；
-    無圖那條有看 200，但非 200 直接回錯誤、不走退路。兩邊都改成先問
-    `should_degrade`。這條測試防止其中一邊被改回去。
-    """
+def test_main_uses_one_cloud_forwarder_for_live_and_queued_uploads():
     main_py = os.path.join(os.path.dirname(__file__), '..', '..', 'fog', 'main.py')
     src = open(main_py, encoding='utf-8').read()
-    assert src.count('should_degrade(status_code=cloud_resp.status_code)') == 2, \
-        '兩個呼叫點都要用 should_degrade'
+    assert src.count('requests.post(') == 1
     assert 'raise CloudUnavailable' in src
+    assert 'r.status_code >= 500' in src
+    assert 'r.status_code in (408, 429)' in src

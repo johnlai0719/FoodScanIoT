@@ -48,7 +48,12 @@ CLOUD_DOWN_CODES = frozenset({502, 503, 504, 520, 521, 522, 523, 524, 525, 526, 
 
 
 class CloudUnavailable(Exception):
-    """上游明確表示自己不可用。與連線失敗走同一條退路（陳舊快取 → 本機降階）。"""
+    """上游不可用；Fog 將未命中快取的請求存入離線佇列。"""
+
+
+def is_cacheable_result(result):
+    return (isinstance(result, dict) and result.get("status") == "success"
+            and result.get("overall_summary") != "診斷引擎暫時降級運作。")
 
 
 def _first_not_none(*vals):

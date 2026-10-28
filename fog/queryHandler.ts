@@ -26,12 +26,18 @@ const CLOUD_TIMEOUT = 105000;
 // request id 來自 App、會被原樣轉發，不合格就不轉，避免把使用者輸入塞進標頭。
 const SAFE_REQUEST_ID = /^[A-Za-z0-9_.:-]{1,64}$/;
 
-export async function handleQuery(reqData: FogQueryRequest, requestId?: string, bypassCache = false): Promise<{ status: number, data: any, cacheHeader: string, headers: Record<string, string> }> {
+export async function handleQuery(reqData: FogQueryRequest, requestId?: string, bypassCache = false, localOnly = false): Promise<{ status: number, data: any, cacheHeader: string, headers: Record<string, string> }> {
   const { barcode } = reqData;
   const startTime = Date.now();
   // App 產生的 request id 要逐層往下帶，三層的計時紀錄才併得起來。
   const rid = requestId && SAFE_REQUEST_ID.test(requestId) ? requestId : '';
-  const upstreamHeaders: Record<string, string> = { 'Content-Type': 'application/json', ...(rid ? { 'X-Request-Id': rid } : {}) };
+  const upstreamHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(rid ? { 'X-Request-Id': rid } : {}),
+    // Preserve legacy upload opt-out; Python rejects it without uploading or queueing.
+    ...(localOnly ? { 'X-Local-Only': '1' } : {}),
+    ...(bypassCache ? { 'X-Bypass-Cache': '1' } : {}),
+  };
   // 下游（Python → Cloud）自己量的那幾段，原樣往上帶，讓 App 一次收齊三層。
   const passThrough: Record<string, string> = {};
   let upstreamMs: number | null = null;
@@ -57,7 +63,15 @@ export async function handleQuery(reqData: FogQueryRequest, requestId?: string, 
   //
   // ⚠ 刻意**不用** App 每次都送的 `Cache-Control: no-cache` 當判準：
   //   那個標頭每一次請求都在，拿它當開關等於永久關閉快取。
-  const cachedData = bypassCache ? null : getCache(barcode);
+  // 只用本機辨識時也不可讀快取：快取裡是雲端算過的完整結果，拿它回應等於
+  // 沒有照使用者的選擇做，而畫面會顯示成完整分析，使用者無從察覺。
+  const isUsable = (result: any) => result?.status === 'success'
+    && result?.overall_summary !== '診斷引擎暫時降級運作。';
+  const freshCandidate = (bypassCache || localOnly || barcode === 'TEST') ? null : getCache(barcode);
+  const fresh = isUsable(freshCandidate) ? freshCandidate : null;
+  const staleCandidate = (bypassCache || localOnly || barcode === 'TEST') ? null : getStaleCache(barcode);
+  const cachedData = fresh || (isUsable(staleCandidate) ? staleCandidate : null);
+  const cacheWarning = cachedData && !fresh ? { _warning: '此為本地舊快取，尚未取得最新資料' } : {};
   if (cachedData) {
     console.log(`[HIT] ${barcode} -> Normalizing cached result...`);
     const controller = new AbortController();
@@ -85,13 +99,16 @@ export async function handleQuery(reqData: FogQueryRequest, requestId?: string, 
           status: 200,
           data: {
             ...normalizedResult,
-            cached: true
+            cached: true,
+            ...cacheWarning
           },
-          cacheHeader: 'HIT',
+          cacheHeader: fresh ? 'HIT' : 'HIT-STALE',
           headers: timingHeaders()
         };
       } else {
         console.warn(`[WARN] Python re-calc failed: ${response.status}`);
+        return { status: 200, data: { ...cachedData, cached: true, ...cacheWarning },
+          cacheHeader: 'HIT-RAW', headers: timingHeaders() };
       }
     } catch (e: any) {
       clearTimeout(timeoutId);
@@ -100,7 +117,8 @@ export async function handleQuery(reqData: FogQueryRequest, requestId?: string, 
         status: 200,
         data: {
           ...cachedData,
-          cached: true
+          cached: true,
+          ...cacheWarning
         },
         cacheHeader: 'HIT-RAW',
         headers: timingHeaders()
@@ -131,7 +149,7 @@ export async function handleQuery(reqData: FogQueryRequest, requestId?: string, 
       
       // 🛠️ 修正：只有當結果狀態為成功時，才寫入快取
       const isDegraded = cloudResult.overall_summary === '診斷引擎暫時降級運作。';
-      if (cloudResult.status === 'success' && !isDegraded) {
+      if (cloudResult.status === 'success' && !isDegraded && barcode !== 'TEST') {
         console.log(`[OK] ${barcode} cached`);
         setCache(barcode, cloudResult);
       } else {
@@ -139,50 +157,29 @@ export async function handleQuery(reqData: FogQueryRequest, requestId?: string, 
       }
       
       return {
-        status: 200,
+        status: response.status,
         data: {
           ...cloudResult,
           cached: false
         },
-        cacheHeader: bypassCache ? 'BYPASS' : 'MISS',
+        cacheHeader: cloudResult.status === 'queued' ? 'QUEUED' : (bypassCache ? 'BYPASS' : 'MISS'),
         headers: timingHeaders()
       };
     } else {
-      throw new Error(`Cloud Status: ${response.status}`);
+      return { status: response.status, data: await response.json(),
+        cacheHeader: 'ERROR', headers: timingHeaders() };
     }
 
   } catch (error: any) {
     clearTimeout(timeoutId);
     console.error(`[ERR] ${barcode} -> Cloud Timeout/Error: ${error.message}`);
 
-    // 3. 降階回應 (Fallback)
-    // 嘗試取得過期快取
-    const staleData = getStaleCache(barcode);
-    if (staleData) {
-      console.log(`[DEGRADED] ${barcode} (Using stale cache)`);
-      return {
-        status: 200,
-        data: {
-          ...staleData,
-          cached: true,
-          _warning: "⚠️ 目前無法取得最新資料，為您顯示舊有快取"
-        },
-        cacheHeader: 'DEGRADED',
-        headers: timingHeaders()
-      };
-    }
-
-    // 完全無快取，回傳降階錯誤訊息
+    // Python is unavailable: no durable queue acknowledgement was received.
     return {
-      status: 200,
-      data: {
-        status: "degraded",
-        message: "目前無法取得最新資料且無快取，請稍後再試",
-        cached: false,
-        cached_at: null
-      },
-      cacheHeader: 'DEGRADED',
-      headers: timingHeaders()
+      status: 503,
+      data: { status: 'error', queued: false,
+        message: '目前無法連線 Fog 管理服務，資料尚未暫存。請保留照片並稍後重試。' },
+      cacheHeader: 'ERROR', headers: timingHeaders()
     };
   }
 }

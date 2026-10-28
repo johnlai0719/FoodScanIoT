@@ -104,8 +104,10 @@ app.post('/query', validateQuery, async (req: Request, res: Response, next: Next
     // App 每一次請求都送 `Cache-Control: no-cache`，拿它當判準等於永久關閉快取，
     // 那就量不出「Fog 的快取有沒有幫上忙」。
     const bypass = req.header('X-Bypass-Cache') === '1';
+    // Old clients may opt out of cloud upload. Preserve that intent explicitly.
+    const localOnly = req.header('X-Local-Only') === '1';
     const result = await handleQuery(
-      req.body as FogQueryRequest, req.header('X-Request-Id'), bypass);
+      req.body as FogQueryRequest, req.header('X-Request-Id'), bypass, localOnly);
     res.header('X-Cache', result.cacheHeader);
     // 三層的計時標頭。**不放進 body**：`test_cloud_response_contract.py` 是
     // `set(keys) == EXPECTED` 嚴格相等，動 body 等於改 App 的資料契約；
@@ -114,6 +116,25 @@ app.post('/query', validateQuery, async (req: Request, res: Response, next: Next
     res.status(result.status).json(result.data);
   } catch (err) {
     next(err);
+  }
+});
+
+// Poll a queued task through the same Fog entrypoint; uploaded payloads stay private.
+app.get('/queue/:id', async (req: Request, res: Response) => {
+  if (!/^[a-f0-9]{32}$/.test(req.params.id)) {
+    res.status(400).json({ message: '任務編號格式錯誤' });
+    return;
+  }
+  const base = process.env.PYTHON_API_URL?.replace(/\/query\/?$/, '') || 'http://127.0.0.1:3002';
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
+  try {
+    const r = await fetch(`${base}/queue/${req.params.id}`, { signal: controller.signal });
+    res.status(r.status).json(await r.json());
+  } catch {
+    res.status(503).json({ message: '目前無法查詢排隊狀態，請稍後再試' });
+  } finally {
+    clearTimeout(timer);
   }
 });
 

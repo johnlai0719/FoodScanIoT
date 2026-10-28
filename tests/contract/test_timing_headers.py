@@ -191,8 +191,12 @@ def test_python_forwards_request_id_on_every_call_to_cloud():
     main = _read(os.path.join(ROOT, 'fog', 'main.py'))
     assert 'headers=cloud_headers()' not in main, \
         'fog/main.py 有打 Cloud 的呼叫只用 cloud_headers()，沒帶 request id'
-    assert main.count('_h[T.REQUEST_ID_HEADER] = rid') == 2, \
-        '帶圖與無圖兩條打 Cloud 的路徑都要轉發 request id'
+    # Foreground uploads and queue replay now share forward_cloud().
+    assert 'headers[T.REQUEST_ID_HEADER] = rid' in main
+    assert 'headers=headers' in main
+    assert 'run_in_threadpool(forward_cloud, payload, rid)' in main
+    assert 'forward_cloud(job["payload"], job["request_id"])' in main
+
 
 
 def test_node_and_python_accept_the_same_request_ids():
@@ -224,7 +228,8 @@ def test_bypass_uses_a_dedicated_header_not_cache_control():
 def test_bypass_skips_reading_but_still_writes():
     """跳過**讀**、照常**寫**。關掉寫入的話快取本身就量不出來了。"""
     node = _read(TS_NODE)
-    assert "bypassCache ? null : getCache(barcode)" in node,         "跳過快取的實作方式變了，請確認它只影響讀取"
+    assert any("bypassCache" in line and "? null : getCache(barcode)" in line
+               for line in node.splitlines()),         "跳過快取的實作方式變了，請確認它只影響讀取"
     # setCache 不得被 bypassCache 包住
     for line in node.split(chr(10)):
         if "setCache(" in line:

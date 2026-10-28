@@ -65,6 +65,7 @@ RoadMap/
 *.docx
 *.html
 *.md
+!fog/LOCAL_OCR.md
 !README.md
 # 專案說明書，AI 助理每次開新對話會自動讀取，必須進版控才對交接與隊友有意義
 !CLAUDE.md

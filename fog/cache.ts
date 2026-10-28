@@ -1,7 +1,8 @@
+import 'dotenv/config';
 import Database from 'better-sqlite3';
 import path from 'path';
 
-const db = new Database('fog_cache.db');
+const db = new Database(process.env.FOG_DB_PATH || path.join(__dirname, __dirname.endsWith('dist') ? '../fog_cache.db' : 'fog_cache.db'));
 
 export interface CacheResult {
   barcode: string;

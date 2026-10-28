@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
@@ -142,6 +142,37 @@ export default function HomeScreen() {
     });
     return () => cancelAnimationFrame(frame);
   }, [dashboardReceiptId, analysisResult]);
+  const [queuedTask, setQueuedTask] = useState<{ id: string; message: string } | null>(null);
+  useEffect(() => {
+    if (!queuedTask) return;
+    let active = true;
+    let controller: AbortController | null = null;
+    const poll = async () => {
+      controller = new AbortController();
+      const timer = setTimeout(() => controller?.abort(), 5000);
+      try {
+        const base = FOG_URL.replace(/\/query\/?$/, '');
+        const response = await fetch(`${base}/queue/${queuedTask.id}`, { signal: controller.signal });
+        if (!response.ok) return;
+        const job = await response.json();
+        if (!active) return;
+        if (job.state === 'completed') {
+          setQueuedTask(null);
+          if (job.result?.health_score !== undefined) setAnalysisResult(job.result);
+          else setAnalysisError(job.result?.message ?? '雲端已處理此任務，但未能產生分析結果。');
+        } else if (job.state === 'failed') {
+          setQueuedTask(null);
+          setAnalysisError('排隊任務未能完成，請確認照片後重新送出。');
+        }
+      } catch {
+        // Fog may also be offline. Keep the durable task visible and retry polling.
+      } finally {
+        clearTimeout(timer);
+      }
+    };
+    const timer = setInterval(poll, 10000);
+    return () => { active = false; clearInterval(timer); controller?.abort(); };
+  }, [queuedTask?.id]);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   // Fog 在 Cloud 連不上且無快取時，用本機 OCR 回的部分結果。
   // **與 analysisResult 分開存**：它刻意沒有 health_score，混在一起會讓
@@ -197,6 +228,7 @@ export default function HomeScreen() {
     setAnalysisResult(null);
     setAnalysisError(null);
     setDegradedResult(null);
+    setQueuedTask(null);
     setView('result');
 
     // ── 實驗埋點 ────────────────────────────────────────────────────────
@@ -266,6 +298,12 @@ export default function HomeScreen() {
       // 它刻意沒有 health_score（見 fog/transforms.build_degraded_local_response），
       // 所以不能跟下面那個「沒有分數就是失敗」的判斷混在一起。
       // degraded_mode 是它與「Cloud 診斷降級」的區別——後者仍有分數。
+      if (result?.status === 'queued' && result?.queue_id) {
+        recResult = result;
+        setQueuedTask({ id: result.queue_id, message: result.message });
+        return;
+      }
+
       if (result?.status === 'degraded' && result?.degraded_mode === 'local_ocr') {
         recResult = result;
         setDegradedResult(result as DegradedLocalResponse);
@@ -706,6 +744,12 @@ export default function HomeScreen() {
                 </Pressable>
               </View>
 
+              <Text style={[s.settingsLabel, { marginTop: 24 }]}>離線處理</Text>
+              <Text style={s.settingsSub}>
+                Fog 優先使用本地快取。沒有快取且無法連線雲端時，照片會暫存在 Fog，
+                待連線恢復後依序分析。請等候排隊結果，不必重複上傳。
+              </Text>
+
               <Text style={[s.settingsLabel, { marginTop: 20 }]}>實驗量測紀錄</Text>
               <Text style={s.settingsSub}>
                 已累積 {telemetryCount} 筆，存在本機。匯出為 CSV 後可直接做統計。
@@ -836,8 +880,18 @@ export default function HomeScreen() {
                   <ActivityIndicator size="large" color="#757575" />
                   <Text style={s.loadingTitle}>分析包裝數據中...</Text>
                   <Text style={s.loadingSubtitle}>
-                    邊緣節點正載入 OCR 與化學添加物名單，並同步檢驗廠商歷年違規紀錄...
+                    正在查詢本地快取或等待雲端分析結果...
                   </Text>
+                </View>
+              )}
+
+              {!isAnalyzing && queuedTask && (
+                <View style={s.card}>
+                  <ActivityIndicator color="#2563eb" />
+                  <Text style={s.loadingTitle}>已暫存，等待雲端分析</Text>
+                  <Text style={s.settingsSub}>{queuedTask.message}</Text>
+                  <Text style={s.settingsSub}>連線恢復後自動依序處理；此頁會定期查詢結果。</Text>
+                  <Text style={s.settingsSub}>任務編號：{queuedTask.id}</Text>
                 </View>
               )}
 

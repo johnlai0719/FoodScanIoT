@@ -18,15 +18,3 @@ fastapi
 uvicorn
 requests
 python-dotenv
-
-# Local OCR fallback (local_ocr.py): used only when the Cloud is unreachable and there
-# is no cached result. Imported lazily at warm-up, so main.py still loads without them
-# (tests/contract/test_health_endpoints.py loads main.py in CI without these installed).
-# rapidocr pulls in numpy / opencv / Pillow. It downloads its model files on first
-# init, which is why main.py warms it up at startup instead of on first use.
-rapidocr
-onnxruntime
-
-# 本機降階呼叫 server/module_a 比對添加物，而它的繁簡摺疊需要 opencc。
-# 缺席時退回不摺疊——降階走 RapidOCR，吐簡體字的機率比 Gemini 高，影響更大。
-opencc-python-reimplemented
