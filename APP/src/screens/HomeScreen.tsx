@@ -28,6 +28,7 @@ import BarcodeScanner from '../components/BarcodeScanner';
 import { analyzePersonalRisks, getProductAllergenWarnings } from '../utils/personalization';
 import { FOG_URL, CLOUD_URL, ANALYSIS_TIMEOUT_MS } from '../constants/endpoints';
 import * as Telemetry from '../utils/telemetry';
+import { pipelineEvent } from '../utils/pipelineDashboard';
 import { getDataFreshness } from '../utils/dataFreshness';
 import {
   getScoreBreakdownList,
@@ -129,6 +130,18 @@ export default function HomeScreen() {
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResponse | null>(null);
+  const [dashboardReceiptId, setDashboardReceiptId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!dashboardReceiptId || !analysisResult) return;
+    // Runs after the result state has committed; the dashboard does not invent an ACK.
+    const frame = requestAnimationFrame(() => {
+      void pipelineEvent(dashboardReceiptId, 'sync', 'done', {
+        result: { product_name: analysisResult.product_info?.name,
+                  health_score: analysisResult.health_score },
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [dashboardReceiptId, analysisResult]);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   // Fog 在 Cloud 連不上且無快取時，用本機 OCR 回的部分結果。
   // **與 analysisResult 分開存**：它刻意沒有 health_score，混在一起會讓
@@ -193,6 +206,11 @@ export default function HomeScreen() {
     // ⚠ 宣告在 try 之外：**失敗與降階那幾次才是最需要量的**，
     //   放在 try 裡面 finally 就取不到，那些次會剛好沒有紀錄。
     const reqId = Telemetry.newRequestId();
+    setDashboardReceiptId(null);
+    void pipelineEvent(reqId, 'image', 'done', {
+      ...(uploadedImages[0] ? { source_image: uploadedImages[0] } : {}),
+      image_count: uploadedImages.length,
+    });
     const payloadChars = uploadedImages.reduce((n, b) => n + b.length, 0);
     const t0 = Date.now();
     let httpStatus: number | null = null;
@@ -277,6 +295,11 @@ export default function HomeScreen() {
       // ────────────────────────────────────────────────────────────────────
 
       recResult = result;
+      void pipelineEvent(reqId, 'sync', 'active', {
+        result: { product_name: result.product_info?.name, health_score: result.health_score },
+        cached: result.cached,
+      });
+      setDashboardReceiptId(reqId);
       setAnalysisResult(result);
     } catch (err: any) {
       // AbortError 要單獨講：「連不上」與「等太久」對使用者是不同的下一步，
@@ -285,6 +308,7 @@ export default function HomeScreen() {
         ? `分析逾時（超過 ${ANALYSIS_TIMEOUT_MS / 1000} 秒）。請確認網路後重試，或減少照片張數。`
         : err?.message ?? '無法連線至後端分析節點，請確認伺服器有正常運作！';
       recError = msg;
+      void pipelineEvent(reqId, 'error', 'failed', { message: msg });
       setAnalysisError(msg);
     } finally {
       setIsAnalyzing(false);

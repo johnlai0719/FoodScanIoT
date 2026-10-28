@@ -36,7 +36,7 @@ def backend_name() -> str:
     return BACKEND
 
 
-async def analyze(base64_images: list, barcode: str, gemini_fn):
+async def analyze(base64_images: list, barcode: str, gemini_fn, request_id=None):
     """依 VISION_BACKEND 分派。`gemini_fn` 是 main.analyze_image_with_gemini。
 
     ⚠ **必須 run_in_threadpool。** `requests.post` 是同步的，直接在 async 函式
@@ -56,11 +56,13 @@ async def analyze(base64_images: list, barcode: str, gemini_fn):
     """
     if BACKEND == "gemini":
         return await gemini_fn(base64_images, barcode)
-    return await run_in_threadpool(_read_via_reader, base64_images, barcode)
+    return await run_in_threadpool(_read_via_reader, base64_images, barcode, request_id)
 
 
-def _read_via_reader(base64_images: list, barcode: str):
+def _read_via_reader(base64_images: list, barcode: str, request_id=None):
     headers = {"X-API-Key": SECRET} if SECRET else {}
+    if request_id:
+        headers['X-Request-Id'] = request_id
     r = requests.post(READER_URL.rstrip("/") + "/read",
                       json={"label_images": base64_images, "barcode": barcode},
                       headers=headers, timeout=READER_TIMEOUT)

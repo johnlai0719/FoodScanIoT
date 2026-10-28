@@ -15,6 +15,7 @@ import time
 from google import genai
 
 import vision_backend
+from pipeline_events import emit as emit_pipeline_event
 from starlette.concurrency import run_in_threadpool
 
 # 埋點。與 Fog 共用同一份（server/telemetry.py）——兩層各寫一份格式化一定會
@@ -948,7 +949,8 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
             # vlcrop 走主機上的 reader 服務，Gemini 留作 ABBA 對照與手動退路。
             # 失敗刻意不回退 Gemini——理由見 vision_backend.py 檔頭。
             vision_data = await vision_backend.analyze(
-                label_images, barcode or "NEW", analyze_image_with_gemini)
+                label_images, barcode or "NEW", analyze_image_with_gemini,
+                request_id=getattr(request.state, 'rid', None))
             _t_vision_end = time.time()
             print(f"[PERF] Vision[{vision_backend.backend_name()}]: {(_t_vision_end - _t_vision_start)*1000:.0f}ms")
             _mark(request, "vision", (_t_vision_end - _t_vision_start) * 1000)
@@ -1264,12 +1266,17 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
         # 形狀的權威來源是 module_d/response_builder.py，並由 tests/contract/ 凍結；
         # 原註解指向的 shared/types.ts 已於 2026-08-05 移除（只有 fog 在用，已搬入 fog/types.ts）。
         # 回應組裝邏輯已抽出至 module_d/response_builder.py(2026-07-24),邏輯逐字未改動。
-        return build_response(
+        response_data = build_response(
             product, ai_data, calc_result, deterministic_score,
             chemical, basic, calculated_ingredient_types,
             final_safety_events, raw_allergens, nutrition, daily_reference,
             basic_detail, ns_estimated
         )
+        await run_in_threadpool(emit_pipeline_event, getattr(request.state, 'rid', None), 'sync', 'active', {
+            'result': {'product_name': response_data.get('product_info', {}).get('name'),
+                       'health_score': response_data.get('health_score')},
+        })
+        return response_data
     except InsufficientNutritionData as e:
         # 營養標示沒讀齊，無法產出等級。**不給分數**——熱量、糖、鈉都是扣分項，
         # 缺值當 0 會讓分數偏樂觀，那是食安上最不該錯的方向。
