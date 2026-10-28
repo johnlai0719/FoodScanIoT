@@ -70,6 +70,12 @@ RoadMap/
 !CLAUDE.md
 # 後端串接參考包的說明（記載契約的權威來源與強制點）
 !APP/backend-ref/README.md
+# Competition dashboard entry point (global HTML ignore otherwise hides it).
+!web/pipeline/index.html
+# Competition handoff docs and small runtime/test assets.
+!competition/*.md
+!tools/tfda_lexicon.json
+!測試/量化測試/guard_set/cases.json
 # npm lockfile。被上方的 *.json 規則擋掉，導致 Pi 上沒有 lockfile、部署時
 # npm ci 必定失敗而回退到 npm install（版本可能與開發環境不同）。
 # 納入版控後部署才具可重現性。
