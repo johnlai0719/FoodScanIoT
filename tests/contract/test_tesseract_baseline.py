@@ -32,3 +32,12 @@ def test_resolve_image_accepts_root_below_images(tmp_path: Path):
     image.parent.mkdir()
     image.write_bytes(b"test")
     assert resolve_image(tmp_path, "images/beverage/case.jpg") == image
+
+
+def test_literal_quote_does_not_swallow_following_tsv_rows():
+    tsv = TSV + '5\t1\t1\t1\t3\t1\t10\t40\t5\t10\t80\t"le\n'
+    tsv += '5\t1\t1\t1\t4\t1\t10\t55\t20\t10\t90\t營養\n'
+    lines = parse_tsv(tsv)
+    assert len(lines) == 4
+    assert lines[-2]['text'] == '"le'
+    assert lines[-1]['text'] == '營養'

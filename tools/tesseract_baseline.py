@@ -24,7 +24,8 @@ from PIL import Image, ImageOps
 def parse_tsv(tsv: str) -> list[dict]:
     """Convert Tesseract word TSV into ordered line records."""
     groups: dict[tuple[int, int, int, int], list[dict]] = defaultdict(list)
-    for row in csv.DictReader(io.StringIO(tsv), delimiter="\t"):
+    # TSV text contains literal quotes; they are not CSV quoting syntax.
+    for row in csv.DictReader(io.StringIO(tsv), delimiter="\t", quoting=csv.QUOTE_NONE):
         text = (row.get("text") or "").strip()
         if not text or row.get("level") != "5":
             continue
