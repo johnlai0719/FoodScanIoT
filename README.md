@@ -1,5 +1,7 @@
 # FoodScanIoT - Food Safety Information Summary and Risk Notification System
 
+> InnoServe competition branch: see [competition status, setup and materials](competition/README.md).
+
 This system implements a collaborative architecture between Cloud and Fog nodes to provide intelligent food safety analysis. The project uses a monorepo structure to integrate server-side services, mobile applications, and database management components.
 
 ## Project Structure
