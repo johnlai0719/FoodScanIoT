@@ -39,7 +39,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install pytest fastapi requests python-dotenv httpx \
-                                sqlalchemy psycopg2-binary opencc-python-reimplemented Pillow==11.3.0
+                                sqlalchemy psycopg2-binary opencc-python-reimplemented Pillow==11.3.0 google-genai
 
       # 明確要求最低測試數，避免哪天收集不到測試卻回傳成功（例如 .gitignore 又把
       # 測試檔擋掉、或 importorskip 靜默跳過整個檔案）而「假綠」。
@@ -51,7 +51,7 @@ jobs:
           # The nine guard photos are not yet collected or distributed in this repo.
           # Keep their availability check explicit; all guard behavior tests still run.
           echo "::warning::test_guard_set_photos_present requires nine pending manual photos; excluded from code-only CI."
-          pytest --tb=short -k 'not test_guard_set_photos_present' | tee /tmp/pytest.out
+          python -m pytest --tb=short -k 'not test_guard_set_photos_present' | tee /tmp/pytest.out
           if grep -qE '[0-9]+ skipped' /tmp/pytest.out; then
             echo "::error::有測試被跳過，請確認測試依賴是否安裝完整"
             exit 1
