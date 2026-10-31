@@ -1,13 +1,10 @@
-"""Offline, two-class region proposals from Cloud Vision OCR paragraphs."""
+"""Text-dense region proposals from Cloud Vision OCR paragraphs; no semantic classes."""
 import argparse
 import json
 import re
 import statistics
 from pathlib import Path
 
-SEEDS = ('營養標示', '營養成分', '熱量', '蛋白質', '飽和脂肪',
-         '反式脂肪', '碳水化合物', '每一份量', '本包裝含')
-DATE = re.compile(r'^\d{4}[./-]\d{1,2}[./-]\d{1,2}')
 
 
 def union(rects):
@@ -17,10 +14,6 @@ def union(rects):
 
 def gap(a, b):
     return max(0, a[0]-b[2], b[0]-a[2], a[1]-b[3], b[1]-a[3])
-
-
-def center_in(a, b):
-    return b[0] <= (a[0]+a[2])/2 <= b[2] and b[1] <= (a[1]+a[3])/2 <= b[3]
 
 
 def clusters(items, distance):
@@ -86,37 +79,9 @@ def detect(items, unit, size):
     """Pure rule engine. Parameters use OCR text size, never case-specific coordinates."""
     unit = max(1, unit)
     regions, covered = [], set()
-    seeds = [p for p in items if any(k in p['text'] for k in SEEDS)]
-    widths = sorted(p['rect'][2]-p['rect'][0] for p in items)
-    long_threshold = .6*widths[int(.9*(len(widths)-1))] if widths else 0
-    for group in clusters(seeds, 4*unit):
-        signals = sorted({k for p in group for k in SEEDS if k in p['text']})
-        if len(signals) < 3:
-            continue
-        rect = union([p['rect'] for p in group])
-        members = {p['id'] for p in group}
-        # Grow toward nearby numerical cells, not arbitrary neighboring prose.
-        for _ in range(2):
-            additions = []
-            for p in items:
-                text, box = p['text'], p['rect']
-                if p['id'] in members or DATE.match(text):
-                    continue
-                short = box[2]-box[0] < long_threshold or len(text) <= 16
-                cell = bool(re.search(r'\d|大卡|公克|毫克|毫升', text))
-                if short and cell and gap(box, rect) <= 3*unit:
-                    additions.append(p)
-            if additions:
-                members.update(p['id'] for p in additions)
-                rect = union([rect]+[p['rect'] for p in additions])
-        # Include nutrient labels within the numerical table envelope.
-        members.update(p['id'] for p in items if center_in(p['rect'], rect))
-        covered.update(members)
-        regions.append({'class': 'nutrition', 'label': '營養標示', 'rect': rect,
-                        'color': '#E53935', 'paragraph_ids': sorted(members),
-                        'signals': signals, 'basis': 'At least three distinct nutrition seeds + nearby cells'})
-    others = [p for p in items if p['id'] not in covered]
-    for group in clusters(others, 2.5*unit):
+    # Cluster every paragraph together, including numerical cells and table headings.
+    # Larger generic neighborhoods favor complete text panels over small feature boxes.
+    for group in clusters(items, 4*unit):
         rect = union([p['rect'] for p in group])
         chars = sum(len(p['text']) for p in group)
         letters = sum(len(re.findall(r'[A-Za-z\u3400-\u9fff]', p['text'])) for p in group)
@@ -127,7 +92,7 @@ def detect(items, unit, size):
             continue
         members = [p['id'] for p in group]
         covered.update(members)
-        regions.append({'class': 'dense_text', 'label': '其他文字密集區塊', 'rect': rect,
+        regions.append({'class': 'dense_text', 'label': '文字密集區塊 '+str(len(regions)+1), 'rect': rect,
                         'color': '#E66A00', 'paragraph_ids': members,
                         'characters': chars, 'language_characters': letters, 'words': words,
                         'text_density_proxy': round(density, 4),
@@ -137,15 +102,12 @@ def detect(items, unit, size):
         a = r['rect']
         r['rect'] = [max(0, a[0]-pad), max(0, a[1]-pad),
                      min(size[0], a[2]+pad), min(size[1], a[3]+pad)]
-    found = any(r['class'] == 'nutrition' for r in regions)
-    return {'method': 'Automatic Vision OCR text and spatial rules v1; no manual region IDs',
-            'scope': 'Offline prototype; no model confidence; not integrated into service',
-            'status': 'nutrition_candidate_found' if found else 'nutrition_not_found',
+    return {'method': 'Vision OCR spatial text-density rules v2; no semantic classification',
+            'scope': 'Heuristic region proposals; no model confidence or field-accuracy guarantee',
+            'status': 'dense_regions_found' if regions else 'no_dense_regions',
             'preserve_original': True, 'ocr_scale': unit,
             'unassigned_paragraph_ids': [p['id'] for p in items if p['id'] not in covered],
-            'parameters': {'minimum_distinct_seeds': 3, 'seed_gap_units': 4,
-                           'numeric_growth_gap_units': 3, 'growth_rounds': 2,
-                           'dense_gap_units': 2.5, 'minimum_characters': 12,
+            'parameters': {'dense_gap_units': 4, 'minimum_characters': 12,
                            'minimum_words': 4, 'minimum_language_characters': 4,
                            'minimum_density_proxy': .02},
             'regions': regions}

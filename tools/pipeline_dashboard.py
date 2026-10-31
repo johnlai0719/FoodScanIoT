@@ -17,8 +17,10 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from PIL import Image, ImageOps
-from vision_auto_regions import extract_words
+from vision_auto_regions import extract_words, extract_paragraphs, detect
 import grounding_search_lab as grounding_lab
+from fog_demo_control import router as demo_router
+from rehearsal_api import router as rehearsal_router
 
 ROOT = Path(__file__).resolve().parents[1]
 STAGES = ('image', 'fog', 'vision', 'routing', 'gemini', 'sync')
@@ -146,6 +148,8 @@ class Store:
 
 store = Store()
 app = FastAPI(title='FoodScan live pipeline observer')
+app.include_router(demo_router)
+app.include_router(rehearsal_router)
 
 
 @app.get('/api/state')
@@ -166,8 +170,9 @@ def sample():
     fixture = ROOT.parent/'共用素材/Vision單張測試/c99_20261027'
     try:
         metrics = json.loads((fixture/'metrics.json').read_text(encoding='utf-8'))
-        groups = json.loads((fixture/'自動兩類區域/auto_groups.json').read_text(encoding='utf-8'))
         ocr = json.loads((fixture/'vision_response.json').read_text(encoding='utf-8'))
+        paragraphs, unit = extract_paragraphs(ocr)
+        groups = detect(paragraphs, unit, metrics['image_size'])
         with Image.open(metrics['source']) as im:
             picture = thumbnail(im)
             crops = [{'label': r['label'], 'image': thumbnail(im.crop(r['rect']), 400)}
@@ -184,7 +189,7 @@ def sample():
                         'word_boxes': metrics['word_boxes'], 'source_name': '海苔薄切洋芋片',
                         'ocr_boxes': extract_words(ocr),
                         'ocr_text': ocr['responses'][0]['fullTextAnnotation'].get('text', ''),
-                        'note': '已存的單張 Vision 與規則分區結果；尚未執行 Gemini，未連動手機。'}}
+                        'note': '已存單張 Vision 紀錄，以目前文字密集區塊規則重新分區；尚未執行 Gemini，未連動手機。'}}
 
 
 class GroundingQuery(BaseModel):

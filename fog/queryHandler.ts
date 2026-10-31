@@ -2,6 +2,7 @@ import fetch from 'node-fetch';
 import { AnalysisResultLike, FogQueryRequest } from './types';
 import { getCache, setCache, getStaleCache } from './cache';
 import { emitFog, resultSummary } from './pipelineEvents';
+import { claimNextMiss } from './rehearsalControl';
 
 // 延遲埋點。**只量本行程內的時距，不傳時間戳**——決策單 #15 未定的正是
 // 「跨機器時鐘怎麼校正」，而手機／Pi／雲端三個時鐘任兩個相減都含未知偏移。
@@ -75,6 +76,7 @@ export async function handleQuery(reqData: FogQueryRequest, requestId?: string, 
   // 沒有照使用者的選擇做，而畫面會顯示成完整分析，使用者無從察覺。
   const isUsable = (result: any) => result?.status === 'success'
     && result?.overall_summary !== '診斷引擎暫時降級運作。';
+  if (!bypassCache && !localOnly) await claimNextMiss(barcode, rid);
   const freshCandidate = (bypassCache || localOnly || barcode === 'TEST') ? null : getCache(barcode);
   const fresh = isUsable(freshCandidate) ? freshCandidate : null;
   const staleCandidate = (bypassCache || localOnly || barcode === 'TEST') ? null : getStaleCache(barcode);

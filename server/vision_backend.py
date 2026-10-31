@@ -36,6 +36,14 @@ def backend_name() -> str:
     return BACKEND
 
 
+def ocr_retake_response(vision_data):
+    """Explicit OCR retake is a user correction, not an outage or barcode lookup."""
+    quality = (vision_data or {}).get('_meta', {}).get('ocr_quality', {})
+    if quality.get('policy') == 'vision_min_text_v1' and quality.get('decision') == 'retake':
+        return {'status': 'rejected', 'message': quality.get('reason') or '照片文字不足，請重新拍攝。'}
+    return None
+
+
 async def analyze(base64_images: list, barcode: str, gemini_fn, request_id=None):
     """依 VISION_BACKEND 分派。`gemini_fn` 是 main.analyze_image_with_gemini。
 

@@ -85,7 +85,13 @@ export default function ResultOverview({ result, photoUri, isDemo = false, match
         <Text style={s.reason}>主要扣分：{model.leadingPenalty.reason}</Text>
         {!!model.leadingPenalty.description && <Text style={s.description} numberOfLines={3}>{model.leadingPenalty.description}</Text>}
       </View>}
-      <Text style={s.basis}>每 100 公克／100 毫升</Text>
+      {!!result.data?.nutrition_label && <Text style={s.help}>
+        每份 {formatNutritionValue(result.data.nutrition_label.serving_size)} {result.data.nutrition_label.serving_unit === 'ml' ? '毫升' : '公克'}：
+        熱量 {formatNutritionValue(result.data.nutrition_label.per_serving.calories)} 大卡、
+        糖 {formatNutritionValue(result.data.nutrition_label.per_serving.sugar)} 公克、
+        鈉 {formatNutritionValue(result.data.nutrition_label.per_serving.sodium)} 毫克
+      </Text>}
+      <Text style={s.basis}>每 100 公克／100 毫升{result.data?.nutrition_label?.converted_fields.length ? '（部分或全部數值由每份標示換算，供評分使用）' : ''}</Text>
       <View style={s.factRow}>{facts.map(({ label, value, unit, Icon, color, bg, border }) => <View key={label} style={[s.fact, { backgroundColor: bg, borderColor: border }]}>
         <View style={ui.row}><Icon size={16} color={color} strokeWidth={1.8} /><Text style={s.factLabel}>{label}</Text></View>
         <Text style={s.factValue}>{formatNutritionValue(value)}<Text style={s.factUnit}>{typeof value === 'number' && Number.isFinite(value) ? ` ${unit}` : ''}</Text></Text>

@@ -656,6 +656,8 @@ from module_a.ingredient_matching import normalize_text, match_ingredients
 from module_d.response_builder import build_response
 from module_b.scoring import InsufficientNutritionData, calculate_nutriscore
 from module_b.daily_reference import get_daily_reference_payload
+from module_b.nutrition_basis import normalize_label, insufficient_message
+from rehearsal_store import journal as rehearsal_journal
 from module_d.diagnosis import generate_ai_diagnosis
 
 def normalize_manufacturer_name(name: str) -> str:
@@ -840,6 +842,7 @@ def _is_valid_food_scan(vision_data) -> tuple:
 @app.post("/analyze", dependencies=[Depends(require_api_key)])
 @app.post("/api/analyze", dependencies=[Depends(require_api_key)])
 async def analyze(request: Request, background_tasks: BackgroundTasks):
+    rehearsal_task = None
     try:
         # 1. 取得原始請求內容供簽章驗證
         body_bytes = await request.body()
@@ -847,6 +850,10 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
         data = _json.loads(body_bytes)
         print(f"[DEBUG] [Request] Keys: {list(data.keys())}, Has Images: {bool(data.get('label_images'))}")
         barcode = data.get("barcode")
+        try:
+            rehearsal_task = rehearsal_journal.begin(barcode)
+        except ValueError as exc:
+            return {"status": "error", "message": str(exc)}
         is_test_mode = (barcode == "TEST")
         label_images = data.get("label_images")
         user_conditions = data.get("user_conditions", {"group": "adult", "allergens": []})
@@ -953,6 +960,11 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
                 request_id=getattr(request.state, 'rid', None))
             _t_vision_end = time.time()
             print(f"[PERF] Vision[{vision_backend.backend_name()}]: {(_t_vision_end - _t_vision_start)*1000:.0f}ms")
+            retake = vision_backend.ocr_retake_response(vision_data)
+            if retake:
+                return retake
+            if vision_data is not None:
+                vision_data = normalize_label(vision_data)
             _mark(request, "vision", (_t_vision_end - _t_vision_start) * 1000)
             # reader 回的逐段秒數一起帶上來：沒有它就只知道「視覺花了 10 秒」，
             # 不知道是 PP-OCR、HunyuanOCR 還是營養表在花。
@@ -1032,6 +1044,7 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
                     # 一併存入 other_nutrition。設計同 ingredients_raw：結構化供計算，
                     # 原文供回溯，避免因固定欄位只列九項而漏記標示上的其他營養素。
                     _other_nut = {
+                        "label": vision_data.get('nutrition_label'),
                         "per_serving": vision_data.get('nutrition_per_serving') or None,
                         "other": vision_data.get('nutrition_other') or None,
                         "raw": (vision_data.get('nutrition_raw') or '').strip() or None,
@@ -1118,7 +1131,11 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
                         "fat": n.get('fat', 0),
                         "sugar": n.get('sugar', 0),
                         "sodium": n.get('sodium', 0),
-                        "allergens": allergy_text
+                        "allergens": allergy_text,
+                        "other_nutrition": other_nut_json,
+                        "serving_size": vision_data.get('serving_size'),
+                        "saturated_fat": n.get('saturated_fat'),
+                        "fiber": n.get('fiber'),
                     }
                 
                 if product:
@@ -1287,8 +1304,7 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
         miss = "、".join(_ZH.get(k, k) for k in e.missing)
         print("[WARN] [Analyze] 營養標示缺漏，不計分：%s" % miss)
         return {"status": "error",
-                "message": "營養標示未辨識完整（缺少 %s），無法計算健康評分。"
-                           "請對準營養標示區域重新拍攝。" % miss}
+                "message": insufficient_message(product or {}, miss)}
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -1299,6 +1315,8 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
         print("[ERROR] [Analyze] 未預期的例外：%r" % (e,))
         return {"status": "error",
                 "message": "分析過程發生未預期的錯誤，請稍後再試。"}
+    finally:
+        rehearsal_journal.end(rehearsal_task)
 
 if __name__ == "__main__":
     import uvicorn

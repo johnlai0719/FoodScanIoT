@@ -11,6 +11,7 @@ import json
 
 from .summary import build_additives_summary, build_overall_summary
 from datetime import datetime
+from module_b.nutrition_basis import product_label
 
 
 def build_response(product, ai_data, calc_result, deterministic_score,
@@ -252,6 +253,7 @@ def build_response(product, ai_data, calc_result, deterministic_score,
             "product_info": product_info_root,
             "ingredients_detail": chemical,
             "nutrition_facts": nutrition,
+            **({'nutrition_label': product_label(product)} if product_label(product) else {}),
             "certification_marks": cert_marks,
             "ingredient_types": calculated_ingredient_types
         }

@@ -22,6 +22,7 @@ import telemetry as T
 from version import get_commit
 # Durable offline outbox; OCR engines are no longer loaded by Fog.
 from offline_queue import OfflineQueue
+import fog_demo
 from fog_events import emit as emit_fog, result_summary
 import threading
 from starlette.concurrency import run_in_threadpool
@@ -83,6 +84,8 @@ def get_stale_from_db(barcode):
 
 def forward_cloud(payload, rid=""):
     global cloud_online, _cloud_retry_after
+    if fog_demo.fault.blocked():
+        raise CloudUnavailable('展示模擬：Fog 暫時無法連接 Cloud')
     if not CLOUD_URL:
         raise CloudUnavailable("尚未設定雲端連線")
     headers = cloud_headers()
@@ -113,6 +116,8 @@ def forward_cloud(payload, rid=""):
 
 def sync_once():
     """Single durable FIFO delivery; called by one background worker."""
+    if fog_demo.fault.blocked():
+        return False
     q = queue_store()
     job = q.claim()
     if not job:
@@ -152,11 +157,14 @@ async def lifespan(app: FastAPI):
     stop = threading.Event()
     worker = threading.Thread(target=queue_worker, args=(stop,), name="cloud-outbox", daemon=True)
     worker.start()
+    demo_worker = threading.Thread(target=fog_demo.worker, args=(stop,), name='demo-control', daemon=True)
+    demo_worker.start()
     try:
         yield
     finally:
         stop.set()
         await run_in_threadpool(worker.join, 2)
+        await run_in_threadpool(demo_worker.join, 3)
 
 app = FastAPI(title="FoodAware Fog Server - Vision Optimized", lifespan=lifespan)
 
@@ -208,6 +216,7 @@ def health(deep: bool = False):
     # 本機降階是附加能力，停用時 status 仍是 ok——理由與 Cloud 不可用相同（見 docstring）
     payload["local_ocr"] = {"state": "disabled", "detail": "Fog 使用快取與離線佇列"}
     payload["cloud_online"] = cloud_online
+    payload['cloud_demo'] = {'configured': bool(fog_demo.configured()), **fog_demo.fault.snapshot()}
     try:
         payload["queue"] = queue_store().stats()
     except Exception:
@@ -278,9 +287,11 @@ async def query(request: Request, response: Response):
     payload = mask_sensitive_data(data)
     payload.pop("cached_result", None)
     def queued_response(job_id):
+        fog_demo.fault.queued(job_id)
         original_rid = queue_store().get(job_id)['request_id']
         emit_fog(rid, 'queued', detail={'queue_id': job_id, 'cache_status': 'QUEUED'},
-                 payload={'canonical_request_id': original_rid} if original_rid and original_rid != rid else {})
+                 payload={**({'canonical_request_id': original_rid} if original_rid and original_rid != rid else {}),
+                          'cloud_demo': fog_demo.fault.snapshot()})
         response.status_code = 202
         response.headers["X-Cache"] = "QUEUED"
         return {"status": "queued", "queued": True, "queue_id": job_id,
@@ -295,7 +306,8 @@ async def query(request: Request, response: Response):
         if time.monotonic() < _cloud_retry_after:
             raise CloudUnavailable("雲端連線暫時不可用")
         with sw.lap("upstream"):
-            emit_fog(rid, 'cloud_forwarded')
+            if not fog_demo.fault.blocked():
+                emit_fog(rid, 'cloud_forwarded')
             r, result = await run_in_threadpool(forward_cloud, payload, rid)
         ct = r.headers.get(T.CLOUD_HEADER)
         if ct:
@@ -312,7 +324,7 @@ async def query(request: Request, response: Response):
         emit_fog(rid, 'cloud_returned', 'done', {'http_status': r.status_code}, result_summary(result))
         return normalize_result(result)
     except CloudUnavailable:
-        emit_fog(rid, 'cloud_unavailable')
+        emit_fog(rid, 'cloud_unavailable', payload={'cloud_demo': fog_demo.fault.snapshot()})
         try:
             job_id = queue_store().enqueue(payload, rid)
         except Exception:

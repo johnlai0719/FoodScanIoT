@@ -7,11 +7,11 @@
  *   三處一致。2026-09-13 之前 compose 發布 8000 而其餘是 3003，Pi 打不進來、
  *   每次都降階。契約測試 test_app_endpoints.py 會比對這個檔與 compose。
  *
- * ⚠ IP 是 Tailscale 的。改走 Cloudflare Tunnel 時只要改這個檔。
+ * Fog 使用同 LAN 的 mDNS 名稱；Cloud 直連仍使用 Tailscale 位址。
  */
 
 /** Fog 節點（Node 層）。**主要路徑**——快取、降階都在這一層。 */
-export const FOG_URL = 'http://100.86.249.39:3001/query';
+export const FOG_URL = 'http://foodscan-pi.local:3001/query';
 
 /** Cloud 直連。繞過 Fog，用於比對「Fog 有沒有幫上忙」。 */
 export const CLOUD_URL = 'http://100.119.217.100:3003/api/analyze';

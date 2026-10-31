@@ -182,6 +182,14 @@ export interface AnalysisResponse {
    */
   data?: {
     nutrition_facts?: NutritionFacts;
+    nutrition_label?: {
+      per_serving: NutritionFacts;
+      serving_size: number;
+      serving_unit: 'g' | 'ml';
+      serving_source: string;
+      converted_fields: string[];
+      basis: 'per_100_g' | 'per_100_ml';
+    };
     product_info?: ProductInfo & { ingredients?: string; allergens?: string };
     ingredients_detail?: IngredientDetail[];
     ingredient_types?: Record<string, unknown>;
