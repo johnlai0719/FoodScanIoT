@@ -58,3 +58,7 @@ Reader 現在會自行啟動及管理本機模型；升級前先停止舊 `start
 
 App：React Native（Expo）、NativeWind｜Fog：Node.js（Express）＋ Python（FastAPI）、SQLite｜
 Cloud：FastAPI、PostgreSQL、SQLAlchemy｜辨識：PaddleOCR、HunyuanOCR（llama.cpp）｜對照：Qwen3.5-2B、Gemini 2.5 Flash
+
+## 重點消融數據
+
+[歷史消融實驗摘要與數據](research-results/ablation/README.md)：五階段管線消融及固定模型的整圖／裁切對照，含樣本數、信賴區間與來源雜湊。這些是歷史評估結果，不代表目前主線重新量測的效能。

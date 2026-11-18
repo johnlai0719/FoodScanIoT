@@ -1,0 +1,38 @@
+{
+  "snapshot_id": "v2026-11-18",
+  "snapshot_date": "2026-11-18",
+  "repository": "johnlai0719/FoodScanIoT",
+  "implementation_commit": "57359eb002cc65af7046e2ca284b38aaf0f84a2f",
+  "status": "historical-evaluation-archive",
+  "sources": {
+    "pipeline_report": {
+      "path": "APP-sync-server/PPOCR_TEST/out/pipeline_ablation/report.json",
+      "sha256": "1602a6d2438cf2c25ab9df71e1e7b262d445237ca99b1e1539e330203bcd2b21"
+    },
+    "pipeline_csv": {
+      "path": "APP-sync-server/PPOCR_TEST/out/pipeline_ablation/report.csv",
+      "sha256": "bc2a18b75e88e4af7439f467f62a286770207e6715fab3d066de4982c6d6a01d"
+    },
+    "pipeline_script": {
+      "path": "APP-sync-server/PPOCR_TEST/pipeline_ablation.py",
+      "sha256": "4a75d2bb5e1ebc0ec6b7e3ee0f397ae62e79d04fbd90af634ae9a43f1fd1c74d"
+    },
+    "whole_vs_crop_data": {
+      "path": "正式文件/研究圖表_eval-freeze-20260929/B2_整圖vs裁切單變因消融/data.json",
+      "sha256": "4e052539286752b3c55a77e2a39160f6a3015a8605a7cdc6045b7d810ab26dd3"
+    },
+    "whole_vs_crop_csv": {
+      "path": "正式文件/研究圖表_eval-freeze-20260929/B2_整圖vs裁切單變因消融/數據.csv",
+      "sha256": "fdb9fa67a79872581ac3b6a3af4f1e22b423f546a509e3df44a9427ba204b04f"
+    }
+  },
+  "transformations": [
+    "pipeline.json omits machine-local absolute repository path and product-level case names; numerical fields retained",
+    "Other CSV/JSON files copied byte-for-byte"
+  ],
+  "limitations": [
+    "Not a benchmark of the current implementation",
+    "Pipeline source snapshot had uncommitted changes",
+    "Raw predictions and private dataset are not included; full recomputation is not possible from these aggregate files alone"
+  ]
+}

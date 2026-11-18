@@ -207,3 +207,8 @@ cloud/reader/_work/
 
 # Mainline live dashboard page.
 !tools/mainline_dashboard.html
+
+# Curated, small aggregate ablation results.
+!research-results/ablation/README.md
+!research-results/ablation/*.json
+!research-results/ablation/*.csv

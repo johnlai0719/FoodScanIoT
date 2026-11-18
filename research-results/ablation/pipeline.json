@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-14T18:47:09.691572+00:00",
+  "registered_cases": 177,
+  "common_cases": 174,
+  "bootstrap_samples": 5000,
+  "seed": 0,
+  "boxes": "v6_best",
+  "stages": [
+    {
+      "index": 0,
+      "label": "S0 整頁 PP-OCR＋規則解析",
+      "spec": "v6_best:boxsep",
+      "cases": 174,
+      "hit": 256,
+      "truth": 521,
+      "predicted": 326,
+      "precision": 0.7852760736196319,
+      "recall": 0.491362763915547,
+      "f1": 0.6044864226682408,
+      "delta_f1": null,
+      "ci95": null,
+      "bootstrap_win_rate": null
+    },
+    {
+      "index": 1,
+      "label": "S1 VLCrop＋PP-OCR＋相同規則解析",
+      "spec": "ppocr_vlcrop_v4_all:boxsep",
+      "cases": 174,
+      "hit": 244,
+      "truth": 521,
+      "predicted": 310,
+      "precision": 0.7870967741935484,
+      "recall": 0.46833013435700577,
+      "f1": 0.5872442839951865,
+      "delta_f1": -1.7242138673054352,
+      "ci95": [
+        -5.27985359158153,
+        1.7422867513611662
+      ],
+      "bootstrap_win_rate": 0.1604
+    },
+    {
+      "index": 2,
+      "label": "S2 VLCrop＋PaddleOCR-VL＋相同規則解析",
+      "spec": "vlcrop_pvl_v4:boxsep",
+      "cases": 174,
+      "hit": 302,
+      "truth": 521,
+      "predicted": 380,
+      "precision": 0.7947368421052632,
+      "recall": 0.5796545105566219,
+      "f1": 0.6703662597114317,
+      "delta_f1": 8.312197571624525,
+      "ci95": [
+        3.230349044075276,
+        13.853147186353464
+      ],
+      "bootstrap_win_rate": 0.9998
+    },
+    {
+      "index": 3,
+      "label": "S3 VLCrop＋HunyuanOCR＋相同規則解析",
+      "spec": "vlcrop_hy_v4:boxsep",
+      "cases": 174,
+      "hit": 368,
+      "truth": 521,
+      "predicted": 454,
+      "precision": 0.8105726872246696,
+      "recall": 0.7063339731285988,
+      "f1": 0.7548717948717949,
+      "delta_f1": 8.450553516036319,
+      "ci95": [
+        3.0325557549346405,
+        14.243215065973402
+      ],
+      "bootstrap_win_rate": 0.999
+    },
+    {
+      "index": 4,
+      "label": "S4 HunyuanOCR 裁切精讀＋BERT 候選切分",
+      "spec": "bertsplit_v4:items",
+      "cases": 174,
+      "hit": 253,
+      "truth": 521,
+      "predicted": 316,
+      "precision": 0.8006329113924051,
+      "recall": 0.4856046065259117,
+      "f1": 0.6045400238948627,
+      "delta_f1": -15.033177097693217,
+      "ci95": [
+        -22.013218491464126,
+        -8.53235429494472
+      ],
+      "bootstrap_win_rate": 0.0
+    }
+  ],
+  "snapshot": {
+    "branch": "feat/vlcrop-pipeline",
+    "commit": "c1506e9eb3070046a5b00f10ec29981d241c19d1",
+    "dirty": true
+  }
+}
