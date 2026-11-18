@@ -50,8 +50,9 @@ def test_app_has_a_fetch_timeout():
 
     改用 vlcrop 後單次分析要 10 秒起跳，逾時不再是可有可無的細節。
     """
-    src = _read(os.path.join(ROOT, 'APP', 'src', 'screens', 'HomeScreen.tsx'))
-    assert 'AbortController' in src, 'HomeScreen 的分析請求沒有設逾時'
+    # 送出請求的程式已從 HomeScreen 抽到 queryClient（一般掃描與自動量測共用）
+    src = _read(os.path.join(ROOT, 'APP', 'src', 'utils', 'queryClient.ts'))
+    assert 'AbortController' in src, 'queryClient 的分析請求沒有設逾時'
     assert 'ANALYSIS_TIMEOUT_MS' in src
 
 

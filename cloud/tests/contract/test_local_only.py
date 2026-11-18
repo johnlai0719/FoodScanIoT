@@ -38,8 +38,9 @@ def _strip_comments(src):
 
 # ── 標頭要穿過三層 ──────────────────────────────────────────────────────────
 def test_app_sends_the_header_when_the_option_is_on():
+    qc = _strip_comments(_read("APP", "src", "utils", "queryClient.ts"))
     src = _strip_comments(_read("APP", "src", "screens", "HomeScreen.tsx"))
-    assert HEADER in src, "App 沒有送出 %s" % HEADER
+    assert HEADER in qc, "App 沒有送出 %s" % HEADER
     assert "localOnly" in src, "App 沒有這個選項的狀態"
 
 

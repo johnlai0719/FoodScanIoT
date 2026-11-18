@@ -13,6 +13,13 @@
 /** Fog 節點（Node 層）。**主要路徑**——快取、降階都在這一層。 */
 export const FOG_URL = 'http://100.86.249.39:3001/query';
 
+/**
+ * 同一台 Fog（Pi）的**區網**位址，給量測條件「A-同區網」一鍵切換用。上線架構是
+ * 手機走區網連場域 Fog；走 Tailscale 的話量到的「手機→Fog」含加密與可能的繞路。
+ * ⚠ 由路由器 DHCP 決定，Pi 換網路就會變；建議在路由器做 DHCP 保留。
+ */
+export const FOG_LAN_BASE = 'http://192.168.30.169:3001';
+
 /** Cloud 直連。繞過 Fog，用於比對「Fog 有沒有幫上忙」。 */
 export const CLOUD_URL = 'http://100.119.217.100:3003/api/analyze';
 

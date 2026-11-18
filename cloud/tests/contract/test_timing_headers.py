@@ -26,6 +26,7 @@ import pytest
 ROOT = os.path.join(os.path.dirname(__file__), '..', '..', '..')
 PY = os.path.join(ROOT, 'cloud', 'telemetry.py')
 TS_NODE = os.path.join(ROOT, 'fog', 'queryHandler.ts')
+TS_QC = os.path.join(ROOT, 'APP', 'src', 'utils', 'queryClient.ts')
 TS_APP = os.path.join(ROOT, 'APP', 'src', 'utils', 'telemetry.ts')
 
 import sys
@@ -54,7 +55,7 @@ def test_header_name_is_identical_everywhere(name):
     # Node 轉發用得到 Cloud／Py 的名字，自己產生 Fog-Node 那個
     assert name in node, f'{name} 不在 fog/queryHandler.ts'
     # App 端在畫面裡讀標頭、在 utils 裡解析
-    assert name in app or name in hs, f'{name} 不在 App'
+    assert name in app or name in hs or name in _read(TS_QC), f'{name} 不在 App'
 
 
 # ── 格式：分隔符與 key=value 的寫法 ─────────────────────────────────────────
@@ -129,8 +130,9 @@ def test_no_wall_clock_timestamps_in_the_timing_path():
 def test_app_records_only_its_own_clock_difference():
     """App 的 total_ms 必須是自己兩次 Date.now() 相減，
     不可與伺服器回來的任何時刻比對。"""
-    hs = _read(os.path.join(ROOT, 'APP', 'src', 'screens', 'HomeScreen.tsx'))
-    assert 'total_ms: Date.now() - t0' in hs
+    qc = _read(TS_QC)
+    assert 'totalMs: Date.now() - t0' in qc
+    assert 'total_ms: o.totalMs' in qc
 
 
 def _strip_comments(src):
@@ -143,13 +145,13 @@ def _strip_comments(src):
 def test_records_counts_not_contents():
     """紀錄會被匯出分享，所以不放照片與成分原文，只放「有幾項」。
 
-    檢查的是**實際寫進紀錄的欄位**（HomeScreen 那個 append 呼叫與
+    檢查的是**實際寫進紀錄的欄位**（queryClient 的 toScanRecord 回傳值與
     ScanRecord 的欄位宣告），不是整份檔案的字串——註解裡提到什麼無所謂。
     """
     app = _strip_comments(_read(TS_APP))
-    hs = _read(os.path.join(ROOT, "APP", "src", "screens", "HomeScreen.tsx"))
-    m = re.search(r"Telemetry\.append\(\{(.*?)\n      \}\)", hs, re.S)
-    assert m, "在 HomeScreen 找不到 Telemetry.append({...}) 呼叫"
+    qc = _read(TS_QC)
+    m = re.search(r"export function toScanRecord\(.*?return \{(.*?)\n  \};", qc, re.S)
+    assert m, "在 queryClient.ts 找不到 toScanRecord 回傳的紀錄"
     appended = _strip_comments(m.group(1))
 
     assert "n_additives" in app and "n_additives" in appended
@@ -161,8 +163,9 @@ def test_records_counts_not_contents():
     # 圖片本身不可進紀錄，但「有幾張」可以。所以 uploadedImages 只准以
     # `.length` 出現——`n_images: uploadedImages.length` 是對的，
     # `images: uploadedImages` 就是把整包 base64 存進去。
-    for m2 in re.finditer(r"uploadedImages(\.\w+)?", appended):
-        assert m2.group(1) == ".length", (
+    # toScanRecord 裡照片叫 opts.images；payload_chars 用 reduce 加總各張長度，也只是數字。
+    for m2 in re.finditer(r"(?:uploadedImages|opts\.images)(\.\w+)?", appended):
+        assert m2.group(1) in (".length", ".reduce"), (
             "量測紀錄只能記圖片張數，不能記圖片本身：%s" % m2.group(0))
 
 
@@ -242,6 +245,6 @@ def test_bypass_skips_reading_but_still_writes():
 def test_telemetry_records_whether_bypass_was_on():
     """不記的話資料會混著命中快取與完整路徑，中位數不代表任何一種。"""
     app = _read(TS_APP)
-    hs = _read(os.path.join(ROOT, "APP", "src", "screens", "HomeScreen.tsx"))
+    qc = _read(TS_QC)
     assert "bypass_cache" in app, "ScanRecord 沒有宣告 bypass_cache"
-    assert "bypass_cache: bypassCache" in hs, "紀錄沒有帶上 bypass_cache"
+    assert "bypass_cache: opts.bypassCache" in qc, "紀錄沒有帶上 bypass_cache"

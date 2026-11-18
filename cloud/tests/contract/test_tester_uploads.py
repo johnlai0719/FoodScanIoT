@@ -28,7 +28,8 @@ FOG_PY = os.path.join(ROOT, 'fog', 'main.py')
 FOG_NODE = os.path.join(ROOT, 'fog', 'server.ts')
 FOG_HANDLER = os.path.join(ROOT, 'fog', 'queryHandler.ts')
 APP_ENDPOINTS = os.path.join(ROOT, 'APP', 'src', 'constants', 'endpoints.ts')
-APP_SCREEN = os.path.join(ROOT, 'APP', 'src', 'screens', 'HomeScreen.tsx')
+# 送出請求的程式已從 HomeScreen 抽到 queryClient（一般掃描與自動量測共用）
+APP_SCREEN = os.path.join(ROOT, 'APP', 'src', 'utils', 'queryClient.ts')
 COMPOSE = os.path.join(ROOT, 'docker-compose.yml')
 
 HEADER = 'X-Tester-Id'

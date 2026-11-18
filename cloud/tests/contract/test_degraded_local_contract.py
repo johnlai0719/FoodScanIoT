@@ -185,9 +185,11 @@ def test_app_recognises_the_degraded_mode():
     `status: degraded` 也可能來自別的路徑，而只有本機 OCR 這一種帶著
     ingredients_detail。認錯會渲染一個空的清單。
     """
+    # 判斷在 queryClient（回 kind: 'degraded_local'），畫面依 kind 存進 setDegradedResult
+    qc = (HOMESCREEN.parent.parent / 'utils' / 'queryClient.ts').read_text(encoding='utf-8')
     src = _screen()
-    assert "degraded_mode === 'local_ocr'" in src
-    assert "setDegradedResult" in src
+    assert "degraded_mode === 'local_ocr'" in qc
+    assert "'degraded_local'" in src and "setDegradedResult" in src
 
 
 def test_degraded_view_never_renders_a_score():
