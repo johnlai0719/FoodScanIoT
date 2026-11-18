@@ -283,11 +283,29 @@ def build(cid, ing_parser='boxsep'):
     if rec is not None:
         # 先取約束仲裁後的值，再自己補欄——要的是 derived 的清單，
         # 直接叫 p_fill 會拿到補完的結果，差集為空（第一版踩過）。
-        solved = BP.PARSERS['solve'](rec, cid)
-        _, ss = BP._candidates(rec, cid)
-        text = N.full_text(rec)
+        scoped = []
+        for region in rec.get('nutrition_regions', []):
+            lines = region['lines']
+            pairs = (BP.TM.pairs_from_lines(lines) if (region['format'] == 'json'
+                     or BP.TM.has_named_columns(lines))
+                     else BP.TM.labeled_rows(lines))
+            if pairs is not None:
+                scoped.append((pairs, '\n'.join(lines)))
+        if scoped:
+            solved, text = max(scoped, key=lambda item: (
+                sum(item[0].get(key, (None, None))[1] is not None
+                    for key in ('calories', 'sugar', 'sodium')),
+                len(item[0])))
+            ss = V.parse_serving_size(text)
+            meta['nutrition_parser'] = 'labeled_rows'
+            daily_value = bool(N.DV_HEADER.search(N.norm(text)))
+        else:
+            solved = BP.PARSERS['solve'](rec, cid)
+            _, ss = BP._candidates(rec, cid)
+            text = N.full_text(rec)
+            daily_value = BP._is_dv(rec)
         sps = _servings(text, ss)
-        vals, derived = BP._fill(solved, ss, BP._is_dv(rec))
+        vals, derived = BP._fill(solved, ss, daily_value)
         for k, pair in vals.items():
             a, b = (tuple(pair) + (None,))[:2]
             if k in per_serving:

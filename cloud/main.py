@@ -15,6 +15,7 @@ import time
 from google import genai
 
 import vision_backend
+from product_availability import create_router as product_availability_router
 from starlette.concurrency import run_in_threadpool
 
 # 埋點。與 Fog 共用同一份（server/telemetry.py）——兩層各寫一份格式化一定會
@@ -613,6 +614,22 @@ DB_CONFIG = {
 def get_db_conn():
     return psycopg2.connect(**DB_CONFIG)
 
+@app.on_event("startup")
+def ensure_scan_cleanup_schema():
+    db = get_db_conn()
+    try:
+        with db, db.cursor() as cursor:
+            cursor.execute(
+                "ALTER TABLE IF EXISTS products ADD COLUMN IF NOT EXISTS demo_scan_request_id varchar(64)"
+            )
+    finally:
+        db.close()
+
+
+app.include_router(product_availability_router(
+    lambda: psycopg2.connect(**DB_CONFIG, connect_timeout=3)
+))
+
 
 @app.get("/health")
 def health():
@@ -656,8 +673,11 @@ def health():
 
 # normalize_text 已抽出至 module_a/ingredient_matching.py(2026-07-24),邏輯逐字未改動。
 from module_a.ingredient_matching import normalize_text, match_ingredients
-from module_d.response_builder import build_response
-from module_b.scoring import InsufficientNutritionData, calculate_nutriscore
+from module_d.response_builder import build_nutrition_partial_response, build_response
+from module_b.scoring import (
+    ConflictingNutritionData, InsufficientNutritionData, calculate_nutriscore,
+    select_demo_nutrition, validate_nutrition_consistency,
+)
 from module_b.daily_reference import get_daily_reference_payload
 from module_d.diagnosis import generate_ai_diagnosis
 
@@ -819,6 +839,45 @@ def _save_scan_images(base64_images, barcode):
     return saved
 
 
+@app.post("/api/demo/cleanup-uploads", dependencies=[Depends(require_api_key)])
+def cleanup_demo_uploads(request_ids: list[str]):
+    if not API_SHARED_SECRET or not 0 < len(request_ids) <= 100 or any(
+        not T.safe_request_id(rid) for rid in request_ids
+    ):
+        raise HTTPException(400, "無效的掃描清除範圍")
+    db = get_db_conn()
+    removed = 0
+    try:
+        with db, db.cursor() as cursor:
+            cursor.execute(
+                "SELECT stored_path FROM scan_uploads WHERE request_id = ANY(%s) FOR UPDATE",
+                (request_ids,),
+            )
+            for (stored_path,) in cursor.fetchall():
+                name = stored_path.removeprefix("/uploads/")
+                if stored_path != f"/uploads/{name}" or not re.fullmatch(
+                    r"scan_[A-Za-z0-9_.-]+\.jpg", name
+                ):
+                    raise HTTPException(409, "上傳紀錄的檔案路徑有誤")
+                cursor.execute(
+                    "SELECT 1 FROM scan_uploads WHERE stored_path = %s AND "
+                    "(request_id IS NULL OR NOT (request_id = ANY(%s))) LIMIT 1",
+                    (stored_path, request_ids),
+                )
+                if cursor.fetchone() is None:
+                    try:
+                        os.unlink(os.path.join(UPLOADS_DIR, name))
+                        removed += 1
+                    except FileNotFoundError:
+                        pass
+            cursor.execute("DELETE FROM scan_uploads WHERE request_id = ANY(%s)", (request_ids,))
+            records = cursor.rowcount
+            cursor.execute("DELETE FROM products WHERE demo_scan_request_id = ANY(%s)", (request_ids,))
+            return {"records": records, "images": removed, "products": cursor.rowcount}
+    finally:
+        db.close()
+
+
 def _reader_id(vision_data) -> str:
     """實際做辨識的那一個的識別碼。
 
@@ -907,10 +966,42 @@ def _is_valid_food_scan(vision_data) -> tuple:
 #
 # 保留別名是為了相容舊版 App（歷史上打過 /query）。要移除得先確認沒有
 # 任何在外的版本還在用——現行 App 與 Fog 都打 /api/analyze。
+def publish_mobile_ocr(request_id, image, trace):
+    import json
+    from urllib.request import Request as UrlRequest, urlopen
+
+    body = json.dumps({"request_id": request_id, "image": image, "trace": trace}).encode("utf-8")
+    if len(body) > 7_000_000:
+        return
+    request = UrlRequest(
+        "http://host.docker.internal:8787/api/live/ocr", data=body,
+        headers={"Content-Type": "application/json", "Host": "127.0.0.1:8787",
+                 "X-API-Key": API_SHARED_SECRET},
+    )
+    try:
+        with urlopen(request, timeout=4):
+            pass
+    except OSError as exc:
+        print(f"[WARN] Mobile OCR dashboard delivery failed: {type(exc).__name__}")
+
+
 @app.post("/query", dependencies=[Depends(require_api_key)])
 @app.post("/analyze", dependencies=[Depends(require_api_key)])
 @app.post("/api/analyze", dependencies=[Depends(require_api_key)])
 async def analyze(request: Request, background_tasks: BackgroundTasks):
+    demo_ocr = None
+    demo_nutrition_notice = None
+    demo_photo = False
+    scanned_ingredients = []
+
+    def with_demo_ocr(result):
+        if demo_ocr is not None:
+            result["demo_ocr"] = demo_ocr
+        if demo_nutrition_notice:
+            result["demo_nutrition_notice"] = demo_nutrition_notice
+        return result
+
+    mobile_ocr = None
     try:
         # 1. 取得原始請求內容供簽章驗證
         body_bytes = await request.body()
@@ -970,6 +1061,7 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
                         
             # 提取營養標示
             nut = cached_result.get("nutrition") or cached_result.get("data", {}).get("nutrition_facts") or {}
+            validate_nutrition_consistency(nut)
             
             # 提取過敏原警告
             allergens_val = cached_result.get("allergen_warnings") or cached_result.get("allergens") or []
@@ -1034,8 +1126,24 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
             # 2026-09-13：辨識後端可切換（VISION_BACKEND，預設 vlcrop）。
             # vlcrop 走主機上的 reader 服務，Gemini 留作 ABBA 對照與手動退路。
             # 失敗刻意不回退 Gemini——理由見 vision_backend.py 檔頭。
+            mobile_demo = request.state.rid.startswith("demo-ocr-")
             vision_data = await vision_backend.analyze(
-                label_images, barcode or "NEW", analyze_image_with_gemini)
+                label_images, barcode or "NEW", analyze_image_with_gemini,
+                include_ocr=bool(API_SHARED_SECRET and is_test_mode and not tester_id
+                                 and len(label_images) == 1
+                                 and (mobile_demo or request.headers.get(T.DEMO_OCR_HEADER) == "1")))
+            if vision_data:
+                demo_ocr = vision_data.pop("demo_ocr", None)
+                if demo_ocr is not None:
+                    demo_ocr["structured"] = {key: vision_data[key] for key in (
+                        "name", "brand", "manufacturer", "ingredients_list", "nutrition",
+                        "nutrition_per_serving", "serving_size", "servings_per_container",
+                    ) if key in vision_data}
+                    if mobile_demo:
+                        mobile_ocr = demo_ocr
+                        background_tasks.add_task(publish_mobile_ocr, request.state.rid,
+                                                  label_images[0], demo_ocr)
+                        demo_ocr = None
             _t_vision_end = time.time()
             print(f"[PERF] Vision[{vision_backend.backend_name()}]: {(_t_vision_end - _t_vision_start)*1000:.0f}ms")
             _mark(request, "vision", (_t_vision_end - _t_vision_start) * 1000)
@@ -1105,14 +1213,23 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
             if not scan_ok:
                 print(f"[GATE] 上傳圖片未通過相關性/品質閘門：{scan_reason}，不寫入 DB")
                 if not barcode or barcode in ("NEW", "TEST", ""):
-                    return {
+                    return with_demo_ocr({
                         "status": "rejected",
                         "message": f"無法從照片辨識出食品成分標示（{scan_reason}）。請對準產品的成分表與營養標示，重新拍攝清晰照片。"
-                    }
+                    })
                 # 有真實條碼可回退：略過視覺寫入，改走條碼查詢
                 vision_data = None
 
             if vision_data is not None:
+                demo_photo = is_test_mode and not tester_id and mobile_demo and len(label_images) == 1
+                if demo_photo:
+                    demo_nutrition_notice = select_demo_nutrition(vision_data)
+                    if demo_nutrition_notice and mobile_ocr is not None:
+                        mobile_ocr["nutrition_notice"] = demo_nutrition_notice
+                        mobile_ocr["scoring_nutrition"] = vision_data.get("nutrition")
+                else:
+                    validate_nutrition_consistency(vision_data.get("nutrition"), "每 100 公克／毫升的")
+                    validate_nutrition_consistency(vision_data.get("nutrition_per_serving"), "每份的")
                 try:
                     # 即使 vision_data 是空字典 {}，也要繼續處理
 
@@ -1174,9 +1291,10 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
                                 ingredients_list, ingredients_raw, certifications,
                                 calories, protein, fat, saturated_fat, carbohydrates,
                                 sugar, fiber, sodium, allergens,
-                                serving_size, servings_per_container, other_nutrition
+                                serving_size, servings_per_container, other_nutrition,
+                                demo_scan_request_id
                             )
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                             ON CONFLICT (barcode) DO UPDATE SET
                             name=EXCLUDED.name, brand=EXCLUDED.brand, producer_id=EXCLUDED.producer_id,
                             manufacturer=EXCLUDED.manufacturer, ingredients_list=EXCLUDED.ingredients_list,
@@ -1186,12 +1304,14 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
                             calories=EXCLUDED.calories, protein=EXCLUDED.protein, fat=EXCLUDED.fat,
                             -- 新增欄位以 COALESCE 保護：本次辨識不到時不覆蓋既有值
                             saturated_fat=COALESCE(EXCLUDED.saturated_fat, products.saturated_fat),
-                            carbohydrates=COALESCE(EXCLUDED.carbohydrates, products.carbohydrates),
+                            carbohydrates=EXCLUDED.carbohydrates,
                             fiber=COALESCE(EXCLUDED.fiber, products.fiber),
                             sugar=EXCLUDED.sugar, sodium=EXCLUDED.sodium, allergens=EXCLUDED.allergens,
                             serving_size=COALESCE(EXCLUDED.serving_size, products.serving_size),
                             servings_per_container=COALESCE(EXCLUDED.servings_per_container, products.servings_per_container),
-                            other_nutrition=COALESCE(EXCLUDED.other_nutrition, products.other_nutrition)
+                            other_nutrition=COALESCE(EXCLUDED.other_nutrition, products.other_nutrition),
+                            demo_scan_request_id=CASE WHEN products.demo_scan_request_id IS NOT NULL
+                                THEN EXCLUDED.demo_scan_request_id END
                         """
                         params = (target_barcode, v_name, v_brand, 
                               prod_id, mfg_name, ing_json, ing_raw, cert_json,
@@ -1204,9 +1324,12 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
                               # 供每日參考值改用「每份」為基準；缺則 None，不換算）
                               vision_data.get('serving_size'),
                               vision_data.get('servings_per_container'),
-                              other_nut_json)
+                              other_nut_json,
+                              request.state.rid if request.state.rid.startswith(("app-", "demo-ocr-app-"))
+                              else None)
                         
-                        cursor.execute(sql, params)
+                        if not demo_photo:
+                            cursor.execute(sql, params)
                         if not skip_shared_writes:
                             db.commit()
                             print(f"✅ [SUCCESS] [DB] Saved to PostgreSQL: {v_name} ({target_barcode})")
@@ -1224,8 +1347,9 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
                     traceback.print_exc()
                 
                 # 重新抓取完整資料
-                cursor.execute("SELECT * FROM products WHERE barcode = %s", (target_barcode,))
-                product = cursor.fetchone()
+                if not demo_photo:
+                    cursor.execute("SELECT * FROM products WHERE barcode = %s", (target_barcode,))
+                    product = cursor.fetchone()
                 
                 # [CORE FIX] 如果資料庫抓不到（可能寫入延遲），直接用剛剛 AI 解析的資料構建臨時 product
                 if not product and vision_data:
@@ -1238,11 +1362,13 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
                         "manufacturer": mfg_name,
                         "ingredients_list": ing_json,
                         "ingredients_raw": ing_raw,
-                        "calories": n.get('calories', 0),
-                        "protein": n.get('protein', 0),
-                        "fat": n.get('fat', 0),
-                        "sugar": n.get('sugar', 0),
-                        "sodium": n.get('sodium', 0),
+                        **{key: n.get(key) for key in (
+                            "calories", "protein", "fat", "saturated_fat", "carbohydrates",
+                            "sugar", "fiber", "sodium",
+                        )},
+                        "serving_size": vision_data.get("serving_size"),
+                        "servings_per_container": vision_data.get("servings_per_container"),
+                        "other_nutrition": other_nut_json,
                         "allergens": allergy_text
                     }
                 
@@ -1355,16 +1481,42 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
         basic_detail = _match_result["basic_detail"]
         chemical = _match_result["chemical"]
         calculated_ingredient_types = _match_result["calculated_ingredient_types"]
+        if vision_data is not None:
+            scanned_ingredients = chemical + basic_detail
 
         # --- 🚀 核心：Nutri-Score V7 硬代碼精準計分 (對照 PDF V7 標準) ---
         # 計分邏輯已抽出至 module_b/scoring.py(2026-07-24),邏輯逐字未改動。
-        _ns_result = calculate_nutriscore(product, ing_list)
+        scoring_product = product
+        demo_zero_inputs = []
+        if demo_photo:
+            validate_nutrition_consistency(vision_data.get("nutrition_per_serving"), "每份的")
+            scoring_product = dict(product)
+            labels = {"calories": "熱量", "sugar": "糖", "sodium": "鈉",
+                      "saturated_fat": "飽和脂肪", "protein": "蛋白質"}
+            for key in labels:
+                if scoring_product.get(key) is None:
+                    scoring_product[key] = 0
+                    demo_zero_inputs.append(key)
+            if demo_zero_inputs:
+                filled = "、".join(labels[key] for key in demo_zero_inputs)
+                notice = f"展示用評分。未讀到的{filled}以 0 試算，僅供展示。"
+                demo_nutrition_notice = " ".join(filter(None, (demo_nutrition_notice, notice)))
+            if product.get("carbohydrates") is None:
+                notice = "本次未讀到每 100 公克／毫升的總碳水化合物。"
+                demo_nutrition_notice = " ".join(filter(None, (demo_nutrition_notice, notice)))
+            if demo_nutrition_notice and mobile_ocr is not None:
+                mobile_ocr["nutrition_notice"] = demo_nutrition_notice
+                mobile_ocr["scoring_nutrition"] = {
+                    **(vision_data.get("nutrition") or {}),
+                    **{key: 0 for key in demo_zero_inputs},
+                }
+        _ns_result = calculate_nutriscore(scoring_product, ing_list)
         calc_result = _ns_result["calc_result"]
         deterministic_score = _ns_result["deterministic_score"]
         deterministic_grade = _ns_result["deterministic_grade"]
         # 哪幾項計分輸入為推估（標示未提供）。呈現端須據此加註，
         # 否則使用者會以為等級完全依實際標示算出。
-        ns_estimated = _ns_result.get("estimated_inputs", [])
+        ns_estimated = _ns_result.get("estimated_inputs", []) + demo_zero_inputs
 
         # 每日參考值百分比(2026-07-26)。只陳述「佔一天建議量的幾 %」,不做風險判斷;
         # 分母依使用者族群改用附表一對應欄位,見 module_b/daily_reference.py。
@@ -1392,24 +1544,33 @@ async def analyze(request: Request, background_tasks: BackgroundTasks):
         # 形狀的權威來源是 module_d/response_builder.py，並由 tests/contract/ 凍結；
         # 原註解指向的 shared/types.ts 已於 2026-08-05 移除（只有 fog 在用，已搬入 fog/types.ts）。
         # 回應組裝邏輯已抽出至 module_d/response_builder.py(2026-07-24),邏輯逐字未改動。
-        return build_response(
+        return with_demo_ocr(build_response(
             product, ai_data, calc_result, deterministic_score,
             chemical, basic, calculated_ingredient_types,
             final_safety_events, raw_allergens, nutrition, daily_reference,
             basic_detail, ns_estimated
-        )
+        ))
+    except ConflictingNutritionData as e:
+        print(f"[WARN] [Analyze] 營養標示數值矛盾，不計分：{e}")
+        message = f"營養標示數值矛盾（{e}），暫不計分。請對照包裝，並對準營養標示重新拍攝。"
+        if demo_photo or scanned_ingredients:
+            return with_demo_ocr(build_nutrition_partial_response(
+                barcode, scanned_ingredients, message))
+        return with_demo_ocr({"status": "error", "message": message})
     except InsufficientNutritionData as e:
         # 營養標示沒讀齊，無法產出等級。**不給分數**——熱量、糖、鈉都是扣分項，
         # 缺值當 0 會讓分數偏樂觀，那是食安上最不該錯的方向。
-        # 回傳沒有 health_score 的錯誤形狀，App 據此顯示 message
-        # （判準見 CLAUDE.md：判定是否有效看有沒有 health_score）。
+        # 帶圖掃描可回傳這次已完成的成分比對，條碼查詢沿用原錯誤回應。
         _ZH = {"calories": "熱量", "sugar": "糖", "sodium": "鈉",
-               "fat": "脂肪", "saturated_fat": "飽和脂肪", "protein": "蛋白質"}
+               "fat": "脂肪", "saturated_fat": "飽和脂肪", "protein": "蛋白質",
+               "carbohydrates": "每 100 公克／毫升的總碳水化合物"}
         miss = "、".join(_ZH.get(k, k) for k in e.missing)
         print("[WARN] [Analyze] 營養標示缺漏，不計分：%s" % miss)
-        return {"status": "error",
-                "message": "營養標示未辨識完整（缺少 %s），無法計算健康評分。"
-                           "請對準營養標示區域重新拍攝。" % miss}
+        message = f"營養標示未讀齊（缺少 {miss}），暫不評分。請對準營養標示重新拍攝。"
+        if scanned_ingredients or demo_photo:
+            return with_demo_ocr(build_nutrition_partial_response(
+                product.get("barcode"), scanned_ingredients, message))
+        return with_demo_ocr({"status": "error", "message": message})
     except Exception as e:
         import traceback
         traceback.print_exc()

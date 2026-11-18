@@ -38,6 +38,7 @@ import re
 import time
 
 REQUEST_ID_HEADER = "X-Request-Id"
+DEMO_OCR_HEADER = "X-Demo-OCR"
 CLOUD_HEADER = "X-Timing-Cloud"
 FOG_PY_HEADER = "X-Timing-Fog-Py"
 FOG_NODE_HEADER = "X-Timing-Fog-Node"

@@ -20,7 +20,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-na
 import { Sparkles, Sliders, Database, ShoppingBag, AlertOctagon, RotateCcw, Layers, ShieldCheck, ChevronRight, Zap, ArrowLeft, AlertTriangle, CheckCircle2, Info, ScanLine, Activity, Settings2 } from 'lucide-react-native';
 
 import { useFontScale } from '../contexts/FontScaleContext';
-import { UserConditions, AnalysisResponse, DegradedLocalResponse } from '../types';
+import { UserConditions, AnalysisResponse, DegradedLocalResponse, CloudNutritionPartialResponse } from '../types';
 import { MOCK_RESULTS } from '../mockResultData';
 import Gauge from '../components/Gauge';
 import IngredientsList from '../components/IngredientsList';
@@ -259,7 +259,7 @@ export default function HomeScreen() {
   // **與 analysisResult 分開存**：它刻意沒有 health_score，混在一起會讓
   // 結果頁的 `health_score ?? 100` 顯示一個不存在的分數
   // （`normalize_result` 憑空補 75 分那次就是這樣來的）。
-  const [degradedResult, setDegradedResult] = useState<DegradedLocalResponse | null>(null);
+  const [degradedResult, setDegradedResult] = useState<DegradedLocalResponse | CloudNutritionPartialResponse | null>(null);
   // 測試模式：送 X-Bypass-Cache，讓 Fog 跳過**讀**快取（照常寫）。
   // 量延遲時每一次都要走完整路徑，命中快取的那幾次會把中位數拉到失真。
   const [bypassCache, setBypassCache] = useState(false);
@@ -337,6 +337,7 @@ export default function HomeScreen() {
     let respHeaders: Headers | null = null;
     let recResult: any = null;
     let recError: string | null = null;
+    void Telemetry.publishDemoTrace({ request_id: reqId, endpoint: serverEndpoint, phase: 'started' });
 
     try {
       const API_URL = serverEndpoint === 'fog' ? FOG_URL : CLOUD_URL;
@@ -394,9 +395,10 @@ export default function HomeScreen() {
       // 它刻意沒有 health_score（見 fog/transforms.build_degraded_local_response），
       // 所以不能跟下面那個「沒有分數就是失敗」的判斷混在一起。
       // degraded_mode 是它與「Cloud 診斷降級」的區別——後者仍有分數。
-      if (result?.status === 'degraded' && result?.degraded_mode === 'local_ocr') {
+      if (result?.status === 'degraded' &&
+          (result.degraded_mode === 'local_ocr' || result.degraded_mode === 'cloud_nutrition_incomplete')) {
         recResult = result;
-        setDegradedResult(result as DegradedLocalResponse);
+        setDegradedResult(result);
         return;
       }
 
@@ -450,6 +452,15 @@ export default function HomeScreen() {
       }
       // 一次掃描一列。**刻意不記照片與成分原文**——一是隱私（紀錄會被匯出），
       // 二是能拿來算指標的是「有幾項」而不是內容。
+      const timing = {
+        http_status: httpStatus,
+        total_ms: Date.now() - t0,
+        fog_node: Telemetry.parseTiming(respHeaders?.get('X-Timing-Fog-Node') ?? null),
+        fog_py: Telemetry.parseTiming(respHeaders?.get('X-Timing-Fog-Py') ?? null),
+        cloud: Telemetry.parseTiming(respHeaders?.get('X-Timing-Cloud') ?? null),
+        cache: respHeaders?.get('X-Cache') ?? null,
+      };
+      const degraded = recResult?.status === 'degraded' || !!recResult?.degraded_mode;
       void Telemetry.append({
         request_id: reqId,
         at: new Date().toISOString(),
@@ -457,12 +468,7 @@ export default function HomeScreen() {
         barcode: barcodeInput,
         n_images: uploadedImages.length,
         payload_chars: payloadChars,
-        http_status: httpStatus,
-        total_ms: Date.now() - t0,
-        fog_node: Telemetry.parseTiming(respHeaders?.get('X-Timing-Fog-Node') ?? null),
-        fog_py: Telemetry.parseTiming(respHeaders?.get('X-Timing-Fog-Py') ?? null),
-        cloud: Telemetry.parseTiming(respHeaders?.get('X-Timing-Cloud') ?? null),
-        cache: respHeaders?.get('X-Cache') ?? null,
+        ...timing,
         bypass_cache: bypassCache,
         status: recResult?.status ?? null,
         health_score: recResult?.health_score ?? null,
@@ -470,8 +476,14 @@ export default function HomeScreen() {
         n_additives: recResult?.ingredients_detail?.length ?? null,
         // 降階與失敗要分開統計。degraded_mode 是 Fog 本機 OCR 那條路
         // （transforms.build_degraded_local_response），與 Cloud 的診斷降級不同。
-        degraded: recResult?.status === 'degraded' || !!recResult?.degraded_mode,
+        degraded,
         error: recError,
+      });
+      void Telemetry.publishDemoTrace({
+        request_id: reqId,
+        endpoint: serverEndpoint,
+        phase: recError ? 'failed' : degraded ? 'degraded' : 'success',
+        ...timing,
       });
     }
   };
@@ -622,6 +634,7 @@ export default function HomeScreen() {
   );
   const degradedAdditives = (degradedResult?.ingredients_detail ?? []).filter(isAdditive);
   const degradedOthers = (degradedResult?.ingredients_detail ?? []).filter(i => !isAdditive(i));
+  const cloudNutritionPartial = degradedResult?.degraded_mode === 'cloud_nutrition_incomplete';
 
   // 已設定的健康條件數量，顯示在齒輪上——否則設定被收起來後，使用者無從得知
   // 自己到底有沒有設過、設了什麼。
@@ -1105,20 +1118,23 @@ export default function HomeScreen() {
                     <View style={s.row}>
                       <AlertTriangle size={20} color={DEGRADED_FG} />
                       <Text style={s.degradedTitle}>
-                        {resultWasLocalOnly ? '本機辨識・部分結果' : '離線模式・部分結果'}
+                        {cloudNutritionPartial ? '營養未讀齊・部分結果'
+                          : resultWasLocalOnly ? '本機辨識・部分結果' : '離線模式・部分結果'}
                       </Text>
                     </View>
                     {/* 使用者自己選的模式，不該用故障的語氣講。Fog 回的 message
                         是為「雲端掛了」寫的，這裡覆蓋掉。 */}
                     <Text style={s.degradedMsg}>
-                      {resultWasLocalOnly
+                      {!cloudNutritionPartial && resultWasLocalOnly
                         ? '依你的設定，這次只用邊緣節點辨識，照片沒有送往雲端。因此沒有健康評分與添加物比對，成分與過敏原仍以包裝標示為準。'
                         : degradedResult.message}
                     </Text>
-                    <Text style={s.degradedNote}>
-                      本機辨識：{degradedResult.engine?.ocr ?? '—'}・
-                      {degradedResult.elapsed_s} 秒
-                    </Text>
+                    {degradedResult.degraded_mode === 'local_ocr' && (
+                      <Text style={s.degradedNote}>
+                        本機辨識：{degradedResult.engine?.ocr ?? '—'}・
+                        {degradedResult.elapsed_s} 秒
+                      </Text>
+                    )}
                   </View>
 
                   {/* 過敏原：Cloud 掛掉時最該保留的一塊 */}
@@ -1132,7 +1148,7 @@ export default function HomeScreen() {
                       {/* 誠實的但書：降階用的是純 OCR，漏讀的機率比雲端高。
                           「沒偵測到」在這個模式下不等於「不含」。 */}
                       <Text style={s.degradedNote}>
-                        離線辨識可能漏讀，未列出的項目不代表不含。
+                        辨識可能漏讀，未列出的項目不代表不含。
                       </Text>
                     </View>
                   )}
@@ -1158,7 +1174,7 @@ export default function HomeScreen() {
                       <IngredientsList ingredients={degradedAdditives} />
                     ) : (
                       <Text style={s.degradedMsg}>
-                        本次未比對到添加物。離線辨識可能漏讀，不代表本產品不含添加物。
+                        本次未比對到添加物。辨識可能漏讀，不代表本產品不含添加物。
                       </Text>
                     )}
                   </View>
@@ -1177,7 +1193,7 @@ export default function HomeScreen() {
 
                   {/* 拿不到什麼，明講 */}
                   <View style={s.card}>
-                    <Text style={s.cardTitle}>離線模式無法提供</Text>
+                    <Text style={s.cardTitle}>{cloudNutritionPartial ? '本次暫未提供' : '離線模式無法提供'}</Text>
                     <Text style={s.degradedMsg}>
                       {degradedResult.unavailable_fields
                         .map(f => UNAVAILABLE_LABELS[f] ?? f)
@@ -1187,7 +1203,8 @@ export default function HomeScreen() {
                         .join('、')}
                     </Text>
                     <Text style={s.degradedNote}>
-                      這些需要雲端才能計算。恢復連線後重新檢測即可取得完整分析。
+                      {cloudNutritionPartial ? '請重拍營養表後再試。'
+                        : '這些需要雲端才能計算。恢復連線後重新檢測即可取得完整分析。'}
                     </Text>
                   </View>
                 </>

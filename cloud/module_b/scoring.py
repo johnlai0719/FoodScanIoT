@@ -3,6 +3,8 @@ Module B — Nutri-Score V7 計分前置與執行
 
 從 main.py 抽出(2026-07-24)。純函式,邏輯逐字未改動,不碰 cursor/db/genai。
 """
+import math
+
 from module_b.nutriscore_v7 import calculator as ns_calculator
 
 SWEETENER_KEYWORDS = [
@@ -38,10 +40,72 @@ class InsufficientNutritionData(Exception):
         super().__init__("缺少必要的營養標示欄位：%s" % "、".join(self.missing))
 
 
+class ConflictingNutritionData(Exception):
+    """Printed nutrition values cannot be reconciled within the same column."""
+
+
+def nutrition_conflicts(values):
+    if not isinstance(values, dict):
+        return
+
+    for part, total, labels in (
+        ("saturated_fat", "fat", ("飽和脂肪", "總脂肪")),
+        ("sugar", "carbohydrates", ("糖", "總碳水化合物")),
+    ):
+        try:
+            part_g = float(values.get(part))
+            total_g = float(values.get(total))
+        except (TypeError, ValueError):
+            continue
+        # Allow a 0.1 g difference due to display rounding.
+        if part_g > total_g + 0.1:
+            yield total, f"{labels[0]}高於{labels[1]}"
+
+
+def validate_nutrition_consistency(values, column=""):
+    for _, reason in nutrition_conflicts(values):
+        raise ConflictingNutritionData(f"{column}{reason}")
+
+
+def select_demo_nutrition(vision_data):
+    """Choose a display-only set when the OCR columns contain contradictions."""
+    per_100 = vision_data.get("nutrition") or {}
+    per_serving = vision_data.get("nutrition_per_serving") or {}
+    conflicts = dict(nutrition_conflicts(per_100))
+    serving_conflicts = dict(nutrition_conflicts(per_serving))
+    if not conflicts and not serving_conflicts:
+        return None
+    if not conflicts:
+        vision_data["nutrition_per_serving"] = None
+        return "展示用：每份數值有矛盾，本次採用每 100 公克／毫升欄。"
+
+    serving_size = vision_data.get("serving_size")
+    required = ("calories", "sugar", "sodium")
+    if (not serving_conflicts and type(serving_size) in (int, float)
+            and math.isfinite(serving_size) and serving_size > 0
+            and all(per_serving.get(key) is not None for key in required)
+            and (per_serving.get("saturated_fat") is not None or per_serving.get("fat") is not None)):
+        vision_data["nutrition"] = {
+            key: value * 100 / serving_size
+            for key, value in per_serving.items()
+            if type(value) in (int, float) and math.isfinite(value)
+        }
+        if (all(key in vision_data["nutrition"] for key in required)
+                and {"saturated_fat", "fat"} & vision_data["nutrition"].keys()):
+            return "展示用：每 100 公克／毫升欄有矛盾，本次採用每份數值換算。"
+
+    vision_data["nutrition"] = {key: value for key, value in per_100.items() if key not in conflicts}
+    if serving_conflicts:
+        vision_data["nutrition_per_serving"] = None
+    return "展示用：採用每 100 公克／毫升欄，略過矛盾的總量欄位，評分僅供展示。"
+
+
 def calculate_nutriscore(product, ing_list) -> dict:
     """
     回傳 dict: calc_result, deterministic_score, deterministic_grade
     """
+    validate_nutrition_consistency(product)
+
     def _num(key, default=0.0):
         v = product.get(key)
         if v is None:

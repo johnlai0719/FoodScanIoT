@@ -290,7 +290,7 @@ def _prep(img):
     return _PREPF(img)
 
 
-def ask(img, prompt, max_tokens=3072):
+def ask(img, prompt, max_tokens=3072, *, schema=None):
     img = _prep(img)
     if CFG.get("local"):
         return ask_local(img, prompt, max_tokens)
@@ -306,6 +306,8 @@ def ask(img, prompt, max_tokens=3072):
     # reasoning_content 把 max_tokens 吃光，content 拿到的是 ""。
     # 專案 2026-09 在 local_fields.py 踩過同一個坑。
     body.update(CFG.get("extra") or {})
+    if schema is not None:
+        body["response_format"] = {"type": "json_object", "schema": schema}
     t = time.time()
     if STREAM_ABORT:
         txt, fin = _ask_streaming(body)
@@ -445,7 +447,7 @@ def _safe_cuts(lines, box, n):
     return out
 
 
-def read_region(img, lines, box, prompt, max_tokens):
+def read_region(img, lines, box, prompt, max_tokens, *, schema=None, decode=None):
     """側躺的區域 90/270 都試，取去重後漢字多的。
 
     `VL_SLICE=N` 時沿長邊切成 N 條分別送，輸出依閱讀順序串接。
@@ -455,27 +457,34 @@ def read_region(img, lines, box, prompt, max_tokens):
         if len(parts) > 1:
             got, secs, sizes, fins = [], 0.0, [], []
             for sub in parts:
-                r = _read_one(img, lines, sub, prompt, max_tokens)
+                r = _read_one(img, lines, sub, prompt, max_tokens, schema, decode)
                 got += r["lines"]; secs += r["secs"]
                 sizes.append(r["size"]); fins.append(r["finish"])
                 rot = r["rot"]
-            return {"rot": rot, "lines": got, "finish": ",".join(str(f) for f in fins),
+            finish = "stop" if decode and all(f == "stop" for f in fins) else ",".join(str(f) for f in fins)
+            return {"rot": rot, "lines": got, "finish": finish,
                     "secs": secs, "n": len(CJK.findall(chr(10).join(got))),
                     "size": sizes[0], "slices": len(parts), "sizes": sizes}
-    return _read_one(img, lines, box, prompt, max_tokens)
+    return _read_one(img, lines, box, prompt, max_tokens, schema, decode)
 
 
-def _read_one(img, lines, box, prompt, max_tokens):
+def _read_one(img, lines, box, prompt, max_tokens, schema=None, decode=None):
     angles = [90, 270] if region_needs_rotation(lines, box) else [0]
     best = None
     for a in angles:
         c = crop(img, box, a)
-        txt, fin, dt = ask(c, prompt, max_tokens)
+        txt, fin, dt = ask(c, prompt, max_tokens, schema=schema) if schema else ask(c, prompt, max_tokens)
         if txt is None:
             cand = {"rot": a, "lines": [], "finish": fin, "secs": dt,
                     "n": 0, "size": c.size}
         else:
-            ls = to_lines(txt)
+            if decode:
+                try:
+                    ls = decode(txt) if fin == "stop" else []
+                except ValueError:
+                    ls, fin = [], "invalid structured output"
+            else:
+                ls = to_lines(txt)
             cand = {"rot": a, "lines": ls, "finish": fin, "secs": dt,
                     "n": len(CJK.findall("\n".join(ls))), "size": c.size}
         if best is None or cand["n"] > best["n"]:

@@ -166,6 +166,9 @@ def normalize_result(result: dict):
     """
     print(f"[DEBUG] Processing result from Cloud. Keys: {list(result.keys())}")
 
+    if result.get("status") == "degraded" and result.get("degraded_mode") == "cloud_nutrition_incomplete":
+        return result
+
     # --- 0. 上游沒回出分析結果就原樣轉成錯誤，**不要補分數** ---
     #     見 looks_like_analysis 的說明：往下走會讓任何錯誤長出 75 分。
     if not looks_like_analysis(result):

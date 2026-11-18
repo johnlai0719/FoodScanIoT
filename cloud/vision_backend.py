@@ -36,7 +36,7 @@ def backend_name() -> str:
     return BACKEND
 
 
-async def analyze(base64_images: list, barcode: str, gemini_fn):
+async def analyze(base64_images: list, barcode: str, gemini_fn, *, include_ocr=False):
     """依 VISION_BACKEND 分派。`gemini_fn` 是 main.analyze_image_with_gemini。
 
     ⚠ **必須 run_in_threadpool。** `requests.post` 是同步的，直接在 async 函式
@@ -56,13 +56,16 @@ async def analyze(base64_images: list, barcode: str, gemini_fn):
     """
     if BACKEND == "gemini":
         return await gemini_fn(base64_images, barcode)
-    return await run_in_threadpool(_read_via_reader, base64_images, barcode)
+    return await run_in_threadpool(_read_via_reader, base64_images, barcode, include_ocr)
 
 
-def _read_via_reader(base64_images: list, barcode: str):
+def _read_via_reader(base64_images: list, barcode: str, include_ocr=False):
     headers = {"X-API-Key": SECRET} if SECRET else {}
+    payload = {"label_images": base64_images, "barcode": barcode}
+    if include_ocr:
+        payload["include_ocr"] = True
     r = requests.post(READER_URL.rstrip("/") + "/read",
-                      json={"label_images": base64_images, "barcode": barcode},
+                      json=payload,
                       headers=headers, timeout=READER_TIMEOUT)
     if r.status_code != 200:
         # 拋出而不是回 None：回 None 會讓 `_is_valid_food_scan` 判成

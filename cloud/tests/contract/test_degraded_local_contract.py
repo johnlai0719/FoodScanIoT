@@ -24,10 +24,23 @@ from pathlib import Path
 import pytest
 
 import module_a.ingredient_matching as IM
-from module_d.response_builder import build_response
+from module_d.response_builder import build_nutrition_partial_response, build_response
 from seed_db import RealDictLikeCursor, load_additives_db
 from test_layer_chain import app_unwrap
-from transforms import build_degraded_local_response
+from transforms import build_degraded_local_response, normalize_result
+
+
+def test_cloud_nutrition_partial_survives_fog_without_a_score():
+    ingredients = [{"name": "糖", "isAdditive": False},
+                   {"name": "檸檬酸", "isAdditive": True}]
+    cloud = build_nutrition_partial_response("TEST", ingredients, "請重拍營養表。")
+    forwarded = normalize_result(cloud)
+
+    assert forwarded["status"] == "degraded"
+    assert forwarded["degraded_mode"] == "cloud_nutrition_incomplete"
+    assert forwarded["ingredients_detail"] == ingredients
+    assert forwarded["message"] == "請重拍營養表。"
+    assert "health_score" not in forwarded
 
 APP_TYPES_FILE = Path(__file__).resolve().parents[3] / "APP" / "src" / "types.ts"
 

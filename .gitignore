@@ -204,3 +204,6 @@ cloud/scratch/
 !cloud/vision/data/*.json
 cloud/vision/out/
 cloud/reader/_work/
+
+# Mainline live dashboard page.
+!tools/mainline_dashboard.html

@@ -3,6 +3,7 @@ import asyncio
 import base64
 from contextlib import contextmanager
 import io
+import json
 from pathlib import Path
 import sys
 from types import SimpleNamespace
@@ -22,6 +23,24 @@ def image64(size=(100, 100)):
         b = io.BytesIO()
         image.save(b, 'JPEG')
     return base64.b64encode(b.getvalue()).decode()
+
+
+def test_demo_ocr_keeps_nutrition_separate_after_truncation(monkeypatch, tmp_path):
+    monkeypatch.setattr(pipe, "_out", lambda preset, cid: tmp_path / f"{preset}.json")
+    sources = {
+        pipe.PRESET_BOXES: {"lines": [{"text": "初讀", "box": [[1, 2], [3, 4]]}]},
+        pipe.PRESET_VL: {
+            "lines": [{"text": "成分"}] * 121 + [{"text": "營養"}],
+            "regions": {"ingredients": {"n_lines": 121}, "nutrition": {"n_lines": 1}},
+        },
+    }
+    for preset, source in sources.items():
+        pipe._out(preset, "case").write_text(json.dumps({"images": [source]}), encoding="utf-8")
+
+    trace = pipe._demo_ocr("case", (100, 200))
+    assert trace["ppocr"] == sources[pipe.PRESET_BOXES]["lines"]
+    assert len(trace["hunyuan"]["ingredients"]["lines"]) == 120
+    assert trace["hunyuan"]["nutrition"]["lines"] == ["營養"]
 
 
 def test_app_portrait_is_accepted_without_resizing():
@@ -133,6 +152,8 @@ def test_reload_failure_can_recover_next_request(managed, monkeypatch):
 @pytest.mark.parametrize('finish,lines', [('length', ['partial']), ('error: context overflow', []), ('stop', [])])
 def test_region_failure_cannot_emit_normal_result(monkeypatch, tmp_path, finish, lines):
     import json
+    monkeypatch.setattr(pipe, 'STRUCTURED_INGREDIENTS', False)
+    monkeypatch.syspath_prepend(str(pipe.PPOCR))
     boxes = tmp_path/'boxes.json'
     boxes.write_text(json.dumps({'images': [{'path':'x', 'lines':[]}]}))
     monkeypatch.setattr(pipe, '_out', lambda *a: boxes)
@@ -140,7 +161,7 @@ def test_region_failure_cannot_emit_normal_result(monkeypatch, tmp_path, finish,
         'RC': SimpleNamespace(find_regions=lambda _: {'ingredients': [0,0,10,10], 'nutrition': None}),
         'RV': SimpleNamespace(CFG={'ingredients':'prompt'}, read_region=lambda *a: {'finish':finish,'lines':lines})})
     with pytest.raises(pipe.ReaderInferenceError):
-        pipe._vlcrop('case', ['x'], [object()])
+        pipe._vlcrop('case', ['x'], [SimpleNamespace(size=(10, 10))])
 
 
 def test_fallback_cleans_cache_before_model_reload(monkeypatch, tmp_path):

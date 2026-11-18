@@ -165,6 +165,8 @@ def union(boxes):
 
 
 CELL = re.compile(r"\d|公克|毫克|大卡|公毫|克")
+SODIUM_LABEL = re.compile(r"^\s*[鈉钠纳]\s*(?:[:：]|$|\d|[（(])")
+MILLIGRAM_VALUE = re.compile(r"\d+(?:[.,]\d+)?\s*(?:毫克|公絲|mg)", re.IGNORECASE)
 
 # 頓號訊號。SEP_MIN=0 即關閉，行為與 2026-09-10 之前完全相同。
 SEP_RE = re.compile(r"[、，,；;]")
@@ -199,6 +201,28 @@ def grow(seed_box, lines, idx_pool, unit, long_thr, rounds=None):
         if taken:
             box = union([seed_box] + [bbox(lines[i]["box"]) for i in taken])
     return box, taken
+
+
+def _include_sodium_row(box, lines, indices, unit):
+    """Recover an adjacent sodium row even if both values share one wide OCR box."""
+    candidates = []
+    for i in indices:
+        b = bbox(lines[i]["box"])
+        cx, cy = (b[0] + b[2]) / 2, (b[1] + b[3]) / 2
+        if (box[0] - unit <= cx <= box[2] + unit and box[3] < cy <= box[3] + 2 * unit
+                and b[3] - b[1] <= 2 * unit):
+            candidates.append((i, b, cx, cy))
+
+    for label, _, label_x, label_y in candidates:
+        if not SODIUM_LABEL.match(lines[label]["text"]):
+            continue
+        values = {i: b for i, b, cx, cy in candidates
+                  if cx >= label_x and abs(cy - label_y) <= unit
+                  and MILLIGRAM_VALUE.search(lines[i]["text"])}
+        if values:
+            values[label] = bbox(lines[label]["box"])
+            return union([box, *values.values()]), set(values)
+    return box, set()
 
 
 def find_regions(lines, k=None):
@@ -253,6 +277,12 @@ def find_regions(lines, k=None):
                 out["nutrition"] = nb2
                 out["why"]["nutrition"] = f"退路：格子密度 {len(members2)} 行（種子詞未達門檻）"
                 nut_taken |= set(members2) | taken2
+
+    if out["nutrition"] is not None:
+        out["nutrition"], sodium_row = _include_sodium_row(out["nutrition"], lines, idx, unit)
+        if sodium_row:
+            nut_taken |= sodium_row
+            out["why"]["nutrition"] += "＋末列鈉"
 
     # ── 成分區：扣掉營養表之後的長行 ──
     rest = [i for i in idx if i not in nut_taken]

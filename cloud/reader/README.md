@@ -6,11 +6,26 @@
 python cloud/reader/service.py
 ```
 
-reader 預設自行啟動 HunyuanOCR（GPU）與 Qwen（CPU），暖機後 `/health` 才會就緒。停止 reader 時會終止並等待自己啟動的模型行程。
+Reader 預設自行啟動 HunyuanOCR（GPU），暖機後 `/health` 才會就緒。停止 Reader 時會終止並等待自己啟動的模型行程。
 
 **升級前先停止舊的 `reader/start_models.py` 啟動器與 reader。** 新版不接管或停止既有外部行程；發現模型埠已占用時，health 會回報原因。只用一個 reader worker，勿使用多個 uvicorn workers 或 reload 模式載入多份模型。
 
 `cloud/reader/start_models.py` 保留供獨立實驗與 `--check`。如果刻意使用外部啟動器，可設定 `READER_MANAGE_MODELS=0`，但這會停用模型卸載／載回管理。
+
+一般標示區預設由 HunyuanOCR 回傳固定 JSON，包含成分陣列、印出的過敏原警語、品名及廠商。Reader 驗證格式、去除重複成分，並用 PP-OCR 的文字確認品名和廠商再交給既有規則。結構化回應無效或無可用文字時重試原本的轉錄。可用 `READER_STRUCTURED_INGREDIENTS=0` 切回文字轉錄。
+
+營養區預設沿用原本表格辨識。實驗開關 `READER_STRUCTURED_NUTRITION=1` 使用 JSON 表示份量、包裝份數、欄位類型和各營養素數值。
+
+### Qwen 對照模式
+
+停止舊 Reader 後，可用下列指令啟動舊的品名與廠商流程作對照：
+
+```powershell
+$env:READER_USE_QWEN = '1'
+python cloud/reader/service.py
+```
+
+設為 `0` 或移除該變數，便回到預設的無 Qwen 流程。營養表的 PPStructure 備援使用相同流程。
 
 ## 備援流程
 

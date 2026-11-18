@@ -27,6 +27,7 @@ class Producer(Base):
 class Product(Base):
     __tablename__ = "products"
     barcode = Column(String(50), primary_key=True, index=True)
+    demo_scan_request_id = Column(String(64), nullable=True)
     name = Column(String(255))
     brand = Column(String(100))
     producer_id = Column(Integer, ForeignKey("producers.id"), nullable=True) # 關聯生產商

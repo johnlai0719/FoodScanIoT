@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from module_b.scoring import InsufficientNutritionData, calculate_nutriscore
+from module_b.scoring import ConflictingNutritionData, InsufficientNutritionData, calculate_nutriscore
 
 REPO = Path(__file__).resolve().parents[3]
 
@@ -34,6 +34,20 @@ def _product(**over):
 def test_a_complete_label_still_scores():
     r = calculate_nutriscore(_product(), [])
     assert r["deterministic_grade"] in list("ABCDE")
+
+
+@pytest.mark.parametrize("values, warning", [
+    ({"fat": 1.8, "saturated_fat": 80}, "飽和脂肪高於總脂肪"),
+    ({"carbohydrates": 2, "sugar": 5.4}, "糖高於總碳水化合物"),
+])
+def test_conflicting_label_refuses_to_score(values, warning):
+    with pytest.raises(ConflictingNutritionData, match=warning):
+        calculate_nutriscore(_product(**values), [])
+
+
+def test_small_rounding_difference_still_scores():
+    result = calculate_nutriscore(_product(fat=1.8, saturated_fat=1.9), [])
+    assert result["deterministic_grade"] in list("ABCDE")
 
 
 # ── 扣分項缺值：不給分數 ────────────────────────────────────────────────────

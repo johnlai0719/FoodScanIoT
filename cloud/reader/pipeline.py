@@ -14,14 +14,14 @@
          → region_crop 找框
          → HunyuanOCR 逐區讀（:8177）  → out/_online_vl/<cid>.json
          → PPStructureV3 ＋ 約束求解    → out/_online_nutri/<cid>.json
-         → Qwen 整理品名／廠商（:8179） → out/_online_lf/<cid>.json
+         → 選用 Qwen 對照（:8179）     → out/_online_lf/<cid>.json
          → emit_json.build(cid)         → 最終欄位
 
 ⚠ **paddle 與 torch 不可同環境**（見「OCR 層已用盡」）。本服務只用 paddle 側；
    切分模型（bertsplit）走 torch，線上一律用規則 `boxsep`，與 emit_json 的
    預設相同。
 
-模型預設由 reader/service.py 管理：HunyuanOCR :8177、Qwen :8179。
+模型由 reader/service.py 管理：HunyuanOCR :8177、選用 Qwen :8179。
 """
 import concurrent.futures as _futures
 import json
@@ -31,6 +31,7 @@ import threading
 import time
 import uuid
 from contextlib import nullcontext
+from functools import partial
 from pathlib import Path
 
 from input_limits import decode_images
@@ -60,6 +61,13 @@ PRESET_BOXES = "_online_boxes"
 PRESET_VL = "_online_vl"
 PRESET_NUTRI = "_online_nutri"
 PRESET_LF = "_online_lf"
+USE_QWEN = os.getenv("READER_USE_QWEN", "0").strip().lower() in ("1", "true")
+STRUCTURED_INGREDIENTS = os.getenv("READER_STRUCTURED_INGREDIENTS", "1") == "1"
+STRUCTURED_NUTRITION = os.getenv("READER_STRUCTURED_NUTRITION", "0") == "1"
+GENERAL_PROMPT = (
+    "請逐行完整轉錄圖中看得見的文字。保留品名、成分、廠商及過敏原的欄位名稱，"
+    "並保留原有的順序、頓號與括號。只輸出原文，不補寫、不改寫、不摘要。"
+)
 
 os.environ.setdefault("EVAL_ROOT", str(WORK))
 os.environ.setdefault("PPOCR_BOXES", PRESET_BOXES)
@@ -186,10 +194,11 @@ def _out(preset, cid):
 # Cloud 端的 VISION_BACKEND 只說「走 reader 這條路」，分不出是哪一個，
 # 所以身分由 reader 自己在 /health 與 _meta.reader 報出來。切換用
 # 該分支的 tools/switch_reader.ps1。
-READER_NAME = "vlcrop_hy (PP-OCR→HunyuanOCR→Qwen)"
+READER_NAME = ("vlcrop_hy (PP-OCR→HunyuanOCR→Qwen)" if USE_QWEN
+               else "vlcrop_hy_no_qwen (PP-OCR→HunyuanOCR)")
 
 
-def read(base64_images, barcode="unknown"):
+def read(base64_images, barcode="unknown", *, include_ocr=False):
     """一次請求。回傳的 dict 形狀與 analyze_image_with_gemini 相同。"""
     if not is_ready():
         raise RuntimeError("reader 未就緒：%s" % _state)
@@ -229,13 +238,16 @@ def read(base64_images, barcode="unknown"):
             if nutri_pp:
                 _release_paddle_cache()
             t["nutrition_structure"] = round(time.time() - _t, 2)
-            _t = time.time()
-            _localfields(cid)
-            t["qwen_fields"] = round(time.time() - _t, 2)
+            if USE_QWEN:
+                _t = time.time()
+                _localfields(cid)
+                t["qwen_fields"] = round(time.time() - _t, 2)
             _t = time.time()
             out = _mods["EJ"].build(cid)
             _assert_sources(out)
             t["assemble"] = round(time.time() - _t, 2)
+            if include_ocr:
+                out["demo_ocr"] = _demo_ocr(cid, imgs[0].size)
         out.setdefault("_meta", {})["reader"] = READER_NAME
         out["_meta"]["stage_secs"] = t
         # 這次營養段有沒有跑 PPStructure（只在沒裁到營養區時才跑，見 _nutrition）
@@ -303,6 +315,114 @@ def _ppocr(cid, rels):
                    ensure_ascii=False), encoding="utf-8")
 
 
+def _demo_ocr(cid, size):
+    """Expose bounded snapshots of the first image before normal cleanup."""
+    ppocr = json.loads(_out(PRESET_BOXES, cid).read_text(encoding="utf-8"))["images"][0]
+    vlcrop = json.loads(_out(PRESET_VL, cid).read_text(encoding="utf-8"))["images"][0]
+    regions = {}
+    offset = 0
+    for kind in ("ingredients", "nutrition"):
+        region = vlcrop["regions"][kind]
+        count = region.get("n_lines", 0)
+        limit = 2400 if kind == "ingredients" and region.get("format") == "json" else 320
+        lines = [line["text"][:limit] for line in vlcrop["lines"][offset:offset + min(count, 120)]]
+        regions[kind] = {
+            "box": region.get("box"),
+            "format": region.get("format", "text"),
+            "lines": lines,
+        }
+        if kind == "ingredients" and not USE_QWEN and region.get("format") == "json":
+            fields = [line for line in lines if line.startswith(("品名：", "廠商："))]
+            regions[kind].update(fields=fields, lines=[line for line in lines if line not in fields])
+        offset += count
+    return {
+        "size": size,
+        "ppocr": [{"text": line["text"][:320], "box": line.get("box")}
+                  for line in ppocr["lines"][:120]],
+        "hunyuan": regions,
+    }
+
+
+def _general_box(lines, ingredients, image_size):
+    """Include nearby printed field labels without turning the crop into a full page."""
+    from manufacturer import TIERS
+    from product_name import ANCHOR
+
+    rc = _mods["RC"]
+    anchors = [rc.bbox(line["box"]) for line in lines if line.get("box") and (
+        ANCHOR.search(line["text"]) or any(pattern.search(line["text"]) for _, pattern in TIERS)
+    )]
+    if not anchors:
+        return ingredients
+
+    def area(box):
+        return (box[2] - box[0]) * (box[3] - box[1])
+
+    if ingredients is None:
+        box = rc.union(anchors)
+        return box if area(box) <= image_size[0] * image_size[1] * 0.4 else None
+
+    box = ingredients
+    limit = area(ingredients) * 1.5
+    for anchor in sorted(anchors, key=lambda item: area(rc.union([ingredients, item]))):
+        expanded = rc.union([box, anchor])
+        if area(expanded) <= limit:
+            box = expanded
+    return box
+
+
+def _read_region(kind, img, lines, box, prompt):
+    rv = _mods["RV"]
+    enabled = STRUCTURED_INGREDIENTS if kind == "ingredients" else STRUCTURED_NUTRITION
+    if enabled:
+        import structured_ocr as so
+
+        if kind == "ingredients":
+            from product_name import extract
+            from score_ocr import normalize
+
+            name = extract(line["text"] for line in lines) or ""
+
+            def key(value):
+                return normalize(value, fold_variants=True).casefold()
+
+            if USE_QWEN:
+                decode = partial(so.ingredients_lines, product_name=name, key=key)
+                structured = (so.INGREDIENT_PROMPT, so.INGREDIENT_SCHEMA, decode)
+            else:
+                evidence = key("".join(line["text"] for line in lines))
+                decode = partial(so.label_lines, product_name=name, key=key, evidence=evidence)
+                structured = (so.LABEL_PROMPT, so.LABEL_SCHEMA, decode)
+        else:
+            structured = (so.NUTRITION_PROMPT, so.NUTRITION_SCHEMA, so.nutrition_lines)
+        instruction, schema, decode = structured
+        result = rv.read_region(img, lines, box, instruction, 3072, schema=schema, decode=decode)
+        if result["finish"] == "stop" and result["lines"]:
+            return {**result, "format": "json"}
+    result = rv.read_region(img, lines, box, prompt, 3072)
+    if kind == "nutrition" and result["finish"] == "stop":
+        from table_md import has_named_columns, labeled_rows, pairs_from_lines
+
+        pairs = labeled_rows(result["lines"])
+        if has_named_columns(result["lines"]):
+            pairs = pairs_from_lines(result["lines"])
+        required = ("calories", "sugar", "sodium")
+        if pairs is not None and any(pairs.get(key, (None, None))[1] is None
+                                     for key in required) and not enabled:
+            import structured_ocr as so
+
+            retry = rv.read_region(img, lines, box, so.NUTRITION_PROMPT, 3072,
+                                   schema=so.NUTRITION_SCHEMA, decode=so.nutrition_lines)
+            if retry["finish"] == "stop" and retry["lines"]:
+                recovered = pairs_from_lines(retry["lines"])
+                if all(recovered.get(key, (None, None))[1] is not None for key in required):
+                    return {**retry, "secs": result["secs"] + retry["secs"], "format": "json"}
+            result["secs"] += retry["secs"]
+    if enabled and kind == "ingredients":
+        result["lines"] = list(dict.fromkeys(result["lines"]))
+    return result
+
+
 def _vlcrop(cid, rels, imgs):
     """第二步：region_crop 找框 → HunyuanOCR 逐區讀。
 
@@ -317,6 +437,10 @@ def _vlcrop(cid, rels, imgs):
     for im_rec, img in zip(ppocr["images"], imgs):
         lines = im_rec.get("lines") or []
         r = RC.find_regions(lines)
+        prompts = RV.CFG
+        if not USE_QWEN:
+            r["ingredients"] = _general_box(lines, r["ingredients"], img.size)
+            prompts = {**prompts, "ingredients": GENERAL_PROMPT}
         all_lines, meta, secs = [], {}, 0.0
         # 成分區與營養區**並行**送。兩者沒有先後依賴，而 llama-server 以
         # -np 2 開了兩個槽（見 start_models.py）。
@@ -346,13 +470,12 @@ def _vlcrop(cid, rels, imgs):
         done = {}
         if _parallel:
             with _futures.ThreadPoolExecutor(max_workers=len(todo)) as ex:
-                fut = {ex.submit(RV.read_region, img, lines, r[k],
-                                 RV.CFG[k], 3072): k for k in todo}
+                fut = {ex.submit(_read_region, k, img, lines, r[k], prompts[k]): k for k in todo}
                 for f in _futures.as_completed(fut):
                     done[fut[f]] = f.result()
         else:
             for k in todo:
-                done[k] = RV.read_region(img, lines, r[k], RV.CFG[k], 3072)
+                done[k] = _read_region(k, img, lines, r[k], prompts[k])
 
         for kind in todo:                       # 固定順序，不是完成順序
             b = done[kind]
@@ -368,6 +491,7 @@ def _vlcrop(cid, rels, imgs):
             # 那才是這一段實際等了多久。
             secs = max(secs, b["secs"])
             meta[kind] = {"found": True, "rot": b["rot"], "finish": b["finish"],
+                          "format": b.get("format", "text"),
                           "n_lines": len(b["lines"]), "n_cjk": b["n"],
                           "box": [int(v) for v in box]}
         images.append({"path": im_rec["path"], "elapsed_s": round(secs, 2),
@@ -407,11 +531,22 @@ def _nutrition(cid):
             # 與 nutrition_pipeline.run() 寫出的紀錄同一個形狀，只是 PPStructure
             # 的兩個欄位留空——下游（emit_json）照常讀，不需要知道這條分支。
             base = [l["text"] for im in vl["images"] for l in im.get("lines", [])]
+            nutrition_regions = []
+            for im in vl["images"]:
+                regions = im.get("regions") or {}
+                start = regions.get("ingredients", {}).get("n_lines", 0)
+                region = regions.get("nutrition", {})
+                if region.get("found"):
+                    nutrition_regions.append({
+                        "format": region.get("format", "text"),
+                        "lines": [l["text"] for l in im["lines"][start:start + region["n_lines"]]],
+                    })
             os.makedirs(N.OUT, exist_ok=True)
             with open(os.path.join(N.OUT, f"{cid}.json"), "w", encoding="utf-8") as f:
                 json.dump({"case_id": cid, "category": "online", "set_version": "online",
                            "base_lines": base, "table_html_text": [],
-                           "struct_lines": []}, f, ensure_ascii=False)
+                           "struct_lines": [], "nutrition_regions": nutrition_regions},
+                          f, ensure_ascii=False)
             return False
     # 必須把暖機時建好的 PPStructureV3 傳進去，否則每個請求都重載模型。
     context = _model_manager.pause_hunyuan() if _model_manager is not None else nullcontext()

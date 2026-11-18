@@ -39,6 +39,61 @@ NUM = re.compile(r'-?\d+(?:[.,]\d+)?')
 DV = re.compile(r'每日[參参]考值?|[參参]考值百分比|Daily Value')
 P100 = re.compile(r'每\s*100|每\s*一?\s*百|/\s*100')
 PSERV = re.compile(r'每\s*份|每一份量')
+CELL = re.compile(r'(-?\d+(?:[.,]\d+)?)\s*(大卡|千卡|kcal|毫克|mg|公克|克|g)', re.I)
+V100 = re.compile(r'每\s*100\s*(?:公克|克|毫升|ml|g)', re.I)
+VSERV = re.compile(r'每\s*份')
+
+
+def labeled_rows(lines):
+    """Read the model's plain-text table without borrowing values from another row."""
+    columns = []
+    rows = {}
+    current = None
+    for line in lines:
+        t = _norm(line).strip()
+        if not rows:
+            headers = [(m.start(), col) for col, pattern in enumerate((VSERV, V100, DV))
+                       for m in pattern.finditer(t)]
+            if headers and not any(re.match(r'(?:' + pattern + r')', t) for _, pattern in FIELDS):
+                columns.extend(col for _, col in sorted(headers))
+                continue
+        if not columns:
+            continue
+        for key, pattern in FIELDS:
+            if key == 'saturated_fat':
+                pattern += '|鹽和脂肪|盐和脂肪'
+            label = re.match(r'(?:' + pattern + r')(?=$|[\s:：\d])', t)
+            if label:
+                current = key
+                rows.setdefault(key, [])
+                t = t[label.end():].lstrip(' :：')
+                break
+        if current is None or not t:
+            continue
+        matches = list(CELL.finditer(t))
+        residue = CELL.sub('', t)
+        if re.fullmatch(r'(?:[\s:：|｜]|\d+(?:[.,]\d+)?\s*%)*', residue):
+            rows[current].extend((float(m[1].replace(',', '.')), m[2].lower()) for m in matches)
+        else:
+            current = None
+
+    if len(rows) < 4 or len(set(columns)) != len(columns):
+        return None
+    numeric_columns = [col for col in columns if col != 2]
+    if not numeric_columns:
+        return None
+    result = {}
+    for key, values in rows.items():
+        units = ('大卡', '千卡', 'kcal') if key == 'calories' else (
+            ('毫克', 'mg') if key == 'sodium' else ('公克', '克', 'g'))
+        # A single value under a two-column header has no known position.
+        if len(values) != len(numeric_columns) or any(unit not in units for _, unit in values):
+            continue
+        pair = [None, None]
+        for col, (value, _) in zip(numeric_columns, values):
+            pair[col] = value
+        result[key] = tuple(pair)
+    return result
 
 
 def _norm(s):
@@ -111,25 +166,34 @@ def _columns(block):
     for cells in block:
         if _is_sep(cells):
             continue
-        if not any(_value(c) is not None for c in cells[1:]):
+        if any(P100.search(_norm(c)) or PSERV.search(_norm(c)) or DV.search(_norm(c))
+               for c in cells[1:]):
             head = cells
             break
     flat = ' '.join(' '.join(c) for c in block)
     dv = bool(DV.search(_norm(flat)))
     i_s = i_100 = None
     if head:
+        # Normalize before reading merged or single named columns.
+        merged = False
         for i, c in enumerate(head):
             if i == 0:
                 continue
             t = _norm(c)
+            if P100.search(t) and PSERV.search(t):
+                merged = True
+                break
             if P100.search(t) and i_100 is None:
                 i_100 = i
             elif PSERV.search(t) and i_s is None:
                 i_s = i
     # 表頭把兩欄併在同一格（`| | 每份每100毫升 |`）時，兩個都會指到同一欄，
     # 那等於沒有資訊，退回位置預設。
-    if i_s is not None and i_s == i_100:
-        i_s = i_100 = None
+        if merged:
+            # A merged header cannot identify the column of a lone value.
+            return (1, None if dv else 2, dv) if len(head) > 2 else (None, None, dv)
+        if len(head) == 2 and (i_s is not None or i_100 is not None):
+            return i_s, None if dv else i_100, dv
     if i_s is None and i_100 is None:
         i_s, i_100 = 1, (None if dv else 2)
     elif i_100 is None and not dv:
@@ -139,6 +203,11 @@ def _columns(block):
     if dv:
         i_100 = None
     return i_s, i_100, dv
+
+
+def has_named_columns(lines):
+    return any(P100.search(_norm(cell)) or PSERV.search(_norm(cell)) or DV.search(_norm(cell))
+               for block in _blocks(lines) for row in block for cell in row[1:])
 
 
 def _parse_block(block):

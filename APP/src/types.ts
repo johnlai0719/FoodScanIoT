@@ -213,6 +213,10 @@ export interface DegradedLocalResponse {
   cached?: boolean;
 }
 
+export type CloudNutritionPartialResponse = Pick<DegradedLocalResponse,
+  'status' | 'message' | 'barcode' | 'ingredients_detail' | 'unavailable_fields' | 'cached'
+> & { degraded_mode: 'cloud_nutrition_incomplete' };
+
 export interface UserConditions {
   group: 'adult' | 'pregnant' | 'child' | 'hypertension' | 'diabetes' | 'hyperlipidemia';
   allergens: string[];

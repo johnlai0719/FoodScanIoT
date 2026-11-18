@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>FoodScanIoT 專題儀表板</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #101a1d; color: #eef4ef; }
+    * { box-sizing: border-box; }
+    body { max-width: 1120px; margin: auto; padding: 36px 22px; }
+    h1 { margin: 0; font-size: clamp(2rem, 5vw, 3.4rem); letter-spacing: -.035em; }
+    h2 { margin-top: 0; font-size: 1.2rem; }
+    p { line-height: 1.55; }
+    .muted { color: #afc2bb; }
+    .eyebrow { color: #89e5b8; font-weight: 700; letter-spacing: .12em; }
+    .row, .workspace { display: grid; gap: 14px; margin: 24px 0; }
+    .row { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .workspace { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); }
+    .card { background: #172629; border: 1px solid #304643; border-radius: 14px; padding: 18px; min-width: 0; }
+    .card strong, .card small { display: block; overflow-wrap: anywhere; }
+    .card small { margin-top: 8px; }
+    .ok { color: #89e5b8; }
+    .warn { color: #ffd282; }
+    button { padding: 10px 14px; border: 1px solid #508173; border-radius: 8px; background: #254c44; color: inherit; font: inherit; cursor: pointer; }
+    button:disabled { opacity: .55; cursor: wait; }
+    form { display: grid; gap: 16px; }
+    input { width: 100%; }
+    img { display: block; width: 100%; max-height: 280px; object-fit: contain; background: #0d1517; border-radius: 8px; }
+    img[hidden] { display: none; }
+    dl { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+    dd { margin: 0; font-variant-numeric: tabular-nums; }
+    details { margin-top: 16px; }
+    pre { overflow: auto; max-height: 340px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .trace { margin-top: 24px; }
+    .trace > summary { cursor: pointer; font-weight: 700; }
+    .trace-grid { display: grid; gap: 14px; margin-top: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .trace-grid[hidden] { display: none; }
+    .trace-grid h3 { margin: 0; font-size: 1rem; }
+    .trace-grid svg { display: block; width: 100%; height: 250px; margin-top: 10px; background: #0d1517; }
+    .trace-grid pre { font: inherit; font-size: .9rem; }
+    .trace-grid table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    .trace-grid th, .trace-grid td { padding: 6px; text-align: left; border-bottom: 1px solid #304643; }
+    .trace-grid polygon, .trace-grid rect { fill: none; stroke-width: 1.4; vector-effect: non-scaling-stroke; }
+    .trace-grid polygon, .ingredients-box { stroke: #ffd282; }
+    .nutrition-box { stroke: #89e5b8; }
+    .stage-label { font-size: .85rem; font-weight: 700; }
+    @media (max-width: 720px) { .row { grid-template-columns: repeat(2, 1fr); } .workspace, .trace-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <p class="eyebrow">FOODSCAN IOT</p>
+    <h1>專題儀表板</h1>
+    <p class="muted">App → Fog → Cloud → Reader</p>
+  </header>
+  <section class="row" aria-label="服務狀態">
+    <div class="card"><strong>App</strong><small class="muted">手機掃描</small></div>
+    <div class="card"><strong>Fog</strong><small id="fog" class="muted">檢查中</small></div>
+    <div class="card"><strong>Cloud</strong><small id="cloud" class="muted">檢查中</small><small><a href="#ocr-trace" id="trace-link" class="ok">辨識過程</a></small></div>
+    <div class="card"><strong>Reader</strong><small id="reader" class="muted">檢查中</small></div>
+  </section>
+  <button type="button" id="refresh">更新狀態</button>
+  <section class="card" style="margin-top: 24px" aria-label="手機即時掃描">
+    <h2>手機即時</h2>
+    <button type="button" id="fog-demo">下一筆走 Fog 降階</button>
+    <p id="fog-demo-state" class="muted" role="status">適用於手機以 Fog 送出的照片分析。</p>
+    <p id="live-status" class="muted">待掃描</p>
+    <small id="live-id" class="muted"></small>
+    <a href="#ocr-trace" id="live-ocr-link" class="ok" hidden>查看這筆掃描的辨識過程</a>
+    <dl id="live-timing">
+      <dt>手機端總耗時</dt><dd id="live-app">—</dd>
+      <dt>手機端與連線時間差</dt><dd id="live-overhead">—</dd>
+      <dt>Fog 處理與轉送時間差</dt><dd id="live-fog">—</dd>
+      <dt>Cloud 處理時間</dt><dd id="live-cloud">—</dd>
+    </dl>
+  </section>
+  <main class="workspace">
+    <section class="card">
+      <h2>試掃</h2>
+      <p class="muted">單張照片直送 Cloud</p>
+      <form id="scan">
+        <input id="photo" type="file" accept="image/jpeg,image/png,image/webp" required aria-label="食品標示照片">
+        <img id="preview" alt="待分析的食品標示照片" hidden>
+        <button id="submit">辨識</button>
+      </form>
+      <p id="progress" role="status" class="muted"></p>
+    </section>
+    <section class="card">
+      <h2>耗時</h2>
+      <dl id="timing"><dt class="muted">待掃描</dt></dl>
+      <h2>結果</h2>
+      <p id="summary" class="muted">待掃描</p>
+      <section id="partial-ingredients" hidden aria-label="部分成分結果">
+        <h3>添加物</h3>
+        <ul id="partial-additives"></ul>
+        <p id="partial-empty" class="muted" hidden>本次未比對到添加物，請以包裝為準。</p>
+        <h3>其他成分</h3>
+        <ul id="partial-others"></ul>
+      </section>
+      <details id="result" hidden><summary>詳細資料</summary><pre id="json"></pre></details>
+    </section>
+  </main>
+  <details class="card trace" id="ocr-trace">
+    <summary>Cloud · 辨識過程</summary>
+    <p id="trace-status" class="muted">用手機送出一張無條碼的標示照片，或使用網頁試掃。</p>
+    <div class="trace-grid" id="trace-grid" hidden>
+      <section class="card">
+        <h3>PP-OCR</h3>
+        <svg id="ppocr-boxes" role="img" aria-label="文字定位框"></svg>
+        <pre id="ppocr-text"></pre>
+      </section>
+      <section class="card">
+        <h3>HunyuanOCR</h3>
+        <svg id="hunyuan-boxes" role="img" aria-label="成分區與營養區的定位框"></svg>
+        <pre id="hunyuan-fields" hidden></pre>
+        <p class="stage-label warn">成分區</p>
+        <pre id="ingredients-text"></pre>
+        <p class="stage-label ok">營養表</p>
+        <div id="nutrition-text"></div>
+      </section>
+    </div>
+    <section id="structured-ocr" hidden>
+      <h3>辨識欄位 JSON</h3>
+      <pre id="structured-ocr-json"></pre>
+    </section>
+  </details>
+  <details class="card trace">
+    <summary class="muted">彩排管理</summary>
+    <p><button type="button" id="cleanup-demo">清除近期彩排紀錄</button></p>
+    <p id="cleanup-state" class="muted" role="status"></p>
+    <dialog id="cleanup-confirm">
+      <h3>確認清除彩排紀錄</h3>
+      <p id="cleanup-scope"></p>
+      <button type="button" id="cleanup-cancel">取消</button>
+      <button type="button" id="cleanup-apply">確認清除</button>
+    </dialog>
+  </details>
+  <script>
+    const byId = (id) => document.getElementById(id);
+    const statusText = {ok: '正常', degraded: '未就緒', unreachable: '無法連線'};
+    const stages = [
+      ['total', 'Cloud 總計'],
+      ['vision', 'Reader 總計'],
+      ['r_ppocr', 'PP-OCR'],
+      ['r_vlcrop_hunyuan', 'HunyuanOCR'],
+      ['r_nutrition_structure', '營養解析'],
+      ['r_qwen_fields', 'Qwen'],
+      ['r_assemble', '欄位組裝'],
+      ['diagnosis', '健康評估'],
+    ];
+    const seconds = (ms) => (ms / 1000).toFixed(2) + ' 秒';
+    let previewUrl;
+    let displayedMobileTrace;
+    let approvedCleanup;
+    const cleanupDialog = byId('cleanup-confirm');
+    byId('cleanup-demo').addEventListener('click', async () => {
+      const status = byId('cleanup-state');
+      try {
+        const response = await fetch('/api/demo/cleanup', {signal: AbortSignal.timeout(5000)});
+        if (!response.ok) throw new Error('無法讀取清除範圍。');
+        approvedCleanup = await response.json();
+        if (approvedCleanup.pending) throw new Error('請等辨識和排隊處理完成後再清除。');
+        if (!approvedCleanup.request_ids.length) throw new Error('目前沒有可清除的近期掃描。');
+        byId('cleanup-scope').textContent =
+          `清除最近 24 小時內儀表板收到的 ${approvedCleanup.request_ids.length} 筆掃描、Cloud 測試上傳及掃描新建的商品。` +
+          ` Fog 快取 key：${approvedCleanup.fog_keys.join('、') || '無'}。`;
+        cleanupDialog.showModal();
+      } catch (error) {
+        status.textContent = error.message;
+      }
+    });
+    byId('cleanup-cancel').addEventListener('click', () => cleanupDialog.close());
+    byId('cleanup-apply').addEventListener('click', async () => {
+      cleanupDialog.close();
+      const button = byId('cleanup-demo');
+      const status = byId('cleanup-state');
+      button.disabled = true;
+      status.textContent = '清除中…';
+      try {
+        const response = await fetch('/api/demo/cleanup', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'X-FoodScan-Cleanup': '1'},
+          body: JSON.stringify(approvedCleanup),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error);
+        displayedMobileTrace = undefined;
+        resetOcrTrace('等待下一筆掃描');
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        previewUrl = undefined;
+        byId('preview').removeAttribute('src');
+        byId('preview').hidden = true;
+        byId('scan').reset();
+        byId('progress').textContent = '';
+        byId('summary').textContent = '待掃描';
+        byId('timing').replaceChildren();
+        byId('partial-ingredients').hidden = true;
+        byId('partial-additives').replaceChildren();
+        byId('partial-others').replaceChildren();
+        byId('result').hidden = true;
+        byId('json').textContent = '';
+        status.textContent = `已清除 ${result.scans} 筆儀表板紀錄、${result.cloud.products ?? 0} 筆 Cloud 商品、${result.cloud.records} 筆上傳紀錄、${result.cloud.images} 張圖片及 ${result.fog} 筆 Fog 快取。`;
+      } catch (error) {
+        status.textContent = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
+    let fogDemoArmed = false;
+
+    async function refreshFogDemo(action) {
+      const button = byId('fog-demo');
+      try {
+        const options = {signal: AbortSignal.timeout(4000)};
+        if (action) {
+          options.method = 'POST';
+          options.headers = {'X-FoodScan-Demo': '1'};
+        }
+        const response = await fetch('/api/demo/fog' + (action ? '/' + action : ''), options);
+        if (!response.ok) throw new Error();
+        const state = await response.json();
+        const wasArmed = fogDemoArmed;
+        fogDemoArmed = state.armed;
+        button.textContent = fogDemoArmed ? '取消 Fog 降階' : '下一筆走 Fog 降階';
+        if (fogDemoArmed) {
+          byId('fog-demo-state').textContent = '已啟用。請在 2 分鐘內用手機送出一筆 Fog 照片分析。';
+        } else if (wasArmed || action) {
+          byId('fog-demo-state').textContent = '目前已恢復一般分析。';
+        }
+      } catch {
+        byId('fog-demo-state').textContent = '無法讀取 Fog 展示設定。';
+      } finally {
+        if (action) button.disabled = false;
+      }
+    }
+
+    function svgElement(tag, attrs) {
+      const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
+      for (const [name, value] of Object.entries(attrs)) node.setAttribute(name, value);
+      return node;
+    }
+
+    function resetOcrTrace(message) {
+      byId('trace-status').textContent = message;
+      byId('trace-grid').hidden = true;
+      byId('hunyuan-fields').hidden = true;
+      byId('structured-ocr').hidden = true;
+      byId('structured-ocr-json').textContent = '';
+      for (const id of ['ppocr-boxes', 'hunyuan-boxes', 'ppocr-text', 'hunyuan-fields', 'ingredients-text', 'nutrition-text']) {
+        byId(id).replaceChildren();
+      }
+    }
+
+    function showNutrition(lines) {
+      const panel = byId('nutrition-text');
+      const isTableLine = (line) => /^\s*\|.*\|\s*$/.test(line);
+      const start = lines.findIndex(isTableLine);
+      const next = lines.findIndex((line, index) => index > start && !isTableLine(line));
+      const end = next < 0 ? lines.length : next;
+      const tableLines = start < 0 ? [] : lines.slice(start, end);
+      const rows = tableLines.map((line) => line.trim().slice(1, -1).split('|').map((cell) => cell.trim()));
+      const isTable = rows.length >= 3 &&
+        rows[1].every((cell) => /^:?-{2,}:?$/.test(cell)) &&
+        rows.every((row) => row.length === rows[0].length);
+      if (!isTable) {
+        const text = document.createElement('pre');
+        text.textContent = lines.join('\n') || '未定位';
+        panel.replaceChildren(text);
+        return;
+      }
+      const table = document.createElement('table');
+      const head = table.createTHead().insertRow();
+      const body = table.createTBody();
+      for (const value of rows[0]) {
+        const cell = document.createElement('th');
+        cell.scope = 'col';
+        cell.textContent = value;
+        head.append(cell);
+      }
+      for (const row of rows.slice(2)) {
+        const line = body.insertRow();
+        for (const value of row) line.insertCell().textContent = value;
+      }
+      panel.replaceChildren();
+      for (const [index, notes] of [lines.slice(0, start), lines.slice(end)].entries()) {
+        if (index === 1) panel.append(table);
+        if (notes.length) {
+          const text = document.createElement('pre');
+          text.textContent = notes.join('\n');
+          panel.append(text);
+        }
+      }
+    }
+
+    function showOcrTrace(ocr, imageUrl = previewUrl, source = '網頁試掃') {
+      if (!ocr) {
+        resetOcrTrace('無辨識紀錄');
+        return;
+      }
+      const [width, height] = ocr.size;
+      const ppocr = byId('ppocr-boxes');
+      const hunyuan = byId('hunyuan-boxes');
+      for (const panel of [ppocr, hunyuan]) {
+        panel.setAttribute('viewBox', `0 0 ${width} ${height}`);
+        panel.replaceChildren(svgElement('image', {href: imageUrl, width, height}));
+      }
+      for (const line of ocr.ppocr) {
+        if (line.box) {
+          ppocr.append(svgElement('polygon', {points: line.box.map((point) => point.join(',')).join(' ')}));
+        }
+      }
+      byId('ppocr-text').textContent = ocr.ppocr.map((line) => line.text).join('\n') || '未讀到文字';
+      const fields = ocr.hunyuan.ingredients.fields || [];
+      byId('hunyuan-fields').textContent = fields.join('\n');
+      byId('hunyuan-fields').hidden = fields.length === 0;
+      for (const kind of ['ingredients', 'nutrition']) {
+        const region = ocr.hunyuan[kind];
+        if (kind === 'nutrition') showNutrition(region.lines);
+        else byId('ingredients-text').textContent = region.lines.join('\n') || '未定位';
+        if (region.box) {
+          const [x, y, right, bottom] = region.box;
+          hunyuan.append(svgElement('rect', {x, y, width: right - x, height: bottom - y,
+                                            class: kind + '-box'}));
+        }
+      }
+      byId('trace-status').textContent = [source, ocr.nutrition_notice].filter(Boolean).join(' · ');
+      byId('trace-grid').hidden = false;
+      byId('structured-ocr').hidden = !ocr.structured;
+      const structured = ocr.scoring_nutrition
+        ? {ocr_fields: ocr.structured, scoring_nutrition: ocr.scoring_nutrition}
+        : ocr.structured;
+      byId('structured-ocr-json').textContent = structured ? JSON.stringify(structured, null, 2) : '';
+    }
+
+    async function refreshLive() {
+      try {
+        if (document.hidden) return;
+        if (!byId('fog-demo').disabled) void refreshFogDemo();
+        const response = await fetch('/api/live', {signal: AbortSignal.timeout(4000)});
+        if (!response.ok) throw new Error();
+        const trace = await response.json();
+        if (!trace) {
+          byId('live-ocr-link').hidden = true;
+          byId('live-status').textContent = '待掃描';
+          byId('live-id').textContent = '';
+          for (const layer of ['app', 'overhead', 'fog', 'cloud']) byId('live-' + layer).textContent = '—';
+          return;
+        }
+        const labels = {started: '辨識中', success: '完成', degraded: '降階', failed: '失敗', queued: '排隊中'};
+        const cacheLabels = {HIT: '快取', 'HIT-RAW': '快取', STALE: '舊快取'};
+        const stale = trace.stale;
+        byId('live-status').textContent = [
+          stale ? '未回報' : labels[trace.phase], cacheLabels[trace.cache],
+          trace.endpoint === 'cloud' ? '直連' : null,
+          trace.phase === 'failed' && trace.http_status ? 'HTTP ' + trace.http_status : null,
+        ].filter(Boolean).join(' · ');
+        byId('live-id').textContent = trace.request_id;
+        const missing = trace.phase === 'started' && !stale ? '待回報' : '—';
+        const format = (value) => Number.isFinite(value) ? seconds(value) : missing;
+        const difference = (total, part) =>
+          Number.isFinite(total) && Number.isFinite(part) && total >= part ? total - part : null;
+        const fogTotal = trace.fog_node?.total ?? trace.fog_py?.total;
+        const cloudTotal = trace.cloud?.total;
+        const direct = trace.endpoint === 'cloud';
+        byId('live-app').textContent = format(trace.total_ms);
+        byId('live-overhead').textContent = format(difference(trace.total_ms, direct ? cloudTotal : fogTotal));
+        byId('live-fog').textContent = direct ? '略過' :
+          format(Number.isFinite(cloudTotal) ? difference(fogTotal, cloudTotal) : fogTotal);
+        byId('live-cloud').textContent = format(cloudTotal);
+        byId('live-ocr-link').hidden = !trace.ocr_ready;
+        if (trace.ocr_ready && trace.request_id !== displayedMobileTrace && !byId('submit').disabled) {
+          const detail = await fetch('/api/live/ocr/' + encodeURIComponent(trace.request_id),
+                                     {signal: AbortSignal.timeout(5000)});
+          if (detail.ok) {
+            const {image, trace: ocr} = await detail.json();
+            showOcrTrace(ocr, 'data:image/jpeg;base64,' + image.replace(/^data:image\/[^;]+;base64,/, ''),
+                         '手機掃描 · ' + trace.request_id);
+            byId('ocr-trace').open = true;
+            displayedMobileTrace = trace.request_id;
+          }
+        }
+      } catch {
+        byId('live-status').textContent = '連線中斷';
+      } finally {
+        setTimeout(refreshLive, 1500);
+      }
+    }
+
+    async function refresh() {
+      byId('refresh').disabled = true;
+      try {
+        const response = await fetch('/api/status');
+        if (!response.ok) throw new Error();
+        const services = await response.json();
+        for (const [name, service] of Object.entries(services)) {
+          const detail = name === 'cloud' ? service.vision_backend : service.reader;
+          byId(name).textContent = [statusText[service.status] || service.status || '未知', detail].filter(Boolean).join(' · ');
+          byId(name).className = service.status === 'ok' ? 'ok' : 'warn';
+        }
+      } catch {
+        for (const name of ['cloud', 'reader', 'fog']) byId(name).textContent = '狀態未知';
+      } finally {
+        byId('refresh').disabled = false;
+      }
+    }
+
+    async function compress(file) {
+      const bitmap = await createImageBitmap(file);
+      const canvas = document.createElement('canvas');
+      try {
+        const scale = Math.min(1, 1920 / bitmap.width, 4096 / bitmap.height,
+                               Math.sqrt(5000000 / (bitmap.width * bitmap.height)));
+        canvas.width = Math.max(1, Math.floor(bitmap.width * scale));
+        canvas.height = Math.max(1, Math.floor(bitmap.height * scale));
+        const context = canvas.getContext('2d', {alpha: false});
+        context.fillStyle = '#fff';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+        if (!blob) throw new Error('無法壓縮這張照片。');
+        return blob;
+      } finally {
+        bitmap.close();
+        canvas.width = canvas.height = 0;
+      }
+    }
+
+    function showResult(data) {
+      const list = byId('timing');
+      list.replaceChildren();
+      for (const [label, value] of [
+        ['總耗時', data.elapsed_ms],
+        ...stages.map(([key, name]) => [name, data.timing[key]]),
+      ]) {
+        if (!Number.isFinite(value)) continue;
+        const term = document.createElement('dt');
+        const definition = document.createElement('dd');
+        term.textContent = label;
+        definition.textContent = seconds(value);
+        list.append(term, definition);
+      }
+      const result = data.result;
+      if (result.status === 'degraded' && result.degraded_mode === 'cloud_nutrition_incomplete') {
+        const additives = byId('partial-additives');
+        const others = byId('partial-others');
+        for (const item of result.ingredients_detail) {
+          const row = document.createElement('li');
+          row.textContent = item.officialName || item.name;
+          const matched = item.isAdditive === true || item.isAdditive === 'true';
+          (matched ? additives : others).append(row);
+        }
+        byId('partial-empty').hidden = additives.childElementCount > 0;
+        byId('partial-ingredients').hidden = false;
+      }
+      const product = result.product_info || {};
+      byId('summary').textContent = result.status === 'success'
+        ? [product.name || product.product_name || '已辨識',
+           result.health_score == null ? null : '健康評分 ' + result.health_score,
+           result.nutri_grade ? 'Nutri-Score ' + result.nutri_grade : null].filter(Boolean).join(' · ')
+        : (result.message || result.status || '未完成');
+      byId('json').textContent = JSON.stringify(result, null, 2);
+      byId('result').hidden = false;
+    }
+
+    byId('refresh').addEventListener('click', refresh);
+    byId('trace-link').addEventListener('click', () => { byId('ocr-trace').open = true; });
+    byId('fog-demo').addEventListener('click', () => {
+      byId('fog-demo').disabled = true;
+      void refreshFogDemo(fogDemoArmed ? 'cancel' : 'arm');
+    });
+    byId('live-ocr-link').addEventListener('click', () => {
+      displayedMobileTrace = undefined;
+      byId('ocr-trace').open = true;
+    });
+    byId('scan').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const file = byId('photo').files[0];
+      if (!file || byId('submit').disabled) return;
+      byId('submit').disabled = byId('photo').disabled = true;
+      byId('result').hidden = true;
+      byId('partial-ingredients').hidden = true;
+      byId('partial-additives').replaceChildren();
+      byId('partial-others').replaceChildren();
+      byId('json').textContent = '';
+      byId('timing').replaceChildren();
+      byId('summary').textContent = '處理中';
+      byId('progress').textContent = '壓縮中';
+      resetOcrTrace('辨識中');
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      byId('preview').hidden = true;
+      let timer;
+      try {
+        const image = await compress(file);
+        previewUrl = URL.createObjectURL(image);
+        byId('preview').src = previewUrl;
+        byId('preview').hidden = false;
+        const start = performance.now();
+        const update = () => { byId('progress').textContent = '辨識中 · ' + seconds(performance.now() - start); };
+        update();
+        timer = setInterval(update, 250);
+        const response = await fetch('/api/scan', {
+          method: 'POST', headers: {'Content-Type': 'application/octet-stream'}, body: image,
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        showResult(data);
+        showOcrTrace(data.demo_ocr);
+        byId('progress').textContent = '已完成';
+      } catch (error) {
+        resetOcrTrace('無辨識紀錄');
+        byId('summary').textContent = '未完成';
+        byId('progress').textContent = error.message;
+      } finally {
+        clearInterval(timer);
+        byId('submit').disabled = byId('photo').disabled = false;
+      }
+    });
+    refresh();
+    refreshLive();
+  </script>
+</body>
+</html>

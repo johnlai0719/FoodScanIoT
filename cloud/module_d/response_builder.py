@@ -13,6 +13,18 @@ from .summary import build_additives_summary, build_overall_summary
 from datetime import datetime
 
 
+def build_nutrition_partial_response(barcode, ingredients_detail, message):
+    return {
+        "status": "degraded",
+        "degraded_mode": "cloud_nutrition_incomplete",
+        "message": message,
+        "barcode": barcode,
+        "ingredients_detail": ingredients_detail,
+        "unavailable_fields": ["health_score", "risk_level", "score_breakdown",
+                               "nutrition_facts", "daily_reference"],
+    }
+
+
 def build_response(product, ai_data, calc_result, deterministic_score,
                    chemical, basic, calculated_ingredient_types,
                    final_safety_events, raw_allergens, nutrition,

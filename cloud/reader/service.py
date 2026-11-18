@@ -10,13 +10,13 @@ GPU，裝進 python:3.11-slim 既肥又會與主機環境分岔。
                 reader（:8180, 主機）
                       ├─ PP-OCR         in-process
                       ├─ HunyuanOCR     :8177
-                      └─ Qwen3.5-2B     :8179
+                      └─ Qwen3.5-2B     :8179（選用對照）
 
 啟動：
     python cloud/reader/service.py
     （或 uvicorn cloud.reader.service:app --host 0.0.0.0 --port 8180）
 
-預設由 reader 啟動並管理 HunyuanOCR 與 Qwen，請先停止舊 start_models.py。
+預設由 Reader 啟動並管理 HunyuanOCR，請先停止舊 start_models.py。
 READER_MANAGE_MODELS=0 才使用外部啟動器；詳見 cloud/reader/README.md。
 """
 import os
@@ -25,6 +25,7 @@ import threading
 import time
 
 import requests
+from dotenv import dotenv_values
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
@@ -33,13 +34,15 @@ import pipeline  # noqa: E402
 from input_limits import InputRejected
 from model_manager import ModelManager, ModelUnavailable
 from request_limits import RequestLimits
+from start_models import SERVERS
 
 app = FastAPI(title="FoodScan vlcrop reader")
 app.add_middleware(RequestLimits,
                    max_bytes=int(os.getenv("READER_MAX_BODY_BYTES", str(16 * 1024**2))),
                    capacity=int(os.getenv("READER_REQUEST_CAPACITY", "2")))
 MANAGE_MODELS = os.getenv("READER_MANAGE_MODELS", "1") not in ("0", "false")
-manager = ModelManager() if MANAGE_MODELS else None
+active_models = [config for config in SERVERS if pipeline.USE_QWEN or config["name"] != "qwen"]
+manager = ModelManager(active_models) if MANAGE_MODELS else None
 
 # 與 Cloud 共用同一把密鑰。這支雖然只綁本機，但它會吃 GPU 數十秒，
 # 沒有驗證等於任何本機程序都能拖垮辨識。未設時放行並在 /health 標明，
@@ -53,26 +56,22 @@ def _secret():
         return v
     env = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                        "..", ".env")
-    try:
-        for line in open(env, encoding="utf-8"):
-            if line.startswith("API_SHARED_SECRET="):
-                return line.split("=", 1)[1].strip()
-    except OSError:
-        pass
-    return ""
+    return (dotenv_values(env, encoding="utf-8-sig").get("API_SHARED_SECRET") or "").strip()
 
 
 SECRET = _secret()
 
 MODEL_SERVERS = {
     "hunyuan": (os.getenv("HY_URL") or "http://127.0.0.1:8177/v1/models").replace("/chat/completions", "/models"),
-    "qwen": (os.getenv("LF_URL") or "http://127.0.0.1:8179/v1/models").replace("/chat/completions", "/models"),
 }
+if pipeline.USE_QWEN:
+    MODEL_SERVERS["qwen"] = (os.getenv("LF_URL") or "http://127.0.0.1:8179/v1/models").replace("/chat/completions", "/models")
 
 
 class ReadRequest(BaseModel):
     label_images: list[str]
     barcode: str = "unknown"
+    include_ocr: bool = False
 
 
 def _probe(url):
@@ -90,7 +89,10 @@ def _startup():
         try:
             if manager is not None:
                 from urllib.parse import urlparse
-                for env, port in (("HY_URL", 8177), ("QWEN_URL", 8179), ("LF_URL", 8179)):
+                endpoints = [("HY_URL", 8177)]
+                if pipeline.USE_QWEN:
+                    endpoints.extend([("QWEN_URL", 8179), ("LF_URL", 8179)])
+                for env, port in endpoints:
                     value = os.getenv(env)
                     if value:
                         parsed = urlparse(value)
@@ -150,7 +152,10 @@ def read(req: ReadRequest, x_api_key: str = Header(default="")):
                             detail="模型服務未啟動：%s" % ", ".join(down))
     t0 = time.time()
     try:
-        out = pipeline.read(req.label_images, req.barcode)
+        if req.include_ocr and SECRET and req.barcode == "TEST" and len(req.label_images) == 1:
+            out = pipeline.read(req.label_images, req.barcode, include_ocr=True)
+        else:
+            out = pipeline.read(req.label_images, req.barcode)
     except InputRejected as e:
         raise HTTPException(status_code=e.status_code, detail=str(e)) from e
     except ModelUnavailable as e:

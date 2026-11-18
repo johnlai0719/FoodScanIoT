@@ -27,6 +27,33 @@ const MAX_RECORDS = 500;
 
 export type TimingSegments = Record<string, number>;
 
+const DEMO_TRACE_URL = process.env.EXPO_PUBLIC_DEMO_TRACE_URL;
+
+type DemoTrace = Pick<ScanRecord, 'request_id' | 'endpoint'> & (
+  { phase: 'started' } |
+  Pick<ScanRecord, 'total_ms' | 'fog_node' | 'fog_py' | 'cloud' | 'cache' | 'http_status'> &
+  { phase: 'success' | 'degraded' | 'failed' }
+);
+
+/** Optional live demo feed. Only status and timings leave the phone. */
+export async function publishDemoTrace(event: DemoTrace): Promise<void> {
+  if (!DEMO_TRACE_URL) return;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 4000);
+  try {
+    await fetch(DEMO_TRACE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(event),
+      signal: controller.signal,
+    });
+  } catch {
+    // The demo feed is independent of scanning.
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export interface ScanRecord {
   /** 與三層的紀錄對得起來的關聯鍵，由 App 產生並逐層轉發。 */
   request_id: string;

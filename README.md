@@ -16,7 +16,7 @@ cloud/    雲端：分析 API、視覺辨識、添加物知識庫、管理後台
 | 路徑 | 內容 |
 |---|---|
 | `main.py`、`module_a`～`module_d` | 分析 API（FastAPI，對外 :3003）：成分與添加物比對、Nutri-Score 與每日參考值、食安事件（目前停用）、組裝回應 |
-| `reader/` | 視覺辨識服務（:8180）：PP-OCR 定位 → 裁切 → HunyuanOCR 讀字 → Qwen 整理欄位。**需要 GPU，跑在主機上，不在容器內** |
+| `reader/` | 視覺辨識服務（:8180）：PP-OCR 定位 → 裁切 → HunyuanOCR 分區辨識 → 規則組裝欄位。**需要 GPU，跑在主機上，不在容器內** |
 | `vision/` | 辨識模組（成分切分、營養表解析、裁切等），`reader/` 與 Fog 的本機 OCR 共用 |
 | `seed_data/` | 添加物知識庫（804 筆）與廠商清單的初始資料 |
 | `web/` | 添加物開放查詢平台與管理後台（React＋Vite） |
@@ -57,4 +57,4 @@ Reader 現在會自行啟動及管理本機模型；升級前先停止舊 `start
 ## 技術組成
 
 App：React Native（Expo）、NativeWind｜Fog：Node.js（Express）＋ Python（FastAPI）、SQLite｜
-Cloud：FastAPI、PostgreSQL、SQLAlchemy｜辨識：PaddleOCR、HunyuanOCR、Qwen3.5-2B（llama.cpp）；Gemini 2.5 Flash 保留為對照
+Cloud：FastAPI、PostgreSQL、SQLAlchemy｜辨識：PaddleOCR、HunyuanOCR（llama.cpp）｜對照：Qwen3.5-2B、Gemini 2.5 Flash
