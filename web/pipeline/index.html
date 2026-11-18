@@ -1,37 +1,40 @@
 <!doctype html>
 <html lang="zh-Hant">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>FoodScan — Live Pipeline</title><link rel="stylesheet" href="/style.css?v=20261031-rehearsal1"></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>FoodScan — Live Pipeline</title><link rel="stylesheet" href="/style.css?v=20261103-zoom"></head>
 <body>
 <header class="topbar"><a class="brand" href="/" aria-label="FoodScan 首頁">FoodScan Demo</a><div class="top-actions"><span id="connection" class="connection"><i></i>連線中</span><button id="fullscreen" class="quiet">全螢幕 ↗</button></div></header>
 <main>
 <section class="heading"><h1>即時處理流程</h1><div class="mode-box"><span id="mode" class="mode">LIVE PIPELINE</span><span id="request-id">等待手機發起掃描</span></div></section>
-<section class="demo-control" aria-labelledby="demo-control-title">
-<div><h2 id="demo-control-title">雲端連線模擬</h2><p>只模擬 Fog → Cloud 中斷；快取與手機連線照常。已送出的雲端請求不受影響。</p></div>
-<div class="demo-actions"><label><input id="demo-auto" type="checkbox" checked> 任務入列後 5 秒自動恢復</label><button id="demo-offline" class="quiet" disabled>模擬雲端斷線</button><button id="demo-restore" class="quiet" disabled>恢復雲端連線</button></div>
-<p id="demo-control-status" role="status">正在確認 Fog 控制連線…</p>
-<p id="demo-control-note">設定與實際回報分開顯示；解除模擬後仍需等待補送與分析。模擬最長 120 秒，失去控制連線也會自動解除。</p>
+
+<section class="demo-control show-flow" aria-labelledby="show-flow-title">
+<h2 id="show-flow-title">展演順序</h2><ol class="show-sequence"><li><strong>商品 A · 首次辨識</strong><span>Fog Miss → Cloud 分析 → 手機結果</span></li><li><strong>同一商品 A · 再掃一次</strong><span>Fog Hit → 快取直接回傳</span></li><li><strong>新商品 B · Cloud 暫時不可用</strong><span>Fog Miss → Queue 保存任務</span></li><li><strong>恢復 Cloud，再看其他包裝</strong><span>補送取得結果，再依序展示不同食品</span></li></ol>
+<div class="demo-actions"><button id="cloud-unavailable" class="quiet" disabled>商品 B 展示前：Cloud 回應不可用</button><button id="cloud-restore" class="quiet" disabled>恢復 Cloud · 讓 Fog 補送</button></div><p id="cloud-availability-status" role="status">正在確認 Cloud 展演設定…</p><p>此開關只讓 Cloud 回應 HTTP 503，不停止服務；Fog 快取照常。已進入分析的請求不受影響，最長 3 分鐘後自動恢復。恢復後仍需等待 Fog 補送及手機收到結果。</p>
 </section>
-<section class="demo-control" aria-labelledby="rehearsal-title">
-<h2 id="rehearsal-title">展演任務與資料重設</h2>
-<p>選擇「下一筆走 Miss」後，下一次手機正常掃描有效條碼時，Fog 會先清除該條碼快取，再執行真正的查詢。只作用一次；不會直接觸發付費辨識。</p><div class="demo-actions"><button id="rehearsal-arm" class="quiet" type="button">下一筆走 Miss</button><button id="rehearsal-cancel" class="quiet" type="button">取消預備</button><button id="rehearsal-reset-new" class="quiet" type="button" disabled>封存本輪新增資料（可還原）</button></div><p id="rehearsal-next-status" role="status">尚未設定下一筆路徑</p><details><summary>或預先準備指定條碼</summary>
-<form id="rehearsal-form" class="demo-actions"><label>本次條碼 <input id="rehearsal-barcode" inputmode="numeric" pattern="[0-9]{8,14}" minlength="8" maxlength="14" required placeholder="8–14 位商品條碼"></label><button class="quiet" id="rehearsal-prepare" type="submit">準備手機下一筆 · 清除指定快取</button></form></details>
+<details open class="demo-control rehearsal-prep" aria-labelledby="rehearsal-title">
+<summary id="rehearsal-title">重設測試條碼 · Fog ＋ Cloud</summary>
+<p>輸入要重新測試的條碼，一次清除 Fog 快取並封存 Cloud 既有商品與圖片。完成後重新拍照送出，即可測試完整辨識。</p><div class="demo-actions"><button id="rehearsal-reset-new" hidden class="quiet" type="button" disabled>結束後：封存本輪新增資料（可還原）</button></div><div class="rehearsal-batch">
+<h3>輸入測試條碼</h3>
+<p>每行一個，最多 20 個條碼。只處理指定條碼，Cloud 資料保留可還原封存；失敗項目會逐筆顯示。請等分析與補送完成再操作。</p>
+<form id="rehearsal-form"><label for="rehearsal-barcodes">展演條碼清單</label><textarea id="rehearsal-barcodes" rows="4" maxlength="600" required spellcheck="false" placeholder="4710000000001&#10;4710000000002&#10;4710000000003"></textarea><div class="demo-actions"><span id="rehearsal-batch-count">尚未輸入條碼</span><button class="quiet" id="rehearsal-prepare" type="submit">重設指定條碼（Fog ＋ Cloud）</button></div></form>
+<ul id="rehearsal-batch-results" aria-label="批次條碼處理結果" aria-live="polite"></ul>
+</div>
 <p id="rehearsal-status" role="status">正在讀取展演任務…</p>
 <div id="rehearsal-list" class="rehearsal-list"></div>
-<p>重設會封存這輪新增的商品與圖片，讓原條碼可重新展演；可還原。既有商品／圖片與未登記的歷史資料不會清除。請先等手機收件完成再重設；App 的本地歷史紀錄需另行管理。</p>
-</section>
+<p>重設會讓指定條碼在 Cloud 查不到原商品；可在下方封存紀錄還原。若已掃描產生新商品，還原前需先重設新一輪資料。App 本地歷史需另行管理。</p>
+</details>
 <section id="fog-situation" class="fog-situation" aria-label="目前狀況與實際處理路徑">
 <div><span class="mini-label">目前狀況</span><h2 id="demo-scenario">等待掃描</h2><p id="pipeline-explanation">等待收到本次掃描的處理事件。</p></div>
 <div><span class="mini-label">本次 Pipeline</span><strong id="fog-outcome">等待確認路徑</strong><p id="fog-explanation"></p></div>
 <details><summary>查看 Fog 事件紀錄</summary><ol id="fog-timeline"></ol></details>
 </section>
 <div class="workspace">
-<aside class="panel pipeline"><div class="panel-heading"><span class="section-number">01</span><h2>處理流程</h2><span id="count" class="muted">0 / 6</span></div><div id="stages" class="stages"></div><div class="pipeline-bottom"><span class="mini-label">階段進度</span><strong id="status-title">準備接收影像</strong><p id="status-detail">在 FoodScan App 掃描商品，這裡會同步呈現實際處理進度。</p><div class="signal-line"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></aside>
+<aside class="panel pipeline"><div class="panel-heading"><span class="section-number">01</span><h2>處理流程</h2><span id="count" class="muted">0 / 5</span></div><div id="stages" class="stages"></div><div class="pipeline-bottom"><span class="mini-label">階段進度</span><strong id="status-title">準備接收影像</strong><p id="status-detail">在 FoodScan App 掃描商品，這裡會同步呈現實際處理進度。</p><div class="signal-line"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></aside>
 <section class="panel visual"><div class="panel-heading"><span class="section-number">02</span><h2 id="visual-title">階段內容</h2><div id="legend" class="legend"><span><i class="orange"></i>文字外接大框</span></div></div><section id="stage-inspector" class="stage-inspector" aria-label="選取階段的處理說明">
 <div class="inspector-heading"><div><span id="detail-step" class="mini-label"></span><h3 id="detail-title"></h3></div><span id="detail-status" class="detail-status"></span></div>
 <p id="detail-description"></p><div class="io-grid"><div><span>輸入</span><p id="detail-input"></p></div><div><span>處理方式</span><p id="detail-method"></p></div><div><span>輸出</span><p id="detail-output"></p></div></div>
 <div id="detail-evidence" class="detail-evidence"></div><details id="output-details" hidden><summary id="output-summary">查看本次輸出</summary><pre id="output-text"></pre></details>
 </section><div id="image-view" class="image-view"><div id="empty-image" class="empty-image"><svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><rect x="9" y="9" width="46" height="46" rx="11"/><circle cx="25" cy="25" r="5"/><path d="m13 46 15-14 9 9 7-7 10 11"/></svg><h3>等待商品影像</h3><p>等待 App 上傳商品影像</p></div><canvas id="photo" aria-label="原始包裝影像與規則產生的區域框" hidden></canvas><span id="image-badge" class="image-badge" hidden>VISION + SPATIAL RULES</span></div><div class="image-meta"><span id="image-name">尚未接收影像</span><span id="image-stats">—</span></div><div id="crop-heading" class="crop-heading"><span>Gemini 輸入預覽（第一張照片）</span><span id="crop-count" class="muted">等待區域分流</span></div><div id="crops" class="crops"><div class="crop-placeholder">等待文字外接大框</div></div></section>
-<aside class="panel result"><div class="panel-heading"><span class="section-number">03</span><h2>結果同步</h2></div><div id="phone" class="phone"><div class="phone-camera"></div><div class="phone-top"><span>FoodScan</span><span>●</span></div><div id="phone-body" class="phone-body"><div class="phone-orbit"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M10 4H5v5m17-5h5v5M5 23v5h5m17-5v5h-5M9 16h14"/></svg></div><h3>等待掃描</h3><p>實際結果將顯示於手機 App</p></div><div class="phone-home"></div></div><div id="sync-state" class="sync-state"><i></i><span>等待 App 確認接收</span></div><p class="receipt-note">收到 App 顯示結果後的回報，才會標示同步完成。</p><div class="result-foot"><span>圖片理解</span><strong>Google Vision × Gemini</strong><span>區域分流</span><strong>文字與位置規則</strong></div></aside>
+
 </div>
 <details class="experimental-tools"><summary>實驗工具封存 · 不列入主要展示</summary>
 <section id="grounding-lab" class="panel grounding-lab" aria-labelledby="grounding-title">
@@ -47,7 +50,7 @@
 <div id="notice" class="notice" role="status" hidden></div>
 </main>
 <dialog id="image-zoom" class="image-zoom" aria-labelledby="image-zoom-title">
-<div class="zoom-panel"><header class="zoom-toolbar"><h2 id="image-zoom-title">圖片預覽</h2><button id="image-zoom-close" class="quiet" type="button" autofocus aria-label="關閉圖片預覽">關閉 ×</button></header><div class="zoom-body"><img id="image-zoom-photo" alt=""></div><p class="zoom-hint">按 Esc 或點擊背景關閉</p></div>
+<div class="zoom-panel"><header class="zoom-toolbar"><h2 id="image-zoom-title">圖片預覽</h2><button id="image-zoom-close" class="quiet" type="button" autofocus aria-label="關閉圖片預覽">關閉 ×</button></header><div class="zoom-controls" aria-label="圖片縮放控制"><button id="zoom-out" class="quiet" type="button" aria-label="縮小圖片">−</button><label for="zoom-percent">倍率 <input id="zoom-percent" type="number" min="10" max="800" step="10" value="100" inputmode="numeric"> %</label><button id="zoom-in" class="quiet" type="button" aria-label="放大圖片">＋</button><button id="zoom-fit" class="quiet" type="button">符合視窗</button><button id="zoom-actual" class="quiet" type="button">原始大小</button></div><div id="zoom-viewport" class="zoom-body" tabindex="0" aria-label="滾輪縮放、拖曳移動圖片"><div id="zoom-stage"><img id="image-zoom-photo" alt="" draggable="false"></div></div><p class="zoom-hint">滾輪縮放 · 拖曳移動 · 可輸入 10–800% · Esc 關閉</p></div>
 </dialog>
-<script src="/app.js?v=20261031-rehearsal1" defer></script>
+<script src="/app.js?v=20261107-completion" defer></script>
 </body></html>

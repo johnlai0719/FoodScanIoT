@@ -1,27 +1,70 @@
 const $=id=>document.getElementById(id);
 const icons={fog:'<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/>',image:'<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m4 18 6-6 4 4 3-3 4 5"/>',vision:'<path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5M6 12h12"/>',routing:'<rect x="6" y="6" width="15" height="15" rx="2"/><path d="M3 16V3h13M10 3v18"/>',gemini:'<path d="m12 2 2.7 7.3L22 12l-7.3 2.7L12 22l-2.7-7.3L2 12l7.3-2.7Z"/>',sync:'<rect x="6" y="2" width="12" height="20" rx="3"/><path d="M10 18h4"/>'};
-const stages=[['image','影像接收','手機上傳商品包裝'],['fog','Fog 決策','快取、雲端與離線佇列'],['vision','Google Vision','辨識文字與位置'],['routing','Region Routing','每張照片一個文字外接框'],['gemini','Gemini','結構化讀取包裝資訊'],['sync','結果同步','等待 App 顯示結果回報']];
+const stages=[['image','影像接收','手機上傳商品包裝'],['fog','Fog 決策','快取、雲端與離線佇列'],['vision','Google Vision','辨識文字與位置'],['routing','Region Routing','每張照片一個文字外接框'],['gemini','Gemini','結構化讀取包裝資訊']];
 let current=null, sampleMode=false, imageKey='', media=null, selectedStage='image';
 function node(tag,cls,text){const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;}
+function analysisFinished(job){
+ if(!job||job.failed||job.mode==='sample'||job.payload?.ocr_quality?.decision==='retake')return false;
+ return job.stages?.gemini?.status==='done'||['active','done'].includes(job.stages?.sync?.status);
+}
 function render(job){current=job;const p=job?.payload||{};const states=job?.stages||{};const sample=job?.mode==='sample';$('mode').textContent=job?.mode==='simulation'?'SIMULATION · 合成演示':sample?'SAVED VISION SAMPLE':'LIVE PIPELINE';$('mode').classList.toggle('sample',sample);$('request-id').textContent=job?.request_id||'等待手機發起掃描';renderStageList(job);
- let title='準備接收影像',detail='在 FoodScan App 掃描商品，這裡會同步呈現實際處理進度。';const active=[...stages].reverse().find(([id])=>states[id]?.status==='active');if(job){title=active?active[1]+'處理中':'等待下一個進度事件';detail='此畫面依實際回報更新，不以動畫時間推估完成。';}if(states.gemini?.status==='done'){title='辨識完成';detail='等待後端結果備妥，再由 App 確認接收。';}if(states.sync?.status==='active'){title='結果已備妥';detail='等待 App 收到並顯示結果後回報。';}if(sample){title='已存分區範例';detail='這是先前的真實 Vision 紀錄；未執行 Gemini，也未連動手機。';}if(job?.phone_received){title='手機已確認接收';detail='同一筆掃描的結果已由 App 回報顯示完成。';}if(job?.failed){title='這次處理未完成';detail=job.error||'請在手機查看提示並重試。';}$('status-title').textContent=title;$('status-detail').textContent=detail;document.querySelector('.signal-line').classList.toggle('busy',!!active&&!sample&&!job?.failed);
+ let title='準備接收影像',detail='在 FoodScan App 掃描商品，這裡會同步呈現實際處理進度。';const active=[...stages].reverse().find(([id])=>states[id]?.status==='active');if(job){title=active?active[1]+'處理中':'等待下一個進度事件';detail='此畫面依實際回報更新，不以動畫時間推估完成。';}if(analysisFinished(job)){title='分析完成，回傳 App';detail=states.gemini?.status==='done'?'Gemini 已完成，儀表板流程結束。':'結果已備妥，儀表板流程結束。';}if(sample){title='已存分區範例';detail='這是先前的真實 Vision 紀錄；未執行 Gemini，也未連動手機。';}if(job?.failed){title='這次處理未完成';detail=job.error||'請在手機查看提示並重試。';}$('status-title').textContent=title;$('status-detail').textContent=detail;document.querySelector('.signal-line').classList.toggle('busy',!!active&&!sample&&!job?.failed&&!analysisFinished(job));
  $('notice').hidden=!sample&&!job?.failed&&p.cached!==true;if(p.cached===true)$('notice').textContent='本次使用快取結果，未回報的辨識階段不會標示為已執行。';if(sample)$('notice').textContent='已存歷史分區範例，非本次單框主流程掃描；未執行 Gemini，也未連動手機。';if(job?.failed)$('notice').textContent=detail;
  $('image-name').textContent=p.source_name||p.result?.product_name||(p.source_image?'本次包裝影像':'尚未接收影像');$('image-stats').textContent=p.regions?`${p.regions.length} REGIONS`:(p.word_boxes?`${p.word_boxes} WORD BOXES`:'—');$('image-badge').hidden=!p.source_image;$('image-badge').textContent=p.regions?'VISION + SPATIAL RULES':'IMAGE RECEIVED';
  const key=(job?.request_id||'')+':'+(p.regions?.length||0)+':'+(p.source_image?.length||0);if(key!==imageKey){imageKey=key;if(p.source_image){const im=new Image();im.onload=()=>{if(key!==imageKey)return;media=im;drawPhoto(p);};im.src=p.source_image;}else{$('empty-image').hidden=false;$('photo').hidden=true;}}
  $('crops').replaceChildren();if(p.crops?.length){p.crops.forEach(c=>{const card=node('button','crop');card.type='button';card.setAttribute('aria-label','放大'+c.label);card.title='點擊放大';const im=node('img');im.src=c.image;im.alt=c.label;card.append(im,node('div','',c.label));card.addEventListener('click',()=>openImageZoom(c.image,c.label));$('crops').append(card);});$('crop-count').textContent=p.crops.length+' 張裁圖';}else{['等待文字外接大框'].forEach(label=>$('crops').append(node('div','crop-placeholder',label)));$('crop-count').textContent='等待區域分流';}
- $('phone').classList.toggle('received',!!job?.phone_received);$('sync-state').classList.toggle('received',!!job?.phone_received);$('sync-state').lastElementChild.textContent=job?.phone_received?'App 已確認顯示結果':states.sync?.status==='active'?'等待 App 確認接收':'等待 App 確認接收';
- const phone=$('phone-body');if(p.result){phone.replaceChildren();phone.append(node('div','result-label','本次商品'),node('h3','',p.result.product_name||'商品辨識結果'));if(p.result.health_score!=null)phone.append(node('div','result-score',String(p.result.health_score)),node('div','result-label','App 原有評分結果'));phone.append(node('p','',job.phone_received?'已由 App 回報顯示完成':'後端已備妥，等待 App 確認'));}else{phone.innerHTML='<div class="phone-orbit"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M10 4H5v5m17-5h5v5M5 23v5h5m17-5v5h-5M9 16h14"/></svg></div>';phone.append(node('h3','',sample?'等待真實掃描':states.gemini?.status==='done'?'等待結果同步':active?'正在分析':'等待掃描'),node('p','',sample?'分區範例不會傳送結果至 App':'實際結果將顯示於手機 App'));}
  renderInspector(job);renderFogSituation(job);if(job?.mode==='simulation'){$('notice').hidden=false;$('notice').textContent='本地合成事件預覽，未連接 Pi、未呼叫 Vision／Gemini，也未取得手機回報。';}
 }
 // Keep the opened image fixed while live polling updates the dashboard underneath.
-function openImageZoom(src,label){
- const dialog=$('image-zoom');$('image-zoom-title').textContent=label;$('image-zoom-photo').src=src;$('image-zoom-photo').alt=label;
- if(!dialog.open){dialog.showModal();document.body.classList.add('image-zoom-open');}
+const zoomDialog=$('image-zoom'),zoomViewport=$('zoom-viewport'),zoomImage=$('image-zoom-photo');
+let zoomScale=1,zoomDrag=null;
+function layoutZoom(){
+ const w=zoomImage.naturalWidth*zoomScale,h=zoomImage.naturalHeight*zoomScale;
+ const sw=Math.max(zoomViewport.clientWidth,w),sh=Math.max(zoomViewport.clientHeight,h);
+ $('zoom-stage').style.width=sw+'px';$('zoom-stage').style.height=sh+'px';
+ Object.assign(zoomImage.style,{width:w+'px',height:h+'px',left:(sw-w)/2+'px',top:(sh-h)/2+'px'});
+ $('zoom-percent').value=Math.round(zoomScale*100);
 }
-const zoomDialog=$('image-zoom');
+function setImageZoom(value,clientX,clientY){
+ if(!zoomImage.naturalWidth)return;
+ const rect=zoomViewport.getBoundingClientRect(),x=clientX==null?zoomViewport.clientWidth/2:clientX-rect.left,y=clientY==null?zoomViewport.clientHeight/2:clientY-rect.top;
+ const oldW=zoomImage.naturalWidth*zoomScale,oldH=zoomImage.naturalHeight*zoomScale;
+ const ix=(zoomViewport.scrollLeft+x-Math.max(0,(zoomViewport.clientWidth-oldW)/2))/zoomScale;
+ const iy=(zoomViewport.scrollTop+y-Math.max(0,(zoomViewport.clientHeight-oldH)/2))/zoomScale;
+ zoomScale=Math.max(.1,Math.min(8,value));layoutZoom();
+ zoomViewport.scrollLeft=ix*zoomScale+Math.max(0,(zoomViewport.clientWidth-zoomImage.naturalWidth*zoomScale)/2)-x;
+ zoomViewport.scrollTop=iy*zoomScale+Math.max(0,(zoomViewport.clientHeight-zoomImage.naturalHeight*zoomScale)/2)-y;
+}
+function fitImageZoom(){
+ if(!zoomImage.naturalWidth)return;
+ zoomScale=Math.max(.1,Math.min(8,(zoomViewport.clientWidth-24)/zoomImage.naturalWidth,(zoomViewport.clientHeight-24)/zoomImage.naturalHeight));
+ layoutZoom();zoomViewport.scrollTo(0,0);
+}
+function openImageZoom(src,label){
+ $('image-zoom-title').textContent=label;zoomImage.alt=label;
+ zoomImage.onload=()=>requestAnimationFrame(fitImageZoom);zoomImage.src=src;
+ if(!zoomDialog.open){zoomDialog.showModal();document.body.classList.add('image-zoom-open');}
+ if(zoomImage.complete)requestAnimationFrame(fitImageZoom);
+}
 $('image-zoom-close').addEventListener('click',()=>zoomDialog.close());
 zoomDialog.addEventListener('click',event=>{if(event.target===zoomDialog)zoomDialog.close();});
-zoomDialog.addEventListener('close',()=>{document.body.classList.remove('image-zoom-open');$('image-zoom-photo').removeAttribute('src');});
+zoomDialog.addEventListener('close',()=>{document.body.classList.remove('image-zoom-open');zoomDrag=null;zoomViewport.classList.remove('dragging');zoomImage.removeAttribute('src');});
+$('zoom-in').addEventListener('click',()=>setImageZoom(zoomScale*1.25));
+$('zoom-out').addEventListener('click',()=>setImageZoom(zoomScale/1.25));
+$('zoom-fit').addEventListener('click',fitImageZoom);
+$('zoom-actual').addEventListener('click',()=>setImageZoom(1));
+$('zoom-percent').addEventListener('change',event=>{const value=event.target.valueAsNumber;if(Number.isFinite(value))setImageZoom(value/100);else event.target.value=Math.round(zoomScale*100);});
+zoomViewport.addEventListener('wheel',event=>{event.preventDefault();setImageZoom(zoomScale*Math.exp(-Math.max(-100,Math.min(100,event.deltaY))*.002),event.clientX,event.clientY);},{passive:false});
+zoomViewport.addEventListener('pointerdown',event=>{
+ if(event.button!==0)return;
+ zoomDrag={id:event.pointerId,x:event.clientX,y:event.clientY,left:zoomViewport.scrollLeft,top:zoomViewport.scrollTop};
+ zoomViewport.setPointerCapture(event.pointerId);zoomViewport.classList.add('dragging');event.preventDefault();
+});
+zoomViewport.addEventListener('pointermove',event=>{if(!zoomDrag||zoomDrag.id!==event.pointerId)return;zoomViewport.scrollLeft=zoomDrag.left-(event.clientX-zoomDrag.x);zoomViewport.scrollTop=zoomDrag.top-(event.clientY-zoomDrag.y);});
+function endZoomDrag(){zoomDrag=null;zoomViewport.classList.remove('dragging');}
+zoomViewport.addEventListener('pointerup',endZoomDrag);zoomViewport.addEventListener('pointercancel',endZoomDrag);zoomViewport.addEventListener('lostpointercapture',endZoomDrag);
+zoomDialog.addEventListener('keydown',event=>{if(event.target.tagName==='INPUT')return;if(['+','=','-','0','f','F'].includes(event.key)){event.preventDefault();if(event.key==='0')setImageZoom(1);else if(event.key.toLowerCase()==='f')fitImageZoom();else setImageZoom(zoomScale*(event.key==='-'?.8:1.25));}});
+window.addEventListener('resize',()=>{if(zoomDialog.open)layoutZoom();});
 const zoomPhoto=$('photo');zoomPhoto.tabIndex=0;zoomPhoto.setAttribute('role','button');zoomPhoto.title='點擊放大圖片與目前標註';
 function openPhotoZoom(){if(!zoomPhoto.hidden&&current?.payload?.source_image)openImageZoom(zoomPhoto.toDataURL('image/png'),zoomPhoto.getAttribute('aria-label')||'包裝影像');}
 zoomPhoto.addEventListener('click',openPhotoZoom);
@@ -44,7 +87,6 @@ const stageDescriptions = {
  vision: {title:'Google Vision', description:'找出照片中的文字，並保留每個字詞的位置，提供後續分區使用。', input:'這次掃描的包裝影像。', method:'辨識文字、字詞座標與段落結構。', output:'OCR 文字與文字框；青色框表示實際回傳的字詞位置。'},
  routing: {title:'Region Routing', description:'將每張照片的所有字詞框合成一個文字外接大框，再裁切送給 Gemini。', input:'Vision 回傳的全部字詞座標及原圖尺寸。', method:'合併所有字詞框並加 4%／至少 16px 留白；範圍達九成圖片或無有效文字框時使用完整影像。', output:'每張照片一張裁圖，長邊最多 2048；原圖不另外加入 Gemini 輸入。'},
  gemini: {title:'Gemini', description:'讀取每張照片的單一文字大框裁圖，將可見資訊整理成結構化欄位。', input:'每張照片一張裁圖；回退時該張改用完整影像。', method:'擷取品名、成分、營養及廠商等欄位；無法讀取的欄位保留缺值。', output:'結構化商品辨識結果，接續交給原有後端分析。'},
- sync: {title:'結果同步', description:'辨識後接續原有添加物比對與計分，回傳結果至 App，再等待 App 顯示回報。', input:'後端整理完成的商品分析結果。', method:'回傳給 App；App 顯示結果後回報同一筆掃描識別。', output:'商品結果摘要與 App 顯示確認狀態。'}
 };
 function selectStage(id){
  selectedStage=id;renderStageList(current);renderInspector(current);renderFogSituation(current);
@@ -73,7 +115,6 @@ function renderInspector(job){
  if(selectedStage==='vision'&&p.ocr_boxes){evidence='本次取得 '+p.ocr_boxes.length+' 個字詞框。文字保留 OCR 原始辨識結果，可能含錯字。';output=p.ocr_text||null;summary='查看本次 OCR 文字';}
  if(selectedStage==='routing'&&p.regions){evidence='本次產生 '+p.regions.length+' 個文字區塊；框線代表裁切範圍，不代表欄位分類。';if(p.routing_policy==='vision_text_envelope_v1')evidence='第一張照片使用一個文字外接大框；'+(p.regions[0]?.fallback?'本張回退為完整影像。':'只送裁圖給 Gemini。')+(p.gemini_input_count?' 本次合計 '+p.gemini_input_count+' 張 Gemini 輸入影像。':'');output=p.regions.map(r=>({class:r.class,label:r.label,rect:r.rect||r.rect_xyxy,fallback:r.fallback,retained_area:r.retained_area}));summary='查看本次分區座標';}
  if(selectedStage==='gemini'&&p.gemini_output){evidence='以下是這次 Gemini 實際回傳的結構化結果，尚不等同於最終計分結果。';output=p.gemini_output;summary='查看本次結構化輸出';}
- if(selectedStage==='sync'){evidence=job?.phone_received?'App 已回報顯示這筆結果。':p.result?'後端結果已備妥，尚未收到 App 顯示回報。':'尚未取得後端最終結果與 App 顯示回報。';if(p.result){output=p.result;summary='查看結果摘要';}}
  if(selectedStage==='vision'&&p.ocr_quality){evidence+=' 有效文字／數字共 '+p.ocr_quality.character_count+' 字元；'+(p.ocr_quality.decision==='retake'?'未達 3 字元，提示重拍。':'達到最低文字量，繼續解析（不代表內容正確或完整）。');output={quality:p.ocr_quality,text:p.ocr_text};}
  if(state.status==='done'&&evidence.startsWith('等待'))evidence='此筆紀錄有完成狀態，但未包含這個階段的詳細輸出。';
  if(state.status==='skipped')evidence=state.reason||'Fog 回報本次略過此階段。';
@@ -111,7 +152,7 @@ function pipelineView(job){
  if(p.ocr_quality?.decision==='retake')return {status:'文字不足，請重拍',path:'Vision → OCR 品質檢查 → 重拍（未呼叫 Gemini）',detail:p.ocr_quality.reason};
  if(job.mode==='sample')return {status:'歷史分區範例',path:'已存 Vision 紀錄 → 分區預覽',detail:'未執行本次雲端分析，也未連動手機。'};
  if(['storage_failed','replay_failed','unavailable'].includes(event)||job.failed)return {status:'處理未完成',path:event==='storage_failed'?'App → Fog → 暫存失敗':event==='replay_failed'?'Fog 佇列 → 補送失敗':'處理中斷',detail:job.error||fogLabels[event]||'請查看階段與事件紀錄。'};
- if(['replay_started','replay_retry','replay_completed'].includes(event))return {status:{replay_started:'恢復連線，正在補送',replay_retry:'補送未完成，等待重試',replay_completed:'補送完成'}[event],path:'Fog 佇列 → Cloud → Fog → App',detail:event==='replay_completed'?'分析結果已回到 Fog；手機收件狀態見結果同步。':'從 Fog 佇列補送先前保存的任務。'};
+ if(['replay_started','replay_retry','replay_completed'].includes(event))return {status:{replay_started:'恢復連線，正在補送',replay_retry:'補送未完成，等待重試',replay_completed:'補送完成'}[event],path:'Fog 佇列 → Cloud → Fog → App',detail:event==='replay_completed'?'分析結果已回到 Fog，可供 App 取得。':'從 Fog 佇列補送先前保存的任務。'};
  if(event==='queued')return {status:'離線排隊，等待補送',path:'App → Fog → 離線佇列 → 等待雲端恢復',detail:'Fog 已確認保存任務；尚未取得分析結果。'};
  if(event==='cloud_unavailable')return {status:'雲端無法連線',path:'App → Fog → Cloud 連線失敗',detail:'尚待 Fog 回報是否成功寫入離線佇列。'};
  if(['cache_hit','cache_returned'].includes(decision?.event)&&!['cloud_forwarded','cloud_returned'].includes(event))return {status:'Fog 快取命中',path:'App → Fog 快取 → App',detail:'本次使用快取結果，不重新執行 Vision、裁切與 Gemini。'};
@@ -127,10 +168,9 @@ function renderFogSituation(job){
  $('pipeline-explanation').textContent=pipeline.detail;
  $('fog-outcome').textContent=pipeline.path;$('fog-explanation').textContent=job&&job.mode!=='sample'?view.detail:'';
  const list=$('fog-timeline');list.replaceChildren();(p.fog_history||[]).forEach(e=>{const text=new Date(e.at*1000).toLocaleTimeString('zh-TW')+' · '+(e.layer==='node'?'Fog Node':'Fog Python')+' · '+(fogLabels[e.event]||e.event)+(e.cache_status?' ['+e.cache_status+']':'')+(e.attempt?' · 第 '+e.attempt+' 次':'');list.append(node('li','',text));});
- if(p.ocr_quality?.decision==='retake'){$('status-title').textContent='文字不足，請重拍';$('status-detail').textContent=p.ocr_quality.reason;const h=$('phone-body').querySelector('h3'),m=$('phone-body').querySelector('p');if(h)h.textContent='請重新拍攝';if(m)m.textContent=p.ocr_quality.reason;$('sync-state').lastElementChild.textContent='等待重新拍攝';}
+ if(p.ocr_quality?.decision==='retake'){$('status-title').textContent='文字不足，請重拍';$('status-detail').textContent=p.ocr_quality.reason;}
  const queued=['queued','cloud_unavailable','replay_started','replay_retry'].includes(view.latest?.event);
- if(job&&!job.phone_received&&!job.failed&&queued){$('status-title').textContent=fogLabels[view.latest.event];$('status-detail').textContent=view.detail;
-  if(!p.result){const heading=$('phone-body').querySelector('h3'),message=$('phone-body').querySelector('p');if(heading)heading.textContent={queued:'已暫存，等待補送',cloud_unavailable:'雲端暫時無法連線',replay_started:'正在補送',replay_retry:'等待再次補送'}[view.latest.event];if(message)message.textContent=view.detail;$('sync-state').lastElementChild.textContent=view.latest.event==='cloud_unavailable'?'等待 Fog 確認處理方式':'尚未取得分析結果';}
+ if(job&&!analysisFinished(job)&&!job.failed&&queued){$('status-title').textContent=fogLabels[view.latest.event];$('status-detail').textContent=view.detail;
  }
  const skipped=job?.stages?.[selectedStage]?.status==='skipped';if(skipped){$('image-view').hidden=true;document.querySelector('.image-meta').hidden=true;$('legend').hidden=true;$('crop-heading').hidden=true;$('crops').hidden=true;}
 }
@@ -192,32 +232,6 @@ $('grounding-mode').addEventListener('change',()=>{
 });
 
 // Commands never mark a scan queued, replayed or received; only Fog/App events do.
-let demoBusy=false,demoState=null;
-function renderDemoControl(data){
- demoState=data;
- const ack=data.ack,fresh=ack&&data.ack_age_seconds<5;
- $('demo-offline').disabled=demoBusy||!data.configured||!fresh||!!data.offline;
- $('demo-restore').disabled=demoBusy||!data.configured;
- let message=!data.configured?'尚未設定控制金鑰；Fog 控制未啟用。':!fresh?'尚未收到 Fog 控制連線，請確認 Pi 已部署並啟用。':ack.blocked?'Fog 已套用：模擬雲端中斷。':'Fog 已回報：斷線模擬已解除。';
- if(data.offline&&(!fresh||ack.generation!==data.generation))message='已送出斷線設定，等待 Fog 確認；尚不能視為已斷線。';
- if(fresh&&ack.blocked){message+=ack.remaining_seconds!=null?' 已有任務入列，約 '+Math.ceil(ack.remaining_seconds)+' 秒後解除模擬。':data.auto_restore_seconds!=null?' 等待快取未命中的任務確實入列後開始倒數。':'請手動恢復，或等待安全逾時自動解除。';}
- $('demo-control-status').textContent=message;
-}
-async function pollDemoControl(){
- try{const response=await fetch('/api/demo/cloud',{cache:'no-store'});if(!response.ok)throw new Error();renderDemoControl(await response.json());}
- catch{$('demo-control-status').textContent='無法讀取控制狀態；可能需重啟新版儀表板 API。';$('demo-offline').disabled=true;$('demo-restore').disabled=true;}
- finally{setTimeout(pollDemoControl,1000);}
-}
-async function changeDemoCloud(offline){
- if(demoBusy)return;demoBusy=true;if(demoState)renderDemoControl(demoState);
- try{const response=await fetch('/api/demo/cloud',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({offline,auto_restore_seconds:$('demo-auto').checked?5:null})});const data=await response.json();if(!response.ok)throw new Error(typeof data.detail==='string'?data.detail:'控制設定未完成');renderDemoControl(data);}
- catch(error){$('demo-control-status').textContent=error.message;}
- finally{demoBusy=false;if(demoState){$('demo-restore').disabled=!demoState.configured;}}
-}
-$('demo-offline').addEventListener('click',()=>changeDemoCloud(true));
-$('demo-restore').addEventListener('click',()=>changeDemoCloud(false));
-pollDemoControl();
-
 // Explicit rehearsal preparation: no synthetic progress or paid inference here.
 let rehearsalBusy=false,rehearsalTasks=[];
 const rehearsalNames={preparing:'準備中',ready:'已準備，等待／完成手機掃描',resetting:'重設中',archived:'已封存，可重新準備',restoring:'還原中',restored:'已還原',failed:'準備失敗'};
@@ -226,18 +240,20 @@ async function rehearsalAction(action,body){
  try{
   const response=await fetch('/api/rehearsal/'+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const result=await response.json();if(!response.ok)throw Error(typeof result.detail==='string'?result.detail:'操作未完成');
-  $('rehearsal-status').textContent=result.message;await loadRehearsal(false);
+  $('rehearsal-status').textContent=result.message;
+  if(action==='prepare-many'||action==='reset-barcodes'){
+   const list=$('rehearsal-batch-results');list.replaceChildren();
+   for(const item of result.results||[]){const row=document.createElement('li');row.textContent=item.barcode+' · '+(item.ok?'完成：':'未完成：')+item.message;row.className=item.ok?'batch-ok':'batch-failed';list.append(row);}
+  }
+  await loadRehearsal(false);
  }catch(error){$('rehearsal-status').textContent=error.message;}
  finally{rehearsalBusy=false;$('rehearsal-prepare').disabled=false;await loadRehearsal(false);}
 }
 async function loadRehearsal(initial=false){
  try{
   const response=await fetch('/api/rehearsal',{cache:'no-store'});if(!response.ok)throw Error();
-  const data=await response.json();rehearsalTasks=data.tasks;const next=data.next_miss||{};
-  $('rehearsal-arm').disabled=rehearsalBusy||!!next.armed||!!next.busy;
-  $('rehearsal-cancel').disabled=rehearsalBusy||(!next.armed&&!next.result)||!!next.busy;
+  const data=await response.json();rehearsalTasks=data.tasks;
   $('rehearsal-reset-new').disabled=rehearsalBusy||!data.tasks.some(t=>t.state==='ready'&&!t.existed&&!t.active);
-  $('rehearsal-next-status').textContent=next.busy?'Fog 正在領取任務…':next.armed?'已預備下一筆 Miss，等待新版 Fog 領取（剩餘 '+Math.ceil(next.remaining_seconds)+' 秒）':next.result?.applied?'Fog 已確認清除條碼 '+next.result.barcode+' 快取；實際 Miss 路徑請看下方事件。':next.result?.pending?'已交給 Fog，等待實際清除確認；尚未宣稱套用成功。':next.result?.error||'尚未設定下一筆路徑；TEST 純照片不消耗設定。';
   const list=$('rehearsal-list');list.replaceChildren();
   for(const task of data.tasks){
    const row=document.createElement('div');row.className='rehearsal-row';
@@ -250,12 +266,36 @@ async function loadRehearsal(initial=false){
    if(task.images.length){const details=document.createElement('details');const summary=document.createElement('summary');summary.textContent='查看本輪新增圖片清單';details.append(summary);const ul=document.createElement('ul');for(const image of task.images){const li=document.createElement('li');li.textContent=image;ul.append(li);}details.append(ul);row.append(details);}
    list.append(row);
   }
-  if(initial)$('rehearsal-status').textContent=data.tasks.length?'可準備新條碼，或重設下方已完成的展演。':'尚未登記展演條碼。先準備，再由手機掃描。';
+  if(initial)$('rehearsal-status').textContent=data.tasks.length?'輸入條碼即可重設 Fog 與 Cloud；封存資料可在下方還原。':'輸入測試條碼並重設，再由手機拍照送出。';
  }catch{if(initial)$('rehearsal-status').textContent='展演 API 尚未載入，請重啟新版儀表板服務。';}
 }
-$('rehearsal-form').addEventListener('submit',event=>{event.preventDefault();rehearsalAction('prepare',{barcode:$('rehearsal-barcode').value.trim()});});
+function batchBarcodes(){return [...new Set($('rehearsal-barcodes').value.trim().split(/[\s,，、;；]+/).filter(Boolean))];}
+$('rehearsal-barcodes').addEventListener('input',()=>{const codes=batchBarcodes();$('rehearsal-batch-count').textContent=codes.length?'共 '+codes.length+' 個不同條碼':'尚未輸入條碼';});
+$('rehearsal-form').addEventListener('submit',event=>{
+ event.preventDefault();const codes=batchBarcodes();
+ if(!codes.length||codes.length>20||codes.some(code=>! /^[0-9]{8,14}$/.test(code))){$('rehearsal-status').textContent='請輸入 1–20 個條碼，每筆為 8–14 位數字；尚未清除快取。';return;}
+ $('rehearsal-batch-results').replaceChildren();rehearsalAction('reset-barcodes',{barcodes:codes});
+});
 loadRehearsal(true);setInterval(()=>{if(!rehearsalBusy)loadRehearsal(false);},3000);
 
-$('rehearsal-arm').addEventListener('click',()=>rehearsalAction('next-miss',{enabled:true}));
-$('rehearsal-cancel').addEventListener('click',()=>rehearsalAction('next-miss',{enabled:false}));
 $('rehearsal-reset-new').addEventListener('click',()=>rehearsalAction('reset-new',{task_ids:rehearsalTasks.filter(t=>t.state==='ready'&&!t.existed&&!t.active).slice(0,20).map(t=>t.id)}));
+
+let cloudSwitchBusy=false;
+function renderCloudAvailability(state){
+ $('cloud-unavailable').disabled=cloudSwitchBusy||state.unavailable;
+ $('cloud-restore').disabled=cloudSwitchBusy||!state.unavailable;
+ $('cloud-availability-status').textContent=state.unavailable?'Cloud 已設定回應 503 · 剩餘 '+Math.ceil(state.remaining_seconds)+' 秒自動恢復'+(state.rejected_requests?' · 已實際回覆 '+state.rejected_requests+' 次 503（含健康檢查）':' · 尚未收到新請求'):'目前未啟用 Cloud 503 模擬；排隊任務是否完成，以 Fog 與手機實際結果為準。';
+}
+async function readCloudAvailability(){
+ try{const response=await fetch('/api/demo/cloud-availability',{cache:'no-store'});if(!response.ok)throw Error();renderCloudAvailability(await response.json());}
+ catch{$('cloud-availability-status').textContent='無法確認 Cloud 展演設定，請檢查儀表板服務。';$('cloud-unavailable').disabled=true;$('cloud-restore').disabled=true;}
+}
+async function setCloudAvailability(unavailable){
+ if(cloudSwitchBusy)return;cloudSwitchBusy=true;$('cloud-unavailable').disabled=true;$('cloud-restore').disabled=true;
+ try{const response=await fetch('/api/demo/cloud-availability',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({unavailable})});if(!response.ok)throw Error();}
+ catch{$('cloud-availability-status').textContent='設定未完成，請確認服務後重試。';}
+ finally{cloudSwitchBusy=false;await readCloudAvailability();}
+}
+$('cloud-unavailable').addEventListener('click',()=>setCloudAvailability(true));
+$('cloud-restore').addEventListener('click',()=>setCloudAvailability(false));
+readCloudAvailability();setInterval(()=>{if(!cloudSwitchBusy)readCloudAvailability();},1000);

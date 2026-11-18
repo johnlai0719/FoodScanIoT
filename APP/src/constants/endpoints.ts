@@ -16,6 +16,9 @@ export const FOG_URL = 'http://foodscan-pi.local:3001/query';
 /** Cloud 直連。繞過 Fog，用於比對「Fog 有沒有幫上忙」。 */
 export const CLOUD_URL = 'http://100.119.217.100:3003/api/analyze';
 
+/** Read-only catalog lookup. Never sends photos or creates a Fog cache entry. */
+export const PRODUCT_AVAILABILITY_URL = CLOUD_URL.replace(/\/api\/analyze\/?$/, '/api/products');
+
 /**
  * 分析請求的逾時（毫秒）。
  *

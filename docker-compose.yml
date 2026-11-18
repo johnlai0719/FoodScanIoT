@@ -1,40 +1,120 @@
+name: competition
+
+x-runtime: &runtime
+  image: competition-runtime
+  build:
+    context: .
+    dockerfile: competition/Dockerfile
+  restart: unless-stopped
+  init: true
+  env_file:
+    - ./server/.env
+  environment: &environment
+    PYTHONUNBUFFERED: "1"
+    TZ: Asia/Taipei
+    DB_HOST: db
+    DB_PORT: "5432"
+    DB_NAME: product_db
+    DB_USER: postgres
+    DB_PASSWORD: password
+    DATABASE_URL: postgresql+psycopg2://postgres:password@db:5432/product_db
+    PIPELINE_DASHBOARD_URL: http://dashboard:8787
+    CLOUD_DEMO_STATE: /app/.artifacts/cloud-availability.sqlite3
+  volumes: &runtime-volumes
+    - ./.artifacts:/app/.artifacts
+    - ${COMPETITION_UPLOADS_DATA:-./server/uploads}:/app/server/uploads
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "3"
+
 services:
   db:
+    container_name: Competition-db-1
     image: postgres:16
-    restart: always
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: 'product_db'
-      POSTGRES_USER: 'postgres'
-      POSTGRES_PASSWORD: 'password'
+      POSTGRES_DB: product_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
     ports:
-      - '5432:5432'
+      - "5432:5432"
     volumes:
-      - ./postgres_data:/var/lib/postgresql/data
+      - ${COMPETITION_POSTGRES_DATA:-./postgres_data}:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U postgres -d product_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  vision-reader:
+    <<: *runtime
+    container_name: Competition-vision-reader-1
+    command: [python, tools/reader_vision_competition.py]
+    environment:
+      <<: *environment
+      READER_HOST: 0.0.0.0
+      READER_PORT: "8181"
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/vision.json
+    secrets:
+      - source: vision_credentials
+        target: vision.json
+    ports:
+      - "127.0.0.1:8181:8181"
+    healthcheck:
+      test: [CMD, python, tools/competition_healthcheck.py, reader]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
 
   cloud-server:
-    build:
-      context: ./server
-    env_file:
-      - ./server/.env
-    ports:
-      # 對外 3003、容器內 8000。**不要改成 8000:8000。**
-      # 2026-09-13：專案對外一直是 3003（防火牆規則 "Cloud Fog Port 3003"、
-      # App 的常數、Fog 的 CLOUD_API_URL 都是），只有 compose 是 8000，
-      # 於是 Pi 打不進來、每次都降階。統一成對外 3003 之後就沒有「兩套埠號」
-      # 這件事了——容器內部用什麼與外面無關。
-      - '3003:8000'
+    <<: *runtime
+    container_name: Competition-cloud-server-1
+    working_dir: /app/server
+    command: [python, -m, uvicorn, "main:app", --host, 0.0.0.0, --port, "8000"]
     environment:
-      - DATABASE_URL=postgresql+psycopg2://postgres:password@db:5432/product_db
-      # ⚠ 這兩行不可省。`server/.env` 裡 DB_HOST=localhost 是給本機直跑用的，
-      # 但 main.py:571 與 admin_api.py 走 psycopg2 直連、只讀 DB_HOST，
-      # 在容器內 localhost 會指向容器自己 → 比對添加物時連不上資料庫。
-      # compose 的 environment 優先於 env_file，在此覆蓋。
-      - DB_HOST=db
-      - DB_PORT=5432
-      # 同理，帳密也要覆蓋成 db service 實際初始化的那組（見上方 POSTGRES_*），
-      # 否則 .env 裡給本機用的密碼會讓容器內認證失敗。
-      - DB_NAME=product_db
-      - DB_USER=postgres
-      - DB_PASSWORD=password
+      <<: *environment
+      VISION_BACKEND: google_vision_rules_gemini
+      READER_URL: http://vision-reader:8181
+    ports:
+      - "${COMPETITION_CLOUD_BIND:-127.0.0.1}:3003:8000"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+      vision-reader:
+        condition: service_healthy
+      dashboard:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, python, /app/tools/competition_healthcheck.py, cloud]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  dashboard:
+    <<: *runtime
+    container_name: Competition-dashboard-1
+    command: [python, tools/pipeline_dashboard.py]
+    environment:
+      <<: *environment
+      PIPELINE_HOST: 0.0.0.0
+      PIPELINE_PORT: "8787"
+      DASHBOARD_TRUST_DOCKER_GATEWAY: "1"
+    ports:
+      - "127.0.0.1:8787:8787"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, python, tools/competition_healthcheck.py, dashboard]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+secrets:
+  vision_credentials:
+    file: ${COMPETITION_VISION_CREDENTIALS:?Set COMPETITION_VISION_CREDENTIALS in .env}

@@ -40,7 +40,7 @@ def lab(tmp_path, monkeypatch):
     monkeypatch.setenv('FOG_DEMO_CONTROL_TOKEN', 'test-only')
     dbpath = tmp_path/'products.sqlite3'
     with sqlite3.connect(dbpath) as db:
-        db.execute('CREATE TABLE products(id INTEGER PRIMARY KEY, barcode TEXT UNIQUE, name TEXT)')
+        db.execute('CREATE TABLE products(barcode TEXT PRIMARY KEY, name TEXT)')
     @contextmanager
     def database():
         db = sqlite3.connect(dbpath)
@@ -153,3 +153,66 @@ def test_invalid_barcodes_cross_origin_and_existing_batch_protection(lab):
     result = client.post('/api/rehearsal/reset-new', json={'task_ids': [task]}).json()
     assert not result['ok'] and journal.get(task)['state'] == 'ready'
     assert present(dbpath, '4710000000001')
+
+
+def test_prepare_multiple_barcodes_deduplicates_and_tracks_each_case(lab):
+    client, journal, uploads, dbpath, clear = lab
+    codes = ['4710000000001', '00123456', '4710000000001']
+    result = client.post('/api/rehearsal/prepare-many', json={'barcodes': codes})
+    assert result.status_code == 200 and result.json()['ok']
+    assert [r['barcode'] for r in result.json()['results']] == codes[:2]
+    assert clear.call_count == 2
+    assert {r['barcode'] for r in journal.rows()} == set(codes)
+
+
+def test_invalid_batch_is_rejected_before_any_cache_clear(lab):
+    client, journal, uploads, dbpath, clear = lab
+    for codes in [[], ['4710000000001', '../x'], ['4710000000001']*21]:
+        assert client.post('/api/rehearsal/prepare-many', json={'barcodes': codes}).status_code == 422
+    clear.assert_not_called()
+    assert not journal.rows()
+
+
+def test_batch_reports_partial_failure_without_claiming_all_completed(lab):
+    client, journal, uploads, dbpath, clear = lab
+    clear.side_effect = [None, ValueError('Fog unavailable'), None]
+    codes = ['4710000000001', '4710000000002', '4710000000003']
+    result = client.post('/api/rehearsal/prepare-many', json={'barcodes': codes}).json()
+    assert not result['ok'] and [r['ok'] for r in result['results']] == [True, False, True]
+    assert '2／3' in result['message']
+    assert {r['barcode'] for r in journal.rows() if r['state'] == 'ready'} == {codes[0], codes[2]}
+
+
+def test_reset_barcode_archives_existing_cloud_data_and_can_restore(lab):
+    client, journal, uploads, dbpath, clear = lab
+    barcode = '4710000000001'
+    insert(dbpath, barcode, 'original')
+    photo = uploads/f'scan_2_{barcode}_0.jpg'
+    photo.write_bytes(b'original-photo')
+    result = client.post('/api/rehearsal/reset-barcodes', json={'barcodes': [barcode]})
+    assert result.status_code == 200 and result.json()['ok']
+    assert not present(dbpath, barcode) and not photo.exists()
+    task_id = result.json()['results'][0]['task_id']
+    assert journal.get(task_id)['state'] == 'archived'
+    active = journal.begin(barcode)
+    assert active
+    result = client.post('/api/rehearsal/reset-barcodes', json={'barcodes': [barcode]})
+    assert not result.json()['ok']
+    journal.end(active)
+    # Retire the empty next round before restoring the original.
+    ready = next(row for row in journal.rows() if row['state'] == 'ready')
+    assert client.post('/api/rehearsal/reset', json={'task_id': ready['id']}).status_code == 200
+    assert client.post('/api/rehearsal/restore', json={'task_id': task_id}).status_code == 200
+    assert present(dbpath, barcode) == ('original',)
+    assert photo.read_bytes() == b'original-photo'
+
+
+def test_reset_barcode_fog_failure_preserves_cloud_and_rejects_cross_origin(lab):
+    client, journal, uploads, dbpath, clear = lab
+    barcode = '4710000000001'
+    insert(dbpath, barcode)
+    clear.side_effect = ValueError('Fog queue pending')
+    result = client.post('/api/rehearsal/reset-barcodes', json={'barcodes': [barcode]})
+    assert not result.json()['ok'] and present(dbpath, barcode)
+    assert client.post('/api/rehearsal/reset-barcodes', json={'barcodes': [barcode]},
+                       headers={'Origin': 'http://evil.test'}).status_code == 403

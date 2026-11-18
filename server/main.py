@@ -148,6 +148,8 @@ from fastapi.staticfiles import StaticFiles
 import os
 
 app = FastAPI(title="FoodAware Cloud Core - Smart Guide Mode")
+from cloud_availability import install as install_cloud_availability
+install_cloud_availability(app)
 
 
 # ── 延遲埋點 ────────────────────────────────────────────────────────────────
@@ -609,6 +611,10 @@ DB_CONFIG = {
 
 def get_db_conn():
     return psycopg2.connect(**DB_CONFIG)
+
+
+from product_availability import create_router as product_availability_router
+app.include_router(product_availability_router(lambda: psycopg2.connect(**DB_CONFIG, connect_timeout=3)))
 
 
 @app.get("/health")

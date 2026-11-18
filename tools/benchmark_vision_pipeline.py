@@ -90,10 +90,10 @@ def inventory(dataset):
 
 def configure_credentials():
     # Match the existing competition service launcher; never serialize credentials.
-    env = {k: v for k, v in dotenv_values('D:/FoodScanIot/APP-sync-server/server/.env').items() if v is not None}
+    env = {k: v for k, v in dotenv_values(ROOT/'server/.env').items() if v is not None}
     for p in (Path('D:/FoodScanIot/.env'), ROOT/'.env'):
         env.update({k: v for k, v in dotenv_values(p).items() if v is not None})
-    raw = subprocess.check_output(['docker', 'inspect', 'app-sync-server-cloud-server-1'], text=True, encoding='utf-8')
+    raw = subprocess.check_output(['docker', 'inspect', os.getenv('COMPETITION_CLOUD_CONTAINER', 'Competition-cloud-server-1')], text=True, encoding='utf-8')
     existing = dict(s.split('=', 1) for s in json.loads(raw)[0]['Config']['Env'] if '=' in s)
     for key in ('GEMINI_API_KEY', 'API_SHARED_SECRET'):
         if existing.get(key):

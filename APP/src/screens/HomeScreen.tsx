@@ -27,8 +27,6 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { loadHistory, recordScan, clearHistory, HistoryEntry } from '../utils/scanHistory';
 import type { ScrollViewInstance } from 'react-native';
-import CompetitionDemoPanel from '../components/CompetitionDemoPanel';
-import { COMPETITION_DEMO_CASES, COMPETITION_DEMO_MODES, CompetitionDemoMode } from '../competition/demoCases';
 import IngredientsList from '../components/IngredientsList';
 import DropdownEvent from '../components/DropdownEvent';
 import PackageImageScanner from '../components/PackageImageScanner';
@@ -38,6 +36,7 @@ import { FOG_URL, CLOUD_URL, ANALYSIS_TIMEOUT_MS } from '../constants/endpoints'
 import * as Telemetry from '../utils/telemetry';
 import { pipelineEvent } from '../utils/pipelineDashboard';
 import { useQueuedAnalysis } from '../hooks/useQueuedAnalysis';
+import { useBarcodeAvailability } from '../hooks/useBarcodeAvailability';
 import { QueuedAnalysis, queuedElapsedMs, responseBody, isAnalysisResult, taskKey } from '../utils/queuedAnalysis';
 import { buildAnalysisRequest } from '../utils/analysisRequest';
 
@@ -197,6 +196,7 @@ export default function HomeScreen() {
   }, []);
 
   const [barcodeInput, setBarcodeInput] = useState('');
+  const barcodeLookup = useBarcodeAvailability(barcodeInput, view === 'scan');
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [serverEndpoint, setServerEndpoint] = useState<'fog' | 'cloud'>('fog');
 
@@ -238,7 +238,7 @@ export default function HomeScreen() {
       setLastTiming({ totalMs: queuedElapsedMs(task), cloudMs: null, cached: false, queued: true });
       setDashboardReceiptId(requestId);
       setAnalysisError(null);
-      setResultIsDemo(false); setResultPhoto(undefined); setDegradedResult(null); setActiveDetailView(null);
+      setResultPhoto(undefined); setDegradedResult(null); setActiveDetailView(null);
       void recordScan(job.result).then(setHistory);
       setAnalysisResult(job.result);
       setView('result');
@@ -283,38 +283,20 @@ export default function HomeScreen() {
 
 
   const [resultPhoto, setResultPhoto] = useState<string | undefined>();
-  const [resultIsDemo, setResultIsDemo] = useState(false);
   const [ingredientTab, setIngredientTab] = useState<IngredientTab>('all');
   const [profileReturnView, setProfileReturnView] = useState<'scan' | 'result'>('scan');
   const scrollRef = useRef<ScrollViewInstance>(null);
   const scrollToTop = () => requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: 0, animated: false }));
   const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [demoMode, setDemoMode] = useState<CompetitionDemoMode | null>(null);
   useEffect(() => { void loadHistory().then(setHistory); }, []);
   useEffect(() => { scrollToTop(); }, [view, activeDetailView]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
-  const handleQuickPreview = (code: string) => {
-    const example = COMPETITION_DEMO_CASES.find(item => item.id === code);
-    if (!example) return;
-    setResultPhoto(undefined); setResultIsDemo(true); setLastTiming(null);
-    setActiveDetailView(null); setDegradedResult(null);
-    queued.pause();
-    setDashboardReceiptId(null);
-    setCompletedQueuedTask(null);
-    const data = example.result;
-    setAnalysisResult(data);
-    setAnalysisError(null);
-    setIsAnalyzing(false);
-    setView('result');
-  };
-
-
   const handleSubmitAnalysis = async () => {
     if (!barcodeInput && uploadedImages.length === 0) return;
 
     setResultPhoto(uploadedImages[0] ? (uploadedImages[0].startsWith('data:') ? uploadedImages[0] : `data:image/jpeg;base64,${uploadedImages[0]}`) : undefined);
-    setResultIsDemo(false); setActiveDetailView(null);
+    setActiveDetailView(null);
     setIsAnalyzing(true);
     setAnalysisResult(null);
     setAnalysisError(null);
@@ -335,7 +317,6 @@ export default function HomeScreen() {
     if (uploadedImages.length > 0) void pipelineEvent(reqId, 'image', 'done', {
       ...(uploadedImages[0] ? { source_image: uploadedImages[0] } : {}),
       image_count: uploadedImages.length,
-      ...(demoMode && serverEndpoint === 'fog' ? { demo_scenario: demoMode } : {}),
     });
     const payloadChars = uploadedImages.reduce((n, b) => n + b.length, 0);
     const t0 = Date.now();
@@ -362,7 +343,6 @@ export default function HomeScreen() {
             'Content-Type': 'application/json',
             'Cache-Control': 'no-cache',
             'X-Request-Id': reqId,
-            ...(demoMode && serverEndpoint === 'fog' ? { 'X-Demo-Scenario': demoMode } : {}),
             // 專用標頭而不是沿用上面那個 Cache-Control——它每次都送，
             // 拿它當判準等於永久關閉快取，就量不出快取有沒有幫上忙。
             ...(bypassCache ? { 'X-Bypass-Cache': '1' } : {}),
@@ -525,7 +505,7 @@ export default function HomeScreen() {
   };
 
   const handleBackToScan = () => {
-    setResultPhoto(undefined); setResultIsDemo(false);
+    setResultPhoto(undefined);
     queued.pause();
     setDashboardReceiptId(null);
     setCompletedQueuedTask(null);
@@ -723,7 +703,7 @@ export default function HomeScreen() {
               <View style={s.segmentedControl}>
                 <Pressable
                   style={[s.segBtn, serverEndpoint === 'fog' && s.segBtnActive]}
-                  onPress={() => { setServerEndpoint('fog'); setDemoMode(null); }}
+                  onPress={() => { setServerEndpoint('fog'); }}
                 >
                   <Text style={[s.segBtnText, serverEndpoint === 'fog' && s.segBtnTextActive]}>
                     微型邊緣霧節點 (Fog)
@@ -731,7 +711,7 @@ export default function HomeScreen() {
                 </Pressable>
                 <Pressable
                   style={[s.segBtn, serverEndpoint === 'cloud' && s.segBtnActiveCloud]}
-                  onPress={() => { setServerEndpoint('cloud'); setDemoMode(null); }}
+                  onPress={() => { setServerEndpoint('cloud'); }}
                 >
                   <Text style={[s.segBtnText, serverEndpoint === 'cloud' && s.segBtnTextActive]}>
                     雲端伺服器 (Cloud)
@@ -758,7 +738,7 @@ export default function HomeScreen() {
               <View style={s.segmentedControl}>
                 <Pressable
                   style={[s.segBtn, !bypassCache && s.segBtnActive]}
-                  onPress={() => { setBypassCache(false); setDemoMode(null); }}
+                  onPress={() => { setBypassCache(false); }}
                 >
                   <Text style={[s.segBtnText, !bypassCache && s.segBtnTextActive]}>
                     使用快取
@@ -766,7 +746,7 @@ export default function HomeScreen() {
                 </Pressable>
                 <Pressable
                   style={[s.segBtn, bypassCache && s.segBtnActiveCloud]}
-                  onPress={() => { setBypassCache(true); setDemoMode(null); }}
+                  onPress={() => { setBypassCache(true); }}
                 >
                   <Text style={[s.segBtnText, bypassCache && s.segBtnTextActive]}>
                     每次重新辨識
@@ -803,8 +783,9 @@ export default function HomeScreen() {
           {view === 'scan' && (
             <>
               <BarcodeScanner visible={scannerVisible} onClose={() => setScannerVisible(false)}
-                onBarcodeScanned={code => { setBarcodeInput(code); setScannerVisible(false); }} />
+                onBarcodeScanned={code => { setBarcodeInput(code); setScannerVisible(false); barcodeLookup.refresh(); }} />
               <ScanDashboard barcode={barcodeInput} onBarcodeChange={setBarcodeInput}
+                availability={barcodeLookup.availability} onRetryAvailability={barcodeLookup.refresh}
                 onBarcodeScan={() => setScannerVisible(true)}
                 imagePicker={<PackageImageScanner onImageCaptured={base64 => setUploadedImages(previous => [...previous, base64])}
                   images={uploadedImages} onRemoveImage={index => setUploadedImages(previous => previous.filter((_, i) => i !== index))} />}
@@ -812,15 +793,11 @@ export default function HomeScreen() {
                 history={history} onClearHistory={() => { clearHistory(); setHistory([]); }}
                 onHistory={entry => {
                   queued.pause(); setDashboardReceiptId(null); setCompletedQueuedTask(null); setLastTiming(null);
-                  setAnalysisResult(entry.result); setResultPhoto(undefined); setResultIsDemo(false);
+                  setAnalysisResult(entry.result); setResultPhoto(undefined);
                   setDegradedResult(null); setAnalysisError(null); setIsAnalyzing(false);
                   setActiveDetailView(null); setView('result');
                 }}
-                onDemo={handleQuickPreview} onSettings={() => setView('settings')}
-                demoContent={<CompetitionDemoPanel onPreview={handleQuickPreview} mode={demoMode} onMode={mode => {
-                  const preset = COMPETITION_DEMO_MODES.find(item => item.id === mode)!;
-                  setServerEndpoint('fog'); setBypassCache(preset.bypassCache); setDemoMode(mode);
-                }} />}
+                onSettings={() => setView('settings')}
                 endpointLabel={serverEndpoint === 'fog' ? 'Fog 節點' : 'Cloud 節點'} />
             </>
           )}
@@ -982,7 +959,7 @@ export default function HomeScreen() {
               {/* Results: overview first, complete information on focused detail screens. */}
               {!isAnalyzing && !analysisError && !degradedResult && analysisResult && (
                 activeDetailView === null ? (
-                  <ResultOverview result={analysisResult} photoUri={resultPhoto} isDemo={resultIsDemo}
+                  <ResultOverview result={analysisResult} photoUri={resultPhoto}
                     matchedAllergens={matchedAllergens} generalWarnings={generalAllergenWarnings}
                     onBack={handleBackToScan}
                     onScanNext={() => { setUploadedImages([]); setBarcodeInput(''); handleBackToScan(); }}
@@ -990,7 +967,12 @@ export default function HomeScreen() {
                     onIngredients={tab => { setIngredientTab(tab); setActiveDetailView('additives'); }}
                     onHistory={hasSafetyEvents ? () => setActiveDetailView('history') : undefined}
                     additionalWarnings={<>
-                      {lastTiming && !resultIsDemo && <Text style={s.navTiming}>
+                      {lastTiming?.queued && (
+                        <View style={s.queueCompletionBanner} accessibilityLiveRegion="polite">
+                          <Text style={s.queueCompletionText}>排隊分析已完成</Text>
+                        </View>
+                      )}
+                      {lastTiming && <Text style={s.navTiming}>
                         {lastTiming.queued ? '送出至取得結果（含排隊）' : '本次分析耗時'}：{lastTiming.totalMs === null ? '時間不明' : `${(lastTiming.totalMs / 1000).toFixed(1)} 秒`}
                       </Text>}
                       {personalAdditiveRisks.length > 0 && <View style={[reportUi.card, { backgroundColor: '#FFF9EC', gap: 8 }]}>
@@ -1394,6 +1376,12 @@ const createStyles = (scale: number) => StyleSheet.create({
     paddingHorizontal: 8, paddingVertical: 3,
   },
   matchedAllergenBadgeText: { fontSize: 11 * scale, fontWeight: '700', color: '#fff' },
+
+  queueCompletionBanner: {
+    backgroundColor: '#ECFDF5', borderRadius: 12, padding: 12,
+    borderWidth: 1, borderColor: '#A7F3D0',
+  },
+  queueCompletionText: { fontSize: 14 * scale, fontWeight: '700', color: '#065F46' },
 
   // Cache miss banner
   cacheMissBanner: {

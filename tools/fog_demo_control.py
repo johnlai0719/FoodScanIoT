@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
+from local_dashboard_access import is_local_client
 
 
 def token():
@@ -87,7 +88,7 @@ def state():
 @router.post('/api/demo/cloud')
 def command(body: Command, request: Request):
     # Local browser and existing localhost Tailscale proxy; reject drive-by sites.
-    if request.client and request.client.host not in ('127.0.0.1', '::1', 'testclient'):
+    if not is_local_client(request):
         raise HTTPException(403, '請透過本機或既有 Tailscale 儀表板操作')
     origin = request.headers.get('origin')
     if request.headers.get('sec-fetch-site') == 'cross-site' or (origin and urlsplit(origin).netloc != request.headers.get('host')):

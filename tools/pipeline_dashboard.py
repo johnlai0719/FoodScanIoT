@@ -21,6 +21,7 @@ from vision_auto_regions import extract_words, extract_paragraphs, detect
 import grounding_search_lab as grounding_lab
 from fog_demo_control import router as demo_router
 from rehearsal_api import router as rehearsal_router
+from cloud_availability_api import router as cloud_availability_router
 
 ROOT = Path(__file__).resolve().parents[1]
 STAGES = ('image', 'fog', 'vision', 'routing', 'gemini', 'sync')
@@ -150,6 +151,7 @@ store = Store()
 app = FastAPI(title='FoodScan live pipeline observer')
 app.include_router(demo_router)
 app.include_router(rehearsal_router)
+app.include_router(cloud_availability_router)
 
 
 @app.get('/api/state')

@@ -12,13 +12,14 @@ from contextlib import contextmanager
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 import requests
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'server'))
 from rehearsal_store import journal
 from fog_demo_control import authorize_fog
+from local_dashboard_access import is_local_client
 
 UPLOADS = ROOT/'server/uploads'
 ARCHIVES = ROOT/'.artifacts/rehearsal-archives'
@@ -45,7 +46,7 @@ next_miss = NextMiss()
 
 
 def authorize(request):
-    if request.client and request.client.host not in ('127.0.0.1', '::1', 'testclient'):
+    if not is_local_client(request):
         raise HTTPException(403, '請透過本機或既有 Tailscale 儀表板操作')
     origin = request.headers.get('origin')
     if request.headers.get('sec-fetch-site') == 'cross-site' or (origin and urlsplit(origin).netloc != request.headers.get('host')):
@@ -55,8 +56,19 @@ def authorize(request):
 @contextmanager
 def database():
     import psycopg2
+    if os.getenv('DB_HOST'):
+        connection = psycopg2.connect(
+            host=os.environ['DB_HOST'], port=os.getenv('DB_PORT', '5432'),
+            dbname=os.getenv('DB_NAME', 'product_db'), user=os.getenv('DB_USER', 'postgres'),
+            password=os.getenv('DB_PASSWORD', ''), connect_timeout=3)
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
+        return
     # Same existing container as the one-click competition Cloud launcher.
-    name = os.getenv('COMPETITION_DB_CONTAINER', 'app-sync-server-db-1')
+    name = os.getenv('COMPETITION_DB_CONTAINER', 'Competition-db-1')
     result = subprocess.run(['docker', 'inspect', name], capture_output=True, text=True,
                             encoding='utf-8', timeout=8, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
     if result.returncode:
@@ -104,6 +116,17 @@ def fog_clear(barcode):
 
 class Prepare(BaseModel):
     barcode: str = Field(pattern=r'^\d{8,14}$')
+
+
+class PrepareMany(BaseModel):
+    barcodes: list[str] = Field(min_length=1, max_length=20)
+
+    @field_validator('barcodes')
+    @classmethod
+    def valid_barcodes(cls, values):
+        if any(not re.fullmatch(r'[0-9]{8,14}', value) for value in values):
+            raise ValueError('每筆條碼須為 8–14 位數字；未開始清除任何快取。')
+        return list(dict.fromkeys(values))
 
 
 class Task(BaseModel):
@@ -213,6 +236,22 @@ def prepare(body: Prepare, request: Request):
     return prepare_barcode(body.barcode)
 
 
+@router.post('/api/rehearsal/prepare-many')
+def prepare_many(body: PrepareMany, request: Request):
+    authorize(request)
+    results = []
+    for barcode in body.barcodes:
+        try:
+            result = prepare_barcode(barcode)
+            results.append({'barcode': barcode, 'ok': True, 'task_id': result['task_id'], 'message': 'Fog 快取已清除，可用手機掃描此案例。'})
+        except HTTPException as exc:
+            results.append({'barcode': barcode, 'ok': False, 'message': str(exc.detail)})
+    completed = sum(r['ok'] for r in results)
+    return {'ok': completed == len(results), 'results': results,
+            'message': f'已清除 {completed}／{len(results)} 個條碼的 Fog 快取。'+
+                       ('請查看下方未完成項目，再重試。' if completed < len(results) else '可依序展演；成功辨識後仍照常寫回快取。')}
+
+
 def prepare_barcode(barcode, clear=True):
     task_id = None
     existing = None
@@ -238,20 +277,45 @@ def prepare_barcode(barcode, clear=True):
 @router.post('/api/rehearsal/reset')
 def reset(body: Task, request: Request):
     authorize(request)
+    return archive_task(body.task_id)
+
+
+@router.post('/api/rehearsal/reset-barcodes')
+def reset_barcodes(body: PrepareMany, request: Request):
+    authorize(request)
+    results = []
+    for barcode in body.barcodes:
+        try:
+            prepared = prepare_barcode(barcode)
+            archive_task(prepared['task_id'], include_existing=True)
+            # Keep the next scan tracked so reset cannot race its Cloud analysis.
+            prepare_barcode(barcode, clear=False)
+            results.append({'barcode': barcode, 'ok': True,
+                            'message': 'Fog 快取已清除，Cloud 商品已封存。請重新拍照送出分析。',
+                            'task_id': prepared['task_id']})
+        except HTTPException as exc:
+            results.append({'barcode': barcode, 'ok': False, 'message': str(exc.detail)})
+    completed = sum(item['ok'] for item in results)
+    return {'ok': completed == len(results), 'results': results,
+            'message': f'已完成 {completed}／{len(results)} 個測試條碼的 Fog 與 Cloud 重設。'}
+
+
+def archive_task(task_id, include_existing=False):
     row = None
     moved = []
     committed = False
     try:
-        row = journal.reserve(body.task_id, 'ready', 'resetting')
+        row = journal.reserve(task_id, 'ready', 'resetting')
         fog_clear(row['barcode'])
         # Pre-existing products and their images are never archived by this feature.
-        candidates = [] if row['existed'] else sorted(set(photos(row['barcode']))-set(json.loads(row['baseline'])))
+        candidates = (photos(row['barcode']) if include_existing else
+                      [] if row['existed'] else sorted(set(photos(row['barcode']))-set(json.loads(row['baseline']))))
         archive = ARCHIVES/row['id']
         archive.mkdir(parents=True, exist_ok=True)
         archive_barcode = 'R'+row['id'][:12]
         with database() as db, db.cursor() as cursor:
-            if not row['existed']:
-                cursor.execute('UPDATE products SET barcode=%s WHERE barcode=%s RETURNING id', (archive_barcode, row['barcode']))
+            if include_existing or not row['existed']:
+                cursor.execute('UPDATE products SET barcode=%s WHERE barcode=%s RETURNING barcode', (archive_barcode, row['barcode']))
                 renamed = cursor.fetchone() is not None
             else:
                 renamed = False
@@ -265,7 +329,7 @@ def reset(body: Task, request: Request):
             journal.update(row['id'], 'resetting', archive_barcode if renamed else None, moved)
         committed = True
         journal.update(row['id'], 'archived', archive_barcode if renamed else None, moved)
-        return {'ok': True, 'message': '展演資料已重設並保留可還原封存；下次請先重新準備此條碼。', 'archived_images': len(moved), 'preserved_existing': bool(row['existed'])}
+        return {'ok': True, 'message': '展演資料已重設並保留可還原封存；下次請先重新準備此條碼。', 'archived_images': len(moved), 'preserved_existing': bool(row['existed']) and not include_existing}
     except Exception as exc:
         if committed:
             raise HTTPException(409, '封存已完成，但狀態紀錄未完成；請保留封存與日誌，暫勿重試，需本地復原狀態。')

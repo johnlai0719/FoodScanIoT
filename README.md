@@ -1,4 +1,4 @@
-# FoodScanIoT - Food Safety Information Summary and Risk Notification System
+# Competition — FoodScanIoT
 
 > InnoServe competition branch: see [competition status, setup and materials](competition/README.md).
 
@@ -23,9 +23,11 @@ Common TypeScript type definitions and constants used across both client and ser
 ## Development and Deployment
 
 ### Backend Services (Docker)
-To start the database and Cloud server, navigate to the server directory and execute:
+The Docker Compose project is `competition`, with database, Vision reader, Cloud API and dashboard containers. For the current local competition setup, use `start-competition.bat`; see [local startup and existing data](competition/本地雲端啟動.md).
+
+For a Docker deployment of the database and Cloud server, run from the project root:
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 ### Environment Configuration
