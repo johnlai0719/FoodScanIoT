@@ -1,8 +1,34 @@
-# Welcome to your Expo app 👋
+# 包裝喵懂 PackMeow
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
+包裝喵懂 PackMeow 目前使用 **Expo SDK 58（React Native 0.88）**。手機實機預覽請使用支援 SDK 58 的 Expo Go，或使用以 SDK 58 建立的開發版。
+
+## 白貓添加物問答（Windows 網頁預覽）
+
+電腦需要 LiteRT-LM 和 Gemma 4 E2B 的 `.litertlm` 模型。從 `APP/` 開兩個終端機，
+一個啟動 Expo 網頁預覽，另一個啟動只監聽本機的問答服務。模型路徑可換成自己的安裝位置。
+
+```powershell
+npm.cmd run web -- --port 8091
+```
+
+```powershell
+$litert = Join-Path (uv tool dir --bin) 'litert-lm.exe'
+python -X utf8 scripts/local_additive_agent.py --litert "$litert" --model 'F:/FoodScanIoT-models/gemma-4-e2b/gemma-4-E2B-it.litertlm'
+```
+
+開啟 `http://localhost:8091`，點白貓並輸入「果膠是做什麼的？」或「INS 330 的用途是什麼？」。
+這個預覽的本機知識包收錄果膠和檸檬酸，回答下方會顯示 Codex 來源連結。
+
 ## Get started
+
+### 白貓導覽素材
+
+從 [Elthen 的白貓套組](https://elthen.itch.io/2d-pixel-art-cat-sprites) 下載
+`Cat Sprite Sheet.png`，存成 `APP/assets/images/elthen-cat.png` 後重啟開發伺服器。
+圖集留在本機並由 App 打包。若沒有圖集，導覽入口會顯示貓咪圖示。
+設計與使用條款見 [Elthen 授權頁](https://www.patreon.com/elthen/posts/licensing-27430241)。
 
 1. Install dependencies
 

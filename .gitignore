@@ -60,6 +60,8 @@ venv/
 *.jpg
 *.png
 *.jpeg
+!APP/assets/images/packmeow-logo-source.jpg
+!APP/assets/images/packmeow-icon.png
 *.Identifier
 docs/
 .gemini/

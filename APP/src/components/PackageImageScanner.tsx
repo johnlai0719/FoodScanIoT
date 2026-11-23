@@ -197,7 +197,7 @@ export default function PackageImageScanner({ onImageCaptured, images = [], onRe
   const takePhoto = async () => {
     const { granted } = await ImagePicker.requestCameraPermissionsAsync();
     if (!granted) {
-      Alert.alert('權限拒絕', '請在設定中允許 FoodScan 使用相機');
+      Alert.alert('權限拒絕', '請在設定中允許包裝喵懂 PackMeow使用相機');
       return;
     }
     setLoading('camera');
@@ -218,7 +218,7 @@ export default function PackageImageScanner({ onImageCaptured, images = [], onRe
   const pickFromLibrary = async () => {
     const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!granted) {
-      Alert.alert('權限拒絕', '請在設定中允許 FoodScan 存取相簿');
+      Alert.alert('權限拒絕', '請在設定中允許包裝喵懂 PackMeow存取相簿');
       return;
     }
     setLoading('library');

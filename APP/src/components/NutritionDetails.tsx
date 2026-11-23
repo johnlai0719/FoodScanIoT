@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import type { StyleProp, ViewInstance, ViewStyle } from 'react-native';
 import { Info, Plus, Minus } from 'lucide-react-native';
 import { AnalysisResponse } from '../types';
 import { useFontScale } from '../contexts/FontScaleContext';
@@ -8,19 +9,26 @@ import NutritionRing from './NutritionRing';
 import NutritionLegend from './NutritionLegend';
 import { ScreenHeader, reportColors as C, ui } from './reportUi';
 
-export default function NutritionDetails({ result, onBack }: { result: AnalysisResponse; onBack: () => void }) {
+export default function NutritionDetails({ result, onBack, guideRef, guideStyle }: {
+  result: AnalysisResponse;
+  onBack: () => void;
+  guideRef?: React.Ref<ViewInstance>;
+  guideStyle?: StyleProp<ViewStyle>;
+}) {
   const { fontScale } = useFontScale();
   const { width } = useWindowDimensions();
   const s = useMemo(() => styles(fontScale), [fontScale]);
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [showInfo, setShowInfo] = useState(false);
+  const [showInfo, setShowInfo] = useState(!!guideRef);
   const model = getResultPresentation(result);
   const penalty = model.penalties.reduce((sum, item) => sum + Math.abs(item.points), 0);
   const bonus = model.breakdown.filter(item => item.points > 0).reduce((sum, item) => sum + item.points, 0);
   return <View style={ui.stack}>
     <ScreenHeader title="營養評估" onBack={onBack} right={<Pressable style={ui.iconButton} accessibilityLabel="計分說明" accessibilityRole="button" aria-expanded={showInfo} accessibilityState={{ expanded: showInfo }} onPress={() => setShowInfo(!showInfo)}><Info size={20} color={C.text} /></Pressable>} />
-    <View style={s.intro}><Text style={s.introText}>中央顯示本次 Nutri-Score 營養等級。營養數值以每 100 公克／100 毫升為基準；未標示的欄位不會當作含量為零。</Text></View>
-    {showInfo && <View style={ui.card}><Text style={s.description}>Nutri-Score 由扣分項目減去加分項目計算。飲料與一般食品的等級分界不同，等級採用本次分析結果。原始分數 {model.score ?? '未提供'}（越低越好），扣分 {penalty} − 加分 {bonus}。圓環為扣分項目的占比，不是健康百分比。</Text></View>}
+    <View ref={guideRef} collapsable={false} style={[ui.stack, guideStyle]}>
+      <View style={s.intro}><Text style={s.introText}>中央顯示本次 Nutri-Score 營養等級。營養數值以每 100 公克／100 毫升為基準；未標示的欄位不會當作含量為零。</Text></View>
+      {showInfo && <View style={ui.card}><Text style={s.description}>Nutri-Score 由扣分項目減去加分項目計算。飲料與一般食品的等級分界不同，等級採用本次分析結果。原始分數 {model.score ?? '未提供'}（越低越好），扣分 {penalty} − 加分 {bonus}。圓環為扣分項目的占比，不是健康百分比。</Text></View>}
+    </View>
     <View style={[s.hero, fontScale > 1.1 && { flexDirection: 'column', alignItems: 'stretch' }]}>
       <View style={{ alignItems: 'center' }}>
         <NutritionRing result={result} size={width < 370 ? 144 : 160} />

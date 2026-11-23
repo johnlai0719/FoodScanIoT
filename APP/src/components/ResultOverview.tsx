@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import type { StyleProp, ViewInstance, ViewStyle } from 'react-native';
 import { Image, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { AlertOctagon, ChartNoAxesColumnIncreasing, CheckCircle2, CircleHelp, Database,
   FileText, Flame, FlaskConical, Info, Package, ScanLine, ShieldCheck, Box, CookingPot } from 'lucide-react-native';
@@ -19,6 +20,8 @@ interface Props {
   isDemo?: boolean;
   matchedAllergens: string[];
   generalWarnings: string[];
+  allergenGuideRef?: React.Ref<ViewInstance>;
+  allergenGuideStyle?: StyleProp<ViewStyle>;
   additionalWarnings?: React.ReactNode;
   onBack: () => void;
   onScanNext: () => void;
@@ -28,7 +31,7 @@ interface Props {
 }
 
 export default function ResultOverview({ result, photoUri, isDemo = false, matchedAllergens, generalWarnings,
-  additionalWarnings, onBack, onScanNext, onNutrition, onIngredients, onHistory }: Props) {
+  allergenGuideRef, allergenGuideStyle, additionalWarnings, onBack, onScanNext, onNutrition, onIngredients, onHistory }: Props) {
   const { fontScale } = useFontScale();
   const { width } = useWindowDimensions();
   const s = useMemo(() => styles(fontScale), [fontScale]);
@@ -63,7 +66,7 @@ export default function ResultOverview({ result, photoUri, isDemo = false, match
       </View>
     </View>
     {!!freshness.warning && <View style={s.notice}><Info size={17} color="#A46D14" /><Text style={s.noticeText}>{freshness.warning}</Text></View>}
-    {matchedAllergens.length > 0 && <View style={s.allergy} accessibilityRole="alert">
+    {matchedAllergens.length > 0 && <View ref={allergenGuideRef} collapsable={false} style={[s.allergy, allergenGuideStyle]} accessibilityRole="alert">
       <View style={ui.row}><AlertOctagon size={25} color="#FFFFFF" strokeWidth={1.8} /><Text style={s.allergyTitle}>個人化過敏原警示</Text></View>
       <Text style={s.allergyBody}>依你的設定，標示中出現以下過敏原或相關警語，請確認包裝標示。</Text>
       <View style={s.chips}>{matchedAllergens.map(name => <View key={name} style={s.allergyChip}><Text style={s.allergyChipText}>{name}</Text></View>)}</View>
@@ -105,8 +108,13 @@ export default function ResultOverview({ result, photoUri, isDemo = false, match
       <DetailButton title="查看成分與來源" onPress={() => onIngredients('all')} />
     </View>
     <AdditiveCategorySummary ingredients={model.ingredients} onDetails={() => onIngredients(model.additives.length ? 'additives' : 'all')} />
-    {generalWarnings.length > 0 && <View style={s.packageWarnings}>
+    {(generalWarnings.length > 0 || (allergenGuideRef && matchedAllergens.length === 0)) && <View
+      ref={matchedAllergens.length === 0 ? allergenGuideRef : undefined}
+      collapsable={false}
+      style={[s.packageWarnings, matchedAllergens.length === 0 && allergenGuideStyle]}
+    >
       <View style={ui.row}><ShieldCheck size={17} color="#85704D" /><Text style={s.warningTitle}>包裝標示提醒</Text></View>
+      {generalWarnings.length === 0 && <Text style={s.warningText}>這份結果沒有列出過敏原資訊，請查看包裝標示。</Text>}
       {generalWarnings.map((warning, i) => <Text key={i} style={s.warningText}>{warning}</Text>)}
     </View>}
     {additionalWarnings}

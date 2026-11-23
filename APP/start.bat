@@ -1,7 +1,7 @@
 @echo off
 cd /d "%~dp0"
 
-echo === FoodScan Expo Launcher ===
+echo === PackMeow Expo Launcher ===
 echo.
 
 REM Add firewall rule for port 8085

@@ -8,13 +8,13 @@ import IngredientsList from './IngredientsList';
 import type { IngredientTab } from './ResultOverview';
 import { ScreenHeader, reportColors as C, ui } from './reportUi';
 
-export default function IngredientExplorer({ ingredients, initialTab = 'all', onBack, onNavigate }: {
-  ingredients: IngredientDetail[]; initialTab?: IngredientTab; onBack: () => void; onNavigate?: () => void;
+export default function IngredientExplorer({ ingredients, initialTab = 'all', initialIngredient, onBack, onNavigate }: {
+  ingredients: IngredientDetail[]; initialTab?: IngredientTab; initialIngredient?: IngredientDetail; onBack: () => void; onNavigate?: () => void;
 }) {
   const { fontScale } = useFontScale();
   const s = useMemo(() => styles(fontScale), [fontScale]);
   const [tab, setTab] = useState<IngredientTab>(initialTab);
-  const [selected, setSelected] = useState<IngredientDetail | null>(null);
+  const [selected, setSelected] = useState<IngredientDetail | null>(initialIngredient ?? null);
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState('');
   const additives = ingredients.filter(isMatchedAdditive);

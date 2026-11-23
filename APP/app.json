@@ -1,25 +1,22 @@
 {
   "expo": {
-    "name": "FoodScan",
-    "slug": "expo-app",
+    "name": "包裝喵懂 PackMeow",
+    "slug": "packmeow",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/packmeow-icon.png",
     "scheme": "expoapp",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
-    },
-    "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundColor": "#FDF8F3"
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "包裝喵懂 PackMeow需要在區域網路中尋找場域的 Fog 節點，以便在本地分析食品標示。"
       }
     },
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/packmeow-icon.png"
     },
     "plugins": [
       "expo-image-picker",

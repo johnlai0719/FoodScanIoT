@@ -125,7 +125,7 @@ export default function BarcodeScanner({ visible, onClose, onBarcodeScanned, onP
         <View style={s.center}>
           <Camera size={48} color="#009B52" />
           <Text style={s.permTitle}>需要相機權限</Text>
-          <Text style={s.permSub}>請允許 FoodScan 使用相機以掃描條碼</Text>
+          <Text style={s.permSub}>請允許包裝喵懂 PackMeow使用相機以掃描條碼</Text>
           <Pressable style={s.permBtn} onPress={requestPermission}>
             <Text style={s.permBtnText}>授權相機</Text>
           </Pressable>

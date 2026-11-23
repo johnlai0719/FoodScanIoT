@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import type { ScrollViewInstance, ViewInstance } from 'react-native';
+import NavigationCat, { type CatDestination } from '../components/NavigationCat';
+import type { AdditiveCitation } from '../utils/assistantQuestionClient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
@@ -195,8 +198,10 @@ export default function HomeScreen() {
   const [resultPhoto, setResultPhoto] = useState<string | undefined>();
   const [resultIsDemo, setResultIsDemo] = useState(false);
   const [ingredientTab, setIngredientTab] = useState<IngredientTab>('all');
+  const [citedIngredientName, setCitedIngredientName] = useState<string | null>(null);
+
   const [profileReturnView, setProfileReturnView] = useState<'scan' | 'result'>('scan');
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const scrollToTop = () => requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: 0, animated: false }));
   const [serverEndpoint, setServerEndpoint] = useState<'fog' | 'cloud'>('fog');
 
@@ -440,9 +445,9 @@ export default function HomeScreen() {
     const sum = Telemetry.summarize(records);
     try {
       await Share.share({
-        title: `FoodScan 量測 ${records.length} 筆`,
+        title: `包裝喵懂 PackMeow 量測 ${records.length} 筆`,
         // 摘要放在最前面，手機上不必捲到底就看得到輪廓。
-        message: `# FoodScan 量測紀錄
+        message: `# 包裝喵懂 PackMeow 量測紀錄
 # ${JSON.stringify(sum)}
 
 `
@@ -545,6 +550,111 @@ export default function HomeScreen() {
     allergens.length +
     (customAllergen.trim() ? 1 : 0);
 
+  type GuideTarget = 'scan' | 'allergens' | 'nutrition' | 'scanHistory' | 'ingredients';
+  const contentRef = useRef<ViewInstance>(null);
+  const guideRef = useRef<ViewInstance>(null);
+  const guideRequest = useRef(0);
+  const [guide, setGuide] = useState<{ target: GuideTarget; request: number } | null>(null);
+  const [catDestination, setCatDestination] = useState<CatDestination | null>(null);
+  const [arrivedRequest, setArrivedRequest] = useState<number | null>(null);
+  const guideTarget = view === 'scan'
+    ? guide?.target === 'scanHistory' ? 'scanHistory' : 'scan'
+    : view === 'result'
+      ? activeDetailView === 'breakdown' ? 'nutrition'
+        : activeDetailView === 'additives' ? 'ingredients'
+        : activeDetailView === null ? 'allergens' : null
+      : null;
+
+  useEffect(() => {
+    if (guide && guide.target !== guideTarget) {
+      setGuide(null);
+      setCatDestination(null);
+    }
+  }, [guide, guideTarget]);
+
+  useEffect(() => {
+    if (!guide || guide.target !== guideTarget) return;
+    let cancelled = false;
+    let measureFrame: number | undefined;
+    const frame = requestAnimationFrame(() => {
+      const content = contentRef.current;
+      const anchor = guideRef.current;
+      if (!anchor || !content) return;
+      anchor.measureLayout(content, (_x, y) => {
+        if (cancelled || guideRef.current !== anchor) return;
+        scrollRef.current?.scrollTo({ y: Math.max(0, y - 58), animated: false });
+        measureFrame = requestAnimationFrame(() => {
+          anchor.measureInWindow((left, top, width) => {
+            if (cancelled || guideRef.current !== anchor) return;
+            setCatDestination({ x: left + width - 62, y: top - 19, request: guide.request });
+          });
+        });
+      });
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+      if (measureFrame !== undefined) cancelAnimationFrame(measureFrame);
+    };
+  }, [guide, guideTarget, activeDetailView]);
+
+  const startCatGuide = (text: string) => {
+    const command = text.normalize('NFKC').trim().replace(/\s+/g, '');
+    let target: GuideTarget;
+    if (/紀錄|記錄|歷史|最近查|(?:剛|上次|之前|昨天|前天).*(?:掃|拍|查)/.test(command)) {
+      target = 'scanHistory';
+    } else if (/過敏/.test(command)) {
+      target = 'allergens';
+    } else if (/營養|評分|分數|計分|怎麼算|等級/.test(command)) {
+      target = 'nutrition';
+    } else if (/添加物|成分/.test(command)) {
+      target = 'ingredients';
+    } else if (/掃描|掃.*條碼|拍.*(?:照片|包裝|標示)/.test(command)) {
+      target = 'scan';
+    } else {
+      return '請選要找的項目，或說得更具體一點。';
+    }
+    if (isAnalyzing) return '食品分析完成後，就可以使用導覽。';
+
+    const needsResult = target === 'allergens' || target === 'nutrition' || target === 'ingredients';
+    const hasResult = !analysisError && !!(analysisResult || degradedResult);
+    if (needsResult && !hasResult) target = 'scan';
+    if (target === 'nutrition' && degradedResult) return '這次的辨識結果沒有營養評分。';
+    if (target === 'ingredients' && degradedResult) return '這次是部分結果，請在結果頁查看辨識到的成分。';
+
+    setCatDestination(null);
+    guideRequest.current += 1;
+    setGuide({ target, request: guideRequest.current });
+    if (target === 'scan' || target === 'scanHistory') {
+      setView('scan');
+    } else {
+      if (target === 'ingredients') {
+        setCitedIngredientName(null);
+        setIngredientTab('additives');
+      }
+      setActiveDetailView(target === 'nutrition' ? 'breakdown' : target === 'ingredients' ? 'additives' : null);
+      setView('result');
+    }
+  };
+
+  const openCitedAdditive = ({ name }: AdditiveCitation) => {
+    if (!analysisResult || analysisError || degradedResult || isAnalyzing) return false;
+    const entry = allIngredients.find(item => isAdditive(item) && item.name.normalize('NFKC').trim() === name);
+    if (!entry) return false;
+
+    setCatDestination(null);
+    guideRequest.current += 1;
+    setGuide({ target: 'ingredients', request: guideRequest.current });
+    setCitedIngredientName(entry.name);
+    setIngredientTab('all');
+    setActiveDetailView('additives');
+    setView('result');
+    return true;
+  };
+
+  const isGuided = (target: GuideTarget) =>
+    guide?.target === target && guideTarget === target && guide.request === arrivedRequest;
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={s.root}>
@@ -583,6 +693,7 @@ export default function HomeScreen() {
           <Animated.View style={[s.zoomLayer, zoomStyle]}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView ref={scrollRef} contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
+          <View ref={contentRef} collapsable={false}>
 
           {/* ══════════ 健康設定（由右下角齒輪進入）══════════ */}
           {view === 'profile' && (
@@ -741,7 +852,11 @@ export default function HomeScreen() {
             <>
               <BarcodeScanner visible={scannerVisible} onClose={() => setScannerVisible(false)}
                 onBarcodeScanned={code => { setBarcodeInput(code); setScannerVisible(false); }} />
-              <ScanDashboard barcode={barcodeInput} onBarcodeChange={setBarcodeInput}
+              <ScanDashboard guideRef={guide?.target === 'scan' ? guideRef : undefined}
+                guideStyle={isGuided('scan') ? s.catHighlight : undefined}
+                historyGuideRef={guide?.target === 'scanHistory' ? guideRef : undefined}
+                historyGuideStyle={isGuided('scanHistory') ? s.catHighlight : undefined}
+                barcode={barcodeInput} onBarcodeChange={setBarcodeInput}
                 onBarcodeScan={() => setScannerVisible(true)}
                 imagePicker={<PackageImageScanner onImageCaptured={base64 => setUploadedImages(previous => [...previous, base64])}
                   images={uploadedImages} onRemoveImage={index => setUploadedImages(previous => previous.filter((_, i) => i !== index))} />}
@@ -831,12 +946,15 @@ export default function HomeScreen() {
                   </View>
 
                   {/* 過敏原：Cloud 掛掉時最該保留的一塊 */}
-                  {degradedRisks.matchedAllergens.length > 0 && (
-                    <View style={[s.card, s.errorBox]}>
+                  {(degradedRisks.matchedAllergens.length > 0 || guide?.target === 'allergens') && (
+                    <View ref={guide?.target === 'allergens' ? guideRef : undefined} collapsable={false} style={[
+                      s.card, degradedRisks.matchedAllergens.length > 0 && s.errorBox,
+                      isGuided('allergens') && s.catHighlight,
+                    ]}>
                       <AlertOctagon size={22} color="#dc2626" />
-                      <Text style={s.errorTitle}>符合你設定的過敏原</Text>
+                      <Text style={s.errorTitle}>{degradedRisks.matchedAllergens.length ? '符合你設定的過敏原' : '過敏原資訊'}</Text>
                       <Text style={s.errorMsg}>
-                        {degradedRisks.matchedAllergens.join('、')}
+                        {degradedRisks.matchedAllergens.join('、') || '這次辨識沒有列出過敏原資訊，請查看包裝標示。'}
                       </Text>
                       {/* 誠實的但書：降階用的是純 OCR，漏讀的機率比雲端高。
                           「沒偵測到」在這個模式下不等於「不含」。 */}
@@ -906,11 +1024,13 @@ export default function HomeScreen() {
               {!isAnalyzing && !analysisError && !degradedResult && analysisResult && (
                 activeDetailView === null ? (
                   <ResultOverview result={analysisResult} photoUri={resultPhoto} isDemo={resultIsDemo}
+                    allergenGuideRef={guide?.target === 'allergens' ? guideRef : undefined}
+                    allergenGuideStyle={isGuided('allergens') ? s.catHighlight : undefined}
                     matchedAllergens={matchedAllergens} generalWarnings={generalAllergenWarnings}
                     onBack={handleBackToScan}
                     onScanNext={() => { setUploadedImages([]); setBarcodeInput(''); handleBackToScan(); }}
                     onNutrition={() => setActiveDetailView('breakdown')}
-                    onIngredients={tab => { setIngredientTab(tab); setActiveDetailView('additives'); }}
+                    onIngredients={tab => { setCitedIngredientName(null); setIngredientTab(tab); setActiveDetailView('additives'); }}
                     onHistory={hasSafetyEvents ? () => setActiveDetailView('history') : undefined}
                     additionalWarnings={<>
                       {personalAdditiveRisks.length > 0 && <View style={[reportUi.card, { backgroundColor: '#FFF9EC', gap: 8 }]}>
@@ -928,10 +1048,18 @@ export default function HomeScreen() {
                     </>}
                   />
                 ) : activeDetailView === 'breakdown' ? (
-                  <NutritionDetails result={analysisResult} onBack={() => setActiveDetailView(null)} />
+                  <NutritionDetails key={guide?.target === 'nutrition' ? guide.request : 'nutrition'}
+                    result={analysisResult} onBack={() => setActiveDetailView(null)}
+                    guideRef={guide?.target === 'nutrition' ? guideRef : undefined}
+                    guideStyle={isGuided('nutrition') ? s.catHighlight : undefined} />
                 ) : activeDetailView === 'additives' ? (
-                  <IngredientExplorer key={ingredientTab} initialTab={ingredientTab} ingredients={allIngredients}
-                    onBack={() => setActiveDetailView(null)} onNavigate={scrollToTop} />
+                  <View ref={guide?.target === 'ingredients' ? guideRef : undefined} collapsable={false}
+                    style={isGuided('ingredients') ? s.catHighlight : undefined}>
+                    <IngredientExplorer key={ingredientTab + (guide?.target === 'ingredients' ? guide.request : '')}
+                      initialTab={ingredientTab} ingredients={allIngredients}
+                      initialIngredient={allIngredients.find(item => item.name === citedIngredientName)}
+                      onBack={() => setActiveDetailView(null)} onNavigate={scrollToTop} />
+                  </View>
                 ) : (
                   <View style={reportUi.stack}>
                     <ScreenHeader title="廠商食安事件" onBack={() => setActiveDetailView(null)} />
@@ -943,12 +1071,19 @@ export default function HomeScreen() {
           )}
 
           <View style={{ height: 40 }} />
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
           </Animated.View>
         </View>
       </GestureDetector>
 
+      <NavigationCat
+        destination={guide?.target === guideTarget ? catDestination : null}
+        onNavigate={startCatGuide}
+        onArrive={setArrivedRequest}
+        onOpenAdditive={openCitedAdditive}
+      />
     </SafeAreaView>
   );
 }
@@ -996,6 +1131,7 @@ const SEL_TEXT = '#007380';
 
 const createStyles = (scale: number) => StyleSheet.create({
   root: { flex: 1, backgroundColor: '#F5F5F5' },
+  catHighlight: { borderWidth: 2, borderColor: '#26947e', borderRadius: 14, padding: 12 },
   scroll: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 120, gap: 0, width: '100%', maxWidth: 680, alignSelf: 'center' },
 
   // 雙指縮放。overflow: hidden 是必要的——放大後內容會超出這一層的邊界，
